@@ -78,14 +78,19 @@ public final class CommandsGui {
 
     private void openAdmin(Player player) {
         GuiSession gui = page(player, "Admin Commands");
-        gui.setItem(10, infoCommand(Material.NAME_TAG, "/rang <Spieler> <Rang>",
+        gui.setItem(9, infoCommand(Material.NAME_TAG, "/rang <Spieler> <Rang>",
                 "Setzt den SkyKings-Rang eines Online-Spielers."));
-        gui.setItem(12, infoCommand(Material.PAPER, "/rechte <Spieler> <Recht>",
+        gui.setItem(11, infoCommand(Material.PAPER, "/rechte <Spieler> <Recht>",
                 "Vergibt ein freigegebenes Gutschein-/Perk-Recht."));
-        gui.setItem(14, infoCommand(Material.CHEST, "/crate give <Spieler> <Typ> [Anzahl]",
+        gui.setItem(13, infoCommand(Material.CHEST, "/crate give <Spieler> <Typ> [Anzahl]",
                 "Gibt Crates mit eindeutiger Seriennummer aus."));
-        action(gui, 16, Material.EMERALD, "/gutscheine",
+        action(gui, 15, Material.EMERALD, "/gutscheine",
                 "Oeffnet die sichere Gutschein-Erzeugung.", "gutscheine");
+        gui.setItem(17, icon(Material.SIGN, ChatColor.GREEN + "Free Sign erstellen",
+                ChatColor.GRAY + "Schild Zeile 1: " + ChatColor.WHITE + "[FREE]",
+                ChatColor.GRAY + "Schild Zeile 2: " + ChatColor.WHITE + "Item-ID (z.B. 276 / 5:2)",
+                ChatColor.GRAY + "Schild Zeile 3: " + ChatColor.WHITE + "Menge (z.B. 1 / 64)",
+                ChatColor.DARK_GRAY + "Nur Owner/Admin mit skykings.admin.freesign"));
         back(gui);
         guiManager.open(gui);
     }
