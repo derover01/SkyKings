@@ -8,8 +8,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /fly fuer Knight+; Combat deaktiviert/sperrt Fly waehrend PvP separat. */
+/** /fly fuer Knight+ oder Spieler mit einem Fly-Gutscheinrecht. */
 public final class FlyCommand implements CommandExecutor {
+
+    public static final String PERMISSION = "skykings.perk.fly";
 
     private final RankService rankService;
 
@@ -24,8 +26,9 @@ public final class FlyCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Knight fuer /fly.");
+        if (!player.isOp() && !player.hasPermission(PERMISSION)
+                && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
+            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Knight oder das Fly-Recht.");
             return true;
         }
         boolean enable = !player.getAllowFlight();
