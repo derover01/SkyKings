@@ -1,4 +1,4 @@
-# Rechte, die per /rechte und spaeter per Gutschein vergeben werden duerfen.
+# Rechte, die per /rechte und per Gutschein vergeben werden duerfen.
 # Niemals beliebige Permission-Nodes direkt aus Nutzereingaben uebernehmen.
 permissions:
   fly:
@@ -14,3 +14,19 @@ permissions:
   repair:
     node: skykings.perk.repair
     display-name: '&6Repair'
+  enderchest:
+    aliases: [ec]
+    node: skykings.perk.enderchest
+    display-name: '&5Enderchest'
+  crate-openall:
+    aliases: [openall, crateopenall]
+    node: skykings.perk.crate.openall
+    display-name: '&dCrate Open-All'
+  craterewards:
+    aliases: [crate-rewards]
+    node: skykings.perk.craterewards
+    display-name: '&6Crate Rewards'
+  prefix:
+    aliases: [prefix-auswahl]
+    node: skykings.perk.prefix
+    display-name: '&ePrefix-Auswahl'
