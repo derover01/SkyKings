@@ -77,7 +77,7 @@ public final class CrateInteractionListener implements Listener {
                 }
                 openAll(event.getPlayer(), crate);
             } else {
-                openSerial(event.getPlayer(), crate, decoded.getSerial());
+                openSerial(event.getPlayer(), crate, decoded.getSerial(), null);
             }
         }
     }
@@ -126,19 +126,29 @@ public final class CrateInteractionListener implements Listener {
             return;
         }
         player.sendMessage(ChatColor.GOLD + "Open-All: " + ChatColor.YELLOW + serials.size()
-                + ChatColor.GRAY + " Crates werden geoeffnet...");
-        for (UUID serial : serials) openSerial(player, crate, serial);
+                + ChatColor.GRAY + " Crates werden nacheinander geoeffnet...");
+        openAllNext(player, crate, serials, 0);
     }
 
-    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial) {
+    private void openAllNext(Player player, CrateRegistry.CrateDefinition crate, List<UUID> serials, int index) {
+        if (!player.isOnline()) return;
+        if (index >= serials.size()) {
+            player.sendMessage(ChatColor.GREEN + "Open-All abgeschlossen.");
+            return;
+        }
+        openSerial(player, crate, serials.get(index), () -> openAllNext(player, crate, serials, index + 1));
+    }
+
+    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial, Runnable onFinished) {
         CrateRegistry.RewardDefinition reward = registry.draw(crate);
         if (reward == null) {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
+            finish(onFinished);
             return;
         }
         if ((reward.getType() == CrateRegistry.RewardType.ITEM || reward.getType() == CrateRegistry.RewardType.VOUCHER)
                 && !hasSpace(player, reward)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den Reward.");
+            player.sendMessage(ChatColor.RED + "Open-All gestoppt: Nicht genug Inventarplatz fuer den naechsten Reward.");
             return;
         }
 
@@ -147,7 +157,8 @@ public final class CrateInteractionListener implements Listener {
                     if (!player.isOnline()) return;
                     if (!firstRedemption) {
                         removeSerial(player, serial);
-                        player.sendMessage(ChatColor.RED + "Diese Crate wurde bereits eingeloest und wurde entfernt.");
+                        player.sendMessage(ChatColor.RED + "Eine bereits eingeloeste Crate wurde entfernt.");
+                        finish(onFinished);
                         return;
                     }
                     if (!grant(player, reward)) {
@@ -157,7 +168,12 @@ public final class CrateInteractionListener implements Listener {
                     }
                     removeSerial(player, serial);
                     player.sendMessage(ChatColor.GOLD + "Crate geoeffnet! " + ChatColor.YELLOW + rewardText(reward));
+                    finish(onFinished);
                 }));
+    }
+
+    private void finish(Runnable onFinished) {
+        if (onFinished != null) onFinished.run();
     }
 
     private void removeSerial(Player player, UUID serial) {
