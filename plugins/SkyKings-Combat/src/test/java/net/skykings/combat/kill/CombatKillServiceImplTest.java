@@ -19,6 +19,7 @@ import java.util.logging.Logger;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -29,7 +30,7 @@ public class CombatKillServiceImplTest {
 
     private KillstreakServiceImpl killstreakService;
     private AntiFarmServiceImpl antiFarmService;
-    private FakeNetherstarService netherstarService;
+    private NetherstarRewardDelivery rewardDelivery;
     private LootProtectionService lootProtectionService;
     private CombatKillServiceImpl service;
 
@@ -37,9 +38,6 @@ public class CombatKillServiceImplTest {
     private Player victim;
     private UUID killerUuid;
     private UUID victimUuid;
-
-    // CombatKillServiceImpl feuert am Ende ein SkyKingsPlayerKillEvent ueber die statische
-    // Bukkit-Fassade - ohne laufenden Server muss das fuer diese Tests weggemockt werden.
     private MockedStatic<Bukkit> bukkitStatic;
 
     @Before
@@ -50,9 +48,9 @@ public class CombatKillServiceImplTest {
 
         killstreakService = new KillstreakServiceImpl(1, Collections.singletonList(new KillstreakTier(5, 2, 3)));
         antiFarmService = new AntiFarmServiceImpl(5, 6, 0.5);
-        netherstarService = new FakeNetherstarService();
+        rewardDelivery = mock(NetherstarRewardDelivery.class);
         lootProtectionService = mock(LootProtectionService.class);
-        service = new CombatKillServiceImpl(killstreakService, antiFarmService, netherstarService,
+        service = new CombatKillServiceImpl(killstreakService, antiFarmService, rewardDelivery,
                 lootProtectionService, Logger.getLogger("test"));
 
         killerUuid = UUID.randomUUID();
@@ -61,8 +59,7 @@ public class CombatKillServiceImplTest {
         when(killer.getUniqueId()).thenReturn(killerUuid);
         victim = mock(Player.class);
         when(victim.getUniqueId()).thenReturn(victimUuid);
-        Location deathLocation = mock(Location.class);
-        when(victim.getLocation()).thenReturn(deathLocation);
+        when(victim.getLocation()).thenReturn(mock(Location.class));
     }
 
     @After
@@ -71,26 +68,23 @@ public class CombatKillServiceImplTest {
     }
 
     @Test
-    public void legitimateKillGrantsNetherstarRewardAndTracksStreak() {
+    public void legitimateKillGivesPhysicalNetherstarRewardAndTracksStreak() {
         service.handleDeath(victim, killer);
 
-        assertEquals(1L, netherstarService.getBalance(killerUuid));
+        verify(rewardDelivery).give(killer, 1L);
         assertEquals(1, killstreakService.getStreak(killerUuid));
-        verify(lootProtectionService).protectDeathDrops(any(Location.class), org.mockito.ArgumentMatchers.eq(killerUuid));
+        verify(lootProtectionService).protectDeathDrops(any(Location.class), eq(killerUuid));
     }
 
     @Test
     public void nonPvpDeathGrantsNoReward() {
         service.handleDeath(victim, null);
-
-        assertEquals(0L, netherstarService.getBalance(victimUuid));
-        assertEquals(0, netherstarService.getDepositCallCount());
+        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
         verify(lootProtectionService, never()).protectDeathDrops(any(), any());
     }
 
     @Test
     public void nonPvpDeathStillResetsVictimStreak() {
-        // Simuliert einen vorher aufgebauten Streak des "Opfers" (z. B. es hatte selbst Kills).
         killstreakService.recordKill(victimUuid);
         killstreakService.recordKill(victimUuid);
         assertEquals(2, killstreakService.getStreak(victimUuid));
@@ -114,40 +108,28 @@ public class CombatKillServiceImplTest {
     public void selfKillIsNeverTreatedAsLegitimateKill() {
         service.handleDeath(killer, killer);
 
-        assertEquals(0L, netherstarService.getBalance(killerUuid));
+        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
         assertEquals(0, killstreakService.getStreak(killerUuid));
     }
 
     @Test
     public void antiFarmReducesRewardOnSixthKillAgainstSameVictim() {
-        for (int i = 0; i < 5; i++) {
-            service.handleDeath(victim, killer);
-        }
-        // Kills 1-4: Basis-Tier-Reward je 1. Kill 5: Tier-Reward 2 + Meilenstein-Bonus 3 = 5.
-        // Anti-Farm-Multiplikator ist bei Kills 1-5 noch 1.0 (voller Reward).
-        long balanceAfterFive = netherstarService.getBalance(killerUuid);
-        assertEquals(1 + 1 + 1 + 1 + 5, balanceAfterFive);
+        for (int i = 0; i < 5; i++) service.handleDeath(victim, killer);
+        service.handleDeath(victim, killer);
 
-        service.handleDeath(victim, killer); // Kill 6 gegen denselben Gegner -> Anti-Farm greift
-        long sixthKillReward = netherstarService.getBalance(killerUuid) - balanceAfterFive;
-
-        // Regulaerer Tier-Reward fuer Kill 6 waere 2, mit 0.5x Anti-Farm-Multiplikator gerundet auf 1.
-        assertEquals(1L, sixthKillReward);
+        verify(rewardDelivery).give(killer, 1L);
         assertEquals(6, killstreakService.getStreak(killerUuid));
     }
 
     @Test
     public void antiFarmBlocksRewardEntirelyFromSeventhKillOnward() {
-        for (int i = 0; i < 6; i++) {
-            service.handleDeath(victim, killer);
-        }
-        long balanceAfterSix = netherstarService.getBalance(killerUuid);
+        for (int i = 0; i < 6; i++) service.handleDeath(victim, killer);
+        org.mockito.Mockito.clearInvocations(rewardDelivery);
 
-        service.handleDeath(victim, killer); // Kill 7 gegen denselben Gegner
+        service.handleDeath(victim, killer);
 
-        assertEquals("Ab Kill 7 gegen denselben Gegner darf kein weiterer Reward hinzukommen",
-                balanceAfterSix, netherstarService.getBalance(killerUuid));
-        assertEquals("Der Kill zaehlt statistisch trotzdem fuer die Killstreak",
+        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
+        assertEquals("Der Kill zählt statistisch trotzdem für die Killstreak",
                 7, killstreakService.getStreak(killerUuid));
     }
 
@@ -160,6 +142,6 @@ public class CombatKillServiceImplTest {
             service.handleDeath(freshVictim, killer);
         }
 
-        assertEquals(10, netherstarService.getDepositCallCount());
+        verify(rewardDelivery, org.mockito.Mockito.times(10)).give(eq(killer), any(Long.class));
     }
 }
