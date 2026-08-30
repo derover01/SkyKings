@@ -4,7 +4,9 @@ import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.command.BlocksCommand;
 import net.skykings.core.command.CommandsCommand;
 import net.skykings.core.command.CommandsGui;
+import net.skykings.core.command.EnderChestCommand;
 import net.skykings.core.command.FlyCommand;
+import net.skykings.core.command.GamemodeCommand;
 import net.skykings.core.command.KitCommand;
 import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
@@ -176,11 +178,13 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("stack", new StackCommand(rankService))) return;
         if (!registerCommand("bloecke", new BlocksCommand(rankService, buildBlocksGui))) return;
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
+        if (!registerCommand("enderchest", new EnderChestCommand(rankService))) return;
+        if (!registerCommand("gm", new GamemodeCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry + Commands-GUI + Free-Signs) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
@@ -248,9 +252,9 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     }
 
     private void logIntegrationStatus() {
-        getLogger().info("LuckPerms verfuegbar: " + (getServer().getPluginManager().getPlugin("LuckPerms") != null));
+        getLogger().info("LuckPerms verfügbar: " + (getServer().getPluginManager().getPlugin("LuckPerms") != null));
         getLogger().info("PermissionBridge aktiv: " + permissionBridge.isAvailable());
-        getLogger().info("Vault/VaultUnlocked verfuegbar: " + (getServer().getPluginManager().getPlugin("Vault") != null));
+        getLogger().info("Vault/VaultUnlocked verfügbar: " + (getServer().getPluginManager().getPlugin("Vault") != null));
         getLogger().info("SkyKings Economy Provider registriert: " + economyBridge.isRegistered());
     }
 
