@@ -15,26 +15,41 @@ import net.skykings.core.model.Rank;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-/** LuckPerms-Anbindung fuer SkyKings. Gameplay-Rang bleibt in SkyKings die Source of Truth. */
+/** LuckPerms-Anbindung. Gameplay-Rang und Teamrang bleiben strikt getrennt. */
 public final class LuckPermsPermissionBridge implements PermissionBridge {
 
     private static final String OWNER_GROUP = "owner";
+    private static final Set<String> TEAM_GROUPS = new HashSet<String>(Arrays.asList(
+            "builder", "azubi", "testsupporter", "supporter", "srsupporter",
+            "moderator", "srmoderator", "headofmods", "admin", "headadmin",
+            "superadmin", "manager", "stvowner", "owner"));
+    private static final Set<String> ADMIN_PLUS_GROUPS = new HashSet<String>(Arrays.asList(
+            "admin", "headadmin", "superadmin", "manager", "stvowner"));
+    private static final List<String> ADMIN_PERMISSIONS = Arrays.asList(
+            "skykings.admin.commands",
+            "skykings.admin.freesign",
+            "skykings.admin.crate",
+            "skykings.admin.gutscheine",
+            "skykings.admin.rang",
+            "skykings.admin.rechte",
+            "skykings.staff.gamemode"
+    );
 
     public static PermissionBridge createIfAvailable(Logger logger) {
-        RegisteredServiceProvider<LuckPerms> registration =
-                Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (registration == null) {
-            return new NoOpPermissionBridge();
-        }
+        RegisteredServiceProvider<LuckPerms> registration = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
+        if (registration == null) return new NoOpPermissionBridge();
         LuckPermsPermissionBridge bridge = new LuckPermsPermissionBridge(registration.getProvider(), logger);
         bridge.ensureServerGroups();
         return bridge;
@@ -48,28 +63,21 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
         this.logger = logger;
     }
 
-    @Override
-    public boolean isAvailable() {
-        return true;
-    }
+    @Override public boolean isAvailable() { return true; }
 
     @Override
     public void syncRank(UUID uuid, Rank rank) {
         String targetGroup = RankGroupMapping.groupNameFor(rank);
         if (targetGroup == null) {
-            logger.warning("Kein LuckPerms-Gruppen-Mapping fuer Rank " + rank + " definiert.");
+            logger.warning("Kein LuckPerms-Gruppen-Mapping für Rank " + rank + " definiert.");
             return;
         }
-
         ensureGroup(targetGroup, false).thenCompose(ignored -> {
             UserManager userManager = luckPerms.getUserManager();
             return userManager.loadUser(uuid, null).thenCompose(user ->
-                    applyRankGroup(user, targetGroup)
-                            ? userManager.saveUser(user)
-                            : CompletableFuture.completedFuture(null));
+                    applyRankGroup(user, targetGroup) ? userManager.saveUser(user) : CompletableFuture.completedFuture(null));
         }).exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
-                    + targetGroup + "' synchronisieren", ex);
+            logger.log(Level.SEVERE, "Konnte LuckPerms-Rang für " + uuid + " nicht auf '" + targetGroup + "' synchronisieren", ex);
             return null;
         });
     }
@@ -80,20 +88,16 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             logger.log(Level.SEVERE, "Konnte Owner-Gruppe nicht sicherstellen", ex);
             return null;
         });
-
         UserManager userManager = luckPerms.getUserManager();
         User loaded = userManager.getUser(uuid);
         if (loaded != null) {
             saveOwnerChanges(userManager, loaded, uuid);
             return;
         }
-
-        userManager.loadUser(uuid, null)
-                .thenAccept(user -> saveOwnerChanges(userManager, user, uuid))
-                .exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht setzen", ex);
-                    return null;
-                });
+        userManager.loadUser(uuid, null).thenAccept(user -> saveOwnerChanges(userManager, user, uuid)).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte Owner-Rechte für " + uuid + " nicht setzen", ex);
+            return null;
+        });
     }
 
     @Override
@@ -106,12 +110,10 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             savePermissionChange(userManager, loaded, uuid, permission);
             return;
         }
-        userManager.loadUser(uuid, null)
-                .thenAccept(user -> savePermissionChange(userManager, user, uuid, permission))
-                .exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht setzen", ex);
-                    return null;
-                });
+        userManager.loadUser(uuid, null).thenAccept(user -> savePermissionChange(userManager, user, uuid, permission)).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht setzen", ex);
+            return null;
+        });
     }
 
     private void savePermissionChange(UserManager userManager, User user, UUID uuid, String permission) {
@@ -119,12 +121,12 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             Node node = Node.builder(permission).value(true).build();
             if (user.data().add(node) == DataMutateResult.SUCCESS) {
                 userManager.saveUser(user).exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht speichern", ex);
+                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht speichern", ex);
                     return null;
                 });
             }
         } catch (RuntimeException ex) {
-            logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht anwenden", ex);
+            logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht anwenden", ex);
         }
     }
 
@@ -137,36 +139,41 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
                 });
             }
         } catch (RuntimeException ex) {
-            logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht anwenden", ex);
+            logger.log(Level.SEVERE, "Konnte Owner-Rechte für " + uuid + " nicht anwenden", ex);
         }
     }
 
     private boolean applyOwner(User user) {
         boolean changed = false;
         NodeMap data = user.data();
-
-        InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
-        if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
-            changed = true;
-        }
-
+        if (data.add(InheritanceNode.builder(OWNER_GROUP).build()) == DataMutateResult.SUCCESS) changed = true;
         if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
-                && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
-            changed = true;
-        }
-
-        Node wildcard = Node.builder("*").value(true).build();
-        if (data.add(wildcard) == DataMutateResult.SUCCESS) {
-            changed = true;
-        }
+                && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) changed = true;
+        if (data.add(Node.builder("*").value(true).build()) == DataMutateResult.SUCCESS) changed = true;
         return changed;
     }
 
     private void ensureServerGroups() {
-        for (String groupName : RankGroupMapping.managedGroupNames()) {
-            ensureGroup(groupName, false);
+        for (String groupName : RankGroupMapping.managedGroupNames()) ensureGroup(groupName, false);
+        for (String groupName : TEAM_GROUPS) {
+            final boolean owner = OWNER_GROUP.equals(groupName);
+            ensureGroup(groupName, owner).thenCompose(ignored -> applyStaffPermissions(groupName)).exceptionally(ex -> {
+                logger.log(Level.WARNING, "Teamgruppe konnte nicht vollständig vorbereitet werden: " + groupName, ex);
+                return null;
+            });
         }
-        ensureGroup(OWNER_GROUP, true);
+    }
+
+    private CompletableFuture<Void> applyStaffPermissions(String groupName) {
+        Group group = luckPerms.getGroupManager().getGroup(groupName);
+        if (group == null) return CompletableFuture.completedFuture(null);
+        boolean changed = false;
+        if (ADMIN_PLUS_GROUPS.contains(groupName)) {
+            for (String permission : ADMIN_PERMISSIONS) {
+                if (group.data().add(Node.builder(permission).value(true).build()) == DataMutateResult.SUCCESS) changed = true;
+            }
+        }
+        return changed ? luckPerms.getGroupManager().saveGroup(group) : CompletableFuture.completedFuture(null);
     }
 
     private CompletableFuture<Void> ensureGroup(String groupName, boolean owner) {
@@ -178,11 +185,8 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             }
             return CompletableFuture.completedFuture(null);
         }
-
         return luckPerms.getGroupManager().createAndLoadGroup(groupName).thenCompose(group -> {
-            if (owner) {
-                group.data().add(Node.builder("*").value(true).build());
-            }
+            if (owner) group.data().add(Node.builder("*").value(true).build());
             logger.info("LuckPerms-Gruppe automatisch angelegt: " + groupName);
             return luckPerms.getGroupManager().saveGroup(group);
         });
@@ -191,21 +195,14 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
     private boolean applyRankGroup(User user, String targetGroup) {
         NodeMap data = user.data();
         Collection<String> managedGroups = RankGroupMapping.managedGroupNames();
-
         List<Node> inheritanceNodes = data.toCollection().stream()
                 .filter(NodeType.INHERITANCE::matches)
                 .collect(Collectors.toList());
 
         boolean changed = false;
         boolean hasTarget = false;
-        boolean isOwner = false;
-
         for (Node node : inheritanceNodes) {
             String groupName = NodeType.INHERITANCE.cast(node).getGroupName();
-            if (OWNER_GROUP.equalsIgnoreCase(groupName)) {
-                isOwner = true;
-                continue;
-            }
             if (groupName.equalsIgnoreCase(targetGroup)) {
                 hasTarget = true;
                 continue;
@@ -216,16 +213,15 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
                 changed = true;
             }
         }
-
         if (!hasTarget) {
             data.add(InheritanceNode.builder(targetGroup).build());
             changed = true;
         }
 
-        if (!isOwner && user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) {
-            changed = true;
-        }
-
+        // Teamrang bleibt Primary Group; Gameplayrang ist nur zusätzliche vererbte Gruppe.
+        String currentPrimary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase();
+        if (!TEAM_GROUPS.contains(currentPrimary)
+                && user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) changed = true;
         return changed;
     }
 }
