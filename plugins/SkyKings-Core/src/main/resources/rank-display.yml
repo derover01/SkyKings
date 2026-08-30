@@ -1,11 +1,11 @@
-# SkyKings Rang-/Owner-Darstellung (Minecraft 1.8.8 Farbcodes mit &)
+# SkyKings Rang-/Team-Darstellung (Minecraft 1.8.8 Farbcodes mit &)
 # Format im Tab:  <PREFIX> | <Name>
 # Format im Chat: <PREFIX> | <Name> » <Nachricht>
 
 owner-names:
   - Derover01
 
-owner-prefix: '&4&lOWNER'
+owner-prefix: '&4&lOwner'
 
 ranks:
   SPIELER: '&7SPIELER'
@@ -19,3 +19,26 @@ ranks:
   EXILE: '&3&lEXILE'
   ENDLING: '&8&lENDLING'
   KING: '&e&lKING'
+
+# LuckPerms-Primärgruppen fuer das Team. Die Gruppennamen werden kleingeschrieben verglichen.
+team-prefixes:
+  builder: '&2&lBuilder'
+  azubi: '&a&lAzubi'
+  testsupporter: '&9&lTest-Supporter'
+  supporter: '&9&lSupporter'
+  srsupporter: '&1&lSrSupporter'
+  moderator: '&c&lModerator'
+  srmoderator: '&4&lSrModerator'
+  headofmods: '&4&lHead of Mods'
+  admin: '&c&lAdmin'
+  headadmin: '&4&lHeadadmin'
+  superadmin: '&4&lSuperadmin'
+  manager: '&5&lManager'
+  stvowner: '&4&lStv. Owner'
+  owner: '&4&lOwner'
+
+join-messages:
+  normal: '&8[&a+&8] &7{name} &8hat SkyKings betreten.'
+  paid: '&8[&a+&8] {rank} &8| &f{name} &7ist beigetreten.'
+  team: '&8[&a✦&8] &c&lTEAM &8| {team} &8| &f{name} &7ist nun online.'
+  owner: '&8[&c✦&8] &4&lOwner &8| &f{name} &7ist dem Server beigetreten.'
