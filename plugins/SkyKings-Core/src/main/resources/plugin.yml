@@ -43,6 +43,10 @@ commands:
     description: Staff-Gamemode-Befehl.
     usage: /gm <0|1|2|3> [Spieler]
     aliases: [gamemode]
+  trash:
+    description: Öffnet ein temporäres Müllinventar.
+    usage: /trash
+    aliases: [muell, müll]
 permissions:
   skykings.admin.commands:
     description: Zeigt den Admin-Bereich im /commands-Menü.
