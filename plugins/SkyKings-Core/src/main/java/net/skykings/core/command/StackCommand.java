@@ -15,6 +15,8 @@ import java.util.List;
 /** Verdichtet gleichartige stackbare Inventar-Items fuer Knight+. */
 public final class StackCommand implements CommandExecutor {
 
+    private static final int STORAGE_SLOTS = 36;
+
     private final RankService rankService;
 
     public StackCommand(RankService rankService) {
@@ -33,10 +35,10 @@ public final class StackCommand implements CommandExecutor {
             return true;
         }
 
-        ItemStack[] contents = player.getInventory().getContents();
         List<ItemStack> compacted = new ArrayList<ItemStack>();
         int moved = 0;
-        for (ItemStack original : contents) {
+        for (int slot = 0; slot < STORAGE_SLOTS; slot++) {
+            ItemStack original = player.getInventory().getItem(slot);
             if (original == null || original.getAmount() <= 0) continue;
             ItemStack remaining = original.clone();
             for (ItemStack target : compacted) {
@@ -58,8 +60,10 @@ public final class StackCommand implements CommandExecutor {
             }
         }
 
-        player.getInventory().clear();
-        for (int i = 0; i < compacted.size() && i < player.getInventory().getSize(); i++) {
+        for (int slot = 0; slot < STORAGE_SLOTS; slot++) {
+            player.getInventory().setItem(slot, null);
+        }
+        for (int i = 0; i < compacted.size() && i < STORAGE_SLOTS; i++) {
             player.getInventory().setItem(i, compacted.get(i));
         }
         player.updateInventory();
