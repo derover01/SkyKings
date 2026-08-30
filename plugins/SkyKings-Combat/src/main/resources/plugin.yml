@@ -4,10 +4,14 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, Pearl-Cooldown, physische Nethersterne,
-  Anti-Killfarm, Lootschutz und persistente PvP-Stats.
+  Anti-Killfarm, Lootschutz, Bounties und persistente PvP-Stats.
 authors: [SkyKings Team]
 commands:
   stats:
     description: Zeigt deine oder die PvP-Stats eines Online-Spielers.
     usage: /stats [Spieler]
     aliases: [pvpstats]
+  top:
+    description: Öffnet die SkyKings PvP-Leaderboards.
+    usage: /top
+    aliases: [leaderboard, leaderboards]
