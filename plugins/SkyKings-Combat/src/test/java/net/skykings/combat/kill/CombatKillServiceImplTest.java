@@ -4,6 +4,8 @@ import net.skykings.combat.antifarm.AntiFarmServiceImpl;
 import net.skykings.combat.killstreak.KillstreakServiceImpl;
 import net.skykings.combat.killstreak.KillstreakTier;
 import net.skykings.combat.loot.LootProtectionService;
+import net.skykings.combat.stats.PvpStatsTracker;
+import net.skykings.core.pvp.PvpStatsSnapshot;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -34,6 +36,7 @@ public class CombatKillServiceImplTest {
     private AntiFarmServiceImpl antiFarmService;
     private NetherstarRewardDelivery rewardDelivery;
     private LootProtectionService lootProtectionService;
+    private PvpStatsTracker statsTracker;
     private CombatKillServiceImpl service;
 
     private Player killer;
@@ -52,8 +55,10 @@ public class CombatKillServiceImplTest {
         antiFarmService = new AntiFarmServiceImpl(5, 6, 0.5);
         rewardDelivery = mock(NetherstarRewardDelivery.class);
         lootProtectionService = mock(LootProtectionService.class);
+        statsTracker = mock(PvpStatsTracker.class);
+        when(statsTracker.getStats(any(UUID.class))).thenReturn(new PvpStatsSnapshot(0L, 0L, 0, 0));
         service = new CombatKillServiceImpl(killstreakService, antiFarmService, rewardDelivery,
-                lootProtectionService, Logger.getLogger("test"));
+                lootProtectionService, statsTracker, Logger.getLogger("test"));
 
         killerUuid = UUID.randomUUID();
         victimUuid = UUID.randomUUID();
@@ -65,15 +70,14 @@ public class CombatKillServiceImplTest {
     }
 
     @After
-    public void tearDown() {
-        bukkitStatic.close();
-    }
+    public void tearDown() { bukkitStatic.close(); }
 
     @Test
     public void legitimateKillGivesPhysicalNetherstarRewardAndTracksStreak() {
         service.handleDeath(victim, killer);
-
         verify(rewardDelivery).give(killer, 1L);
+        verify(statsTracker).recordDeath(victimUuid);
+        verify(statsTracker).recordKill(killerUuid, 1);
         assertEquals(1, killstreakService.getStreak(killerUuid));
         verify(lootProtectionService).protectDeathDrops(any(Location.class), eq(killerUuid));
     }
@@ -81,6 +85,7 @@ public class CombatKillServiceImplTest {
     @Test
     public void nonPvpDeathGrantsNoReward() {
         service.handleDeath(victim, null);
+        verify(statsTracker).recordDeath(victimUuid);
         verify(rewardDelivery, never()).give(any(Player.class), anyLong());
         verify(lootProtectionService, never()).protectDeathDrops(any(), any());
     }
@@ -90,9 +95,7 @@ public class CombatKillServiceImplTest {
         killstreakService.recordKill(victimUuid);
         killstreakService.recordKill(victimUuid);
         assertEquals(2, killstreakService.getStreak(victimUuid));
-
         service.handleDeath(victim, null);
-
         assertEquals(0, killstreakService.getStreak(victimUuid));
     }
 
@@ -100,16 +103,13 @@ public class CombatKillServiceImplTest {
     public void deathAlwaysResetsVictimStreakEvenOnPvpDeath() {
         killstreakService.recordKill(victimUuid);
         assertEquals(1, killstreakService.getStreak(victimUuid));
-
         service.handleDeath(victim, killer);
-
         assertEquals(0, killstreakService.getStreak(victimUuid));
     }
 
     @Test
     public void selfKillIsNeverTreatedAsLegitimateKill() {
         service.handleDeath(killer, killer);
-
         verify(rewardDelivery, never()).give(any(Player.class), anyLong());
         assertEquals(0, killstreakService.getStreak(killerUuid));
     }
@@ -118,7 +118,6 @@ public class CombatKillServiceImplTest {
     public void antiFarmReducesRewardOnSixthKillAgainstSameVictim() {
         for (int i = 0; i < 5; i++) service.handleDeath(victim, killer);
         service.handleDeath(victim, killer);
-
         verify(rewardDelivery, times(5)).give(killer, 1L);
         assertEquals(6, killstreakService.getStreak(killerUuid));
     }
@@ -127,12 +126,9 @@ public class CombatKillServiceImplTest {
     public void antiFarmBlocksRewardEntirelyFromSeventhKillOnward() {
         for (int i = 0; i < 6; i++) service.handleDeath(victim, killer);
         org.mockito.Mockito.clearInvocations(rewardDelivery);
-
         service.handleDeath(victim, killer);
-
         verify(rewardDelivery, never()).give(any(Player.class), anyLong());
-        assertEquals("Der Kill zählt statistisch trotzdem für die Killstreak",
-                7, killstreakService.getStreak(killerUuid));
+        assertEquals("Der Kill zählt statistisch trotzdem für die Killstreak", 7, killstreakService.getStreak(killerUuid));
     }
 
     @Test
@@ -143,7 +139,6 @@ public class CombatKillServiceImplTest {
             when(freshVictim.getLocation()).thenReturn(mock(Location.class));
             service.handleDeath(freshVictim, killer);
         }
-
         verify(rewardDelivery, times(10)).give(eq(killer), anyLong());
     }
 }
