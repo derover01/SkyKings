@@ -37,6 +37,10 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             "superadmin", "manager", "stvowner", "owner"));
     private static final Set<String> ADMIN_PLUS_GROUPS = new HashSet<String>(Arrays.asList(
             "admin", "headadmin", "superadmin", "manager", "stvowner"));
+    private static final List<String> TEAM_PERMISSIONS = Arrays.asList(
+            "skykings.staff.announcement",
+            "skykings.staff.clearchat"
+    );
     private static final List<String> ADMIN_PERMISSIONS = Arrays.asList(
             "skykings.admin.commands",
             "skykings.admin.freesign",
@@ -168,6 +172,11 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
         Group group = luckPerms.getGroupManager().getGroup(groupName);
         if (group == null) return CompletableFuture.completedFuture(null);
         boolean changed = false;
+        if (TEAM_GROUPS.contains(groupName)) {
+            for (String permission : TEAM_PERMISSIONS) {
+                if (group.data().add(Node.builder(permission).value(true).build()) == DataMutateResult.SUCCESS) changed = true;
+            }
+        }
         if (ADMIN_PLUS_GROUPS.contains(groupName)) {
             for (String permission : ADMIN_PERMISSIONS) {
                 if (group.data().add(Node.builder(permission).value(true).build()) == DataMutateResult.SUCCESS) changed = true;
@@ -218,7 +227,6 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             changed = true;
         }
 
-        // Teamrang bleibt Primary Group; Gameplayrang ist nur zusätzliche vererbte Gruppe.
         String currentPrimary = user.getPrimaryGroup() == null ? "" : user.getPrimaryGroup().toLowerCase();
         if (!TEAM_GROUPS.contains(currentPrimary)
                 && user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) changed = true;
