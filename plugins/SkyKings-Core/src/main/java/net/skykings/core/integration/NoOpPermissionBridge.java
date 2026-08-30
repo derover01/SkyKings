@@ -16,4 +16,9 @@ public final class NoOpPermissionBridge implements PermissionBridge {
     public void syncRank(UUID uuid, Rank rank) {
         // absichtlich kein Effekt - kein LuckPerms vorhanden.
     }
+
+    @Override
+    public void grantOwner(UUID uuid) {
+        // absichtlich kein Effekt - kein LuckPerms vorhanden.
+    }
 }
