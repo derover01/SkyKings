@@ -9,7 +9,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /bloecke fuer Phoenix+ oder Spieler mit einem Block-Gutscheinrecht. */
+/** /blöcke fuer Phoenix+ oder Spieler mit einem Block-Gutscheinrecht. */
 public final class BlocksCommand implements CommandExecutor {
 
     public static final String PERMISSION = "skykings.perk.blocks";
@@ -25,13 +25,13 @@ public final class BlocksCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur fuer Spieler verfuegbar.");
+            sender.sendMessage("Dieser Befehl ist nur für Spieler verfügbar.");
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !player.hasPermission(PERMISSION)
+        if (!player.hasPermission(PERMISSION)
                 && !rankService.hasAtLeast(player.getUniqueId(), Rank.PHOENIX)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Phoenix oder das Blöcke-Recht.");
+            player.sendMessage(ChatColor.RED + "Du benötigst mindestens Phoenix oder das Blöcke-Recht.");
             return true;
         }
         gui.open(player);
