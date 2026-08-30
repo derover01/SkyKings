@@ -20,10 +20,12 @@ import net.skykings.combat.loot.LootPickupListener;
 import net.skykings.combat.loot.LootProtectionService;
 import net.skykings.combat.loot.LootProtectionServiceImpl;
 import net.skykings.combat.map.MapGameplayService;
+import net.skykings.combat.map.builder.SkyMapCommand;
 import net.skykings.combat.newbie.NewbieProtectionService;
 import net.skykings.combat.newbie.NewbieProtectionServiceImpl;
 import net.skykings.combat.pearl.EnderpearlCooldownListener;
 import net.skykings.combat.pvp.PvpDamageListener;
+import net.skykings.combat.spawn.SpawnService;
 import net.skykings.combat.starterkit.DeathStarterKit;
 import net.skykings.combat.starterkit.DeathStarterKitService;
 import net.skykings.combat.starterkit.DeathStarterKits;
@@ -54,12 +56,13 @@ public final class SkyKingsCombat extends JavaPlugin {
     private PvpStatsService pvpStatsService;
     private KillCosmeticService killCosmeticService;
     private MapGameplayService mapGameplayService;
+    private SpawnService spawnService;
 
     @Override
     public void onEnable() {
         SkyKingsCoreAPI coreApi = resolveCoreApi();
         if (coreApi == null) {
-            getLogger().severe("SkyKingsCoreAPI wurde nicht gefunden - SkyKings-Combat wird deaktiviert. Ist SkyKings-Core installiert und erfolgreich gestartet?");
+            getLogger().severe("SkyKingsCoreAPI wurde nicht gefunden - SkyKings-Combat wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -77,10 +80,11 @@ public final class SkyKingsCombat extends JavaPlugin {
         LootProtectionService lootProtectionService = new LootProtectionServiceImpl(this, config.getLootProtectionMillis());
         NetherstarRewardDelivery rewardDelivery = new PhysicalNetherstarRewardDelivery();
         BountyService bountyService = new BountyService(coreApi.getEconomyService(), rewardDelivery);
+
         this.killCosmeticService = new KillCosmeticService(this);
         KillMessageService killMessageService = new KillMessageService();
         this.mapGameplayService = new MapGameplayService(this);
-
+        this.spawnService = new SpawnService(this, combatTagService);
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
@@ -89,33 +93,37 @@ public final class SkyKingsCombat extends JavaPlugin {
 
         DeathStarterKit starterKit = DeathStarterKits.createDefault(config.getStarterKitGoldenApples());
         DeathStarterKitService starterKitService = new DeathStarterKitService(starterKit, config.isStarterKitEnabled());
-
         MessageCooldownTracker newbieFeedbackCooldown = new MessageCooldownTracker(config.getFeedbackMessageCooldownMillis());
         MessageCooldownTracker pearlFeedbackCooldown = new MessageCooldownTracker(config.getFeedbackMessageCooldownMillis());
 
         getServer().getPluginManager().registerEvents(new FallDamageListener(), this);
-        getServer().getPluginManager().registerEvents(
-                new PvpDamageListener(combatTagService, lastAttackerService, newbieProtectionService, newbieFeedbackCooldown), this);
+        getServer().getPluginManager().registerEvents(new PvpDamageListener(combatTagService, lastAttackerService,
+                newbieProtectionService, newbieFeedbackCooldown), this);
         getServer().getPluginManager().registerEvents(new CombatFlyCommandListener(combatTagService), this);
-        getServer().getPluginManager().registerEvents(
-                new EnderpearlCooldownListener(cooldownService, config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown), this);
-        getServer().getPluginManager().registerEvents(
-                new CombatDeathListener(combatKillService, combatTagService, lastAttackerService,
-                        killMessageService, killCosmeticService, getLogger()), this);
+        getServer().getPluginManager().registerEvents(new EnderpearlCooldownListener(cooldownService,
+                config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown), this);
+        getServer().getPluginManager().registerEvents(new CombatDeathListener(combatKillService, combatTagService,
+                lastAttackerService, killMessageService, killCosmeticService, getLogger()), this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
         getServer().getPluginManager().registerEvents(mapGameplayService, this);
+        getServer().getPluginManager().registerEvents(spawnService, this);
 
         PluginCommand statsCommand = getCommand("stats");
         PluginCommand topCommand = getCommand("top");
         PluginCommand killEffectCommand = getCommand("killeffect");
         PluginCommand mapLootCommand = getCommand("maploot");
         PluginCommand supplyDropCommand = getCommand("supplydrop");
-        if (statsCommand == null || topCommand == null || killEffectCommand == null || mapLootCommand == null || supplyDropCommand == null) {
+        PluginCommand skyMapCommand = getCommand("skymap");
+        PluginCommand spawnCommand = getCommand("spawn");
+        PluginCommand setSpawnCommand = getCommand("setspawn");
+        if (statsCommand == null || topCommand == null || killEffectCommand == null || mapLootCommand == null
+                || supplyDropCommand == null || skyMapCommand == null || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+
         statsCommand.setExecutor(new StatsCommand(pvpStatsService));
         TopCommand topExecutor = new TopCommand(pvpStatsService);
         topCommand.setExecutor(topExecutor);
@@ -123,13 +131,17 @@ public final class SkyKingsCombat extends JavaPlugin {
         killEffectCommand.setExecutor(new KillEffectCommand(new KillEffectGui(coreApi.getGuiManager(), killCosmeticService)));
         mapLootCommand.setExecutor(mapGameplayService);
         supplyDropCommand.setExecutor(mapGameplayService);
+        skyMapCommand.setExecutor(new SkyMapCommand(this, spawnService));
+        spawnCommand.setExecutor(spawnService);
+        setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (PvP + Bounty + Kill-Effects + Map-Loot + Supply-Drops) aktiviert.");
+        getLogger().info("SkyKings-Combat (PvP + Map-Generator + /spawn + Map-Loot + Supply-Drops) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (spawnService != null) spawnService.shutdown();
         if (mapGameplayService != null) mapGameplayService.shutdown();
         if (killCosmeticService != null) killCosmeticService.shutdown();
         if (pvpStatsService != null) pvpStatsService.shutdown();
@@ -142,7 +154,7 @@ public final class SkyKingsCombat extends JavaPlugin {
             RegisteredServiceProvider<SkyKingsCoreAPI> registration = getServer().getServicesManager().getRegistration(SkyKingsCoreAPI.class);
             return registration != null ? registration.getProvider() : null;
         } catch (Throwable t) {
-            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht auflösen.", t);
+            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht aufloesen.", t);
             return null;
         }
     }
