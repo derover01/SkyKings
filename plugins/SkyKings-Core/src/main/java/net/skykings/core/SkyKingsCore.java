@@ -23,6 +23,8 @@ import net.skykings.core.display.PlayerJoinMessageListener;
 import net.skykings.core.display.RankDisplayConfig;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.economy.EconomyServiceImpl;
+import net.skykings.core.freesign.FreeSignListener;
+import net.skykings.core.freesign.FreeSignStore;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.integration.EconomyBridge;
 import net.skykings.core.integration.NoOpEconomyBridge;
@@ -88,6 +90,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private KitGrantService kitGrantService;
     private GuiManager guiManager;
     private VoucherPermissionService voucherPermissionService;
+    private FreeSignStore freeSignStore;
 
     @Override
     public void onEnable() {
@@ -126,6 +129,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.kitGrantService = new KitGrantServiceImpl(kitRegistry, playerProfileService, cooldownService);
         this.guiManager = new GuiManager();
         this.voucherPermissionService = new VoucherPermissionService(this, permissionBridge, loggingService);
+        this.freeSignStore = new FreeSignStore(this);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -143,6 +147,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
         getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
         getServer().getPluginManager().registerEvents(new PlayerJoinMessageListener(rankDisplayConfig, rankService), this);
+        getServer().getPluginManager().registerEvents(new FreeSignListener(freeSignStore), this);
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
@@ -175,7 +180,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry + Commands-GUI) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry + Commands-GUI + Free-Signs) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
@@ -196,6 +201,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     @Override
     public void onDisable() {
+        if (freeSignStore != null) freeSignStore.shutdown();
         if (playerProfileService != null) playerProfileService.saveAll();
         if (dbExecutor != null) {
             dbExecutor.shutdown();
