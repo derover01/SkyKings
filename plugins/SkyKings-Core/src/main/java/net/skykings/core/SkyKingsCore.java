@@ -49,6 +49,7 @@ import net.skykings.core.logging.PluginLoggerAuditSink;
 import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.netherstar.NetherstarServiceImpl;
 import net.skykings.core.permission.VoucherPermissionService;
+import net.skykings.core.perk.BuildBlockSafetyListener;
 import net.skykings.core.perk.BuildBlocksGui;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
@@ -97,7 +98,6 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     @Override
     public void onEnable() {
         this.configService = new ConfigServiceImpl(this);
-
         try {
             this.dataStore = createDataStore();
             dataStore.initialize();
@@ -135,8 +135,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
-        RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService,
-                rankProgressionConfig, economyService);
+        RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService, rankProgressionConfig, economyService);
         KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
         BuildBlocksGui buildBlocksGui = new BuildBlocksGui(guiManager);
         PaidRankHologramListener paidRankHolograms = new PaidRankHologramListener(this, rankService);
@@ -144,12 +143,12 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         this.economyBridge = createEconomyBridge();
 
-        getServer().getPluginManager().registerEvents(
-                new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
+        getServer().getPluginManager().registerEvents(new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
         getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
         getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
         getServer().getPluginManager().registerEvents(new PlayerJoinMessageListener(rankDisplayConfig, rankService), this);
-        getServer().getPluginManager().registerEvents(new FreeSignListener(freeSignStore), this);
+        getServer().getPluginManager().registerEvents(new FreeSignListener(freeSignStore, guiManager), this);
+        getServer().getPluginManager().registerEvents(new BuildBlockSafetyListener(), this);
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
@@ -182,10 +181,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("gm", new GamemodeCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
-
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs) aktiviert. Storage: "
-                + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
@@ -224,18 +221,14 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private DataStore createDataStore() {
         StorageType type = configService.getStorageType();
-        if (type == StorageType.SQLITE) {
-            File file = new File(getDataFolder(), configService.getSqliteFileName());
-            return new SQLiteDataStore(file, getLogger());
-        }
+        if (type == StorageType.SQLITE) return new SQLiteDataStore(new File(getDataFolder(), configService.getSqliteFileName()), getLogger());
         throw new DataStoreException("MySQL/MariaDB-Storage ist architektonisch vorbereitet, aber noch nicht implementiert. Bitte storage.type: SQLITE verwenden.");
     }
 
     private PermissionBridge createPermissionBridge() {
         if (getServer().getPluginManager().getPlugin("LuckPerms") == null) return new NoOpPermissionBridge();
-        try {
-            return LuckPermsPermissionBridge.createIfAvailable(getLogger());
-        } catch (Throwable t) {
+        try { return LuckPermsPermissionBridge.createIfAvailable(getLogger()); }
+        catch (Throwable t) {
             getLogger().log(Level.WARNING, "LuckPerms erkannt, aber die Bridge konnte nicht initialisiert werden.", t);
             return new NoOpPermissionBridge();
         }
@@ -243,9 +236,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private EconomyBridge createEconomyBridge() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) return new NoOpEconomyBridge();
-        try {
-            return VaultEconomyBridge.createAndRegister(this, economyService, getLogger());
-        } catch (Throwable t) {
+        try { return VaultEconomyBridge.createAndRegister(this, economyService, getLogger()); }
+        catch (Throwable t) {
             getLogger().log(Level.WARNING, "Vault/VaultUnlocked erkannt, aber die Economy-Bridge konnte nicht registriert werden.", t);
             return new NoOpEconomyBridge();
         }
