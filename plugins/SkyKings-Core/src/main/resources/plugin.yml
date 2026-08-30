@@ -10,3 +10,7 @@ commands:
     description: Zeigt verfuegbare Rank-Kits oder gibt ein Kit aus.
     usage: /kit [name]
     aliases: [kits]
+  rankup:
+    description: Kauft den naechsten Free-Rang mit Coins.
+    usage: /rankup
+    aliases: [rangup]
