@@ -1,6 +1,7 @@
 package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.command.KitCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
@@ -15,8 +16,11 @@ import net.skykings.core.integration.NoOpPermissionBridge;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.integration.luckperms.LuckPermsPermissionBridge;
 import net.skykings.core.integration.vault.VaultEconomyBridge;
+import net.skykings.core.kit.KitGrantService;
+import net.skykings.core.kit.KitGrantServiceImpl;
 import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.kit.KitRegistryImpl;
+import net.skykings.core.kit.RankKitLoader;
 import net.skykings.core.listener.PlayerLifecycleListener;
 import net.skykings.core.logging.AuditSink;
 import net.skykings.core.logging.LoggingService;
@@ -32,6 +36,7 @@ import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -43,14 +48,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/**
- * SkyKings-Core - Phase 1B (siehe docs/ROADMAP.md).
- *
- * <p>Verantwortungsbereich laut docs/ARCHITECTURE.md: Player-Profile, Rangmodell/interne
- * Rank-API, Economy-API, Cooldown-Basis, zentrale Configs, Datenpersistenz, optionale LuckPerms-/
- * Vault-Bridges, Kit-Registry sowie gemeinsame GUI-/Item-Utilities fuer die anderen SkyKings-
- * Module. Konkrete Kits, Combat, Crates und Discord-Logging folgen erst in spaeteren Phasen.
- */
+/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown- und Kit-Services. */
 public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private DataStore dataStore;
@@ -65,6 +63,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private PermissionBridge permissionBridge;
     private EconomyBridge economyBridge;
     private KitRegistry kitRegistry;
+    private KitGrantService kitGrantService;
     private GuiManager guiManager;
 
     @Override
@@ -98,6 +97,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.netherstarService = new NetherstarServiceImpl(playerProfileService, loggingService);
         this.cooldownService = new CooldownServiceImpl(dataStore, dbExecutor, getLogger());
         this.kitRegistry = new KitRegistryImpl();
+        new RankKitLoader(this, kitRegistry).loadAndRegister();
+        this.kitGrantService = new KitGrantServiceImpl(kitRegistry, playerProfileService, cooldownService);
         this.guiManager = new GuiManager();
 
         this.economyBridge = createEconomyBridge();
@@ -106,11 +107,20 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
                 new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
+        PluginCommand kitCommand = getCommand("kit");
+        if (kitCommand == null) {
+            getLogger().severe("/kit fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        KitCommand kitExecutor = new KitCommand(kitGrantService, cooldownService);
+        kitCommand.setExecutor(kitExecutor);
+        kitCommand.setTabCompleter(kitExecutor);
+
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-
-        getLogger().info("SkyKings-Core (Phase 1B) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits) aktiviert. Storage: " + configService.getStorageType());
     }
 
     @Override
@@ -142,15 +152,9 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
             return new SQLiteDataStore(file, getLogger());
         }
         throw new DataStoreException("MySQL/MariaDB-Storage ist architektonisch vorbereitet (siehe DataStore-"
-                + "Interface), aber in Phase 1A noch nicht implementiert. Bitte storage.type: SQLITE in config.yml verwenden.");
+                + "Interface), aber noch nicht implementiert. Bitte storage.type: SQLITE verwenden.");
     }
 
-    /**
-     * Erkennt LuckPerms nur ueber den Plugin-Namen (kein Klassenzugriff), bevor ueberhaupt
-     * versucht wird, die LuckPerms-API zu laden. {@link LuckPermsPermissionBridge} wird nur
-     * innerhalb des try-Blocks referenziert, damit ein fehlendes/inkompatibles LuckPerms nie zu
-     * einer harten {@code NoClassDefFoundError} beim Laden von SkyKings-Core fuehrt.
-     */
     private PermissionBridge createPermissionBridge() {
         if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
             return new NoOpPermissionBridge();
@@ -164,7 +168,6 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         }
     }
 
-    /** Analoges Vorgehen zu {@link #createPermissionBridge()}, siehe dortige Javadoc. */
     private EconomyBridge createEconomyBridge() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) {
             return new NoOpEconomyBridge();
@@ -220,6 +223,11 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     @Override
     public KitRegistry getKitRegistry() {
         return kitRegistry;
+    }
+
+    @Override
+    public KitGrantService getKitGrantService() {
+        return kitGrantService;
     }
 
     @Override
