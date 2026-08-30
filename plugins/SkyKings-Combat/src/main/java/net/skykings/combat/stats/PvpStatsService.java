@@ -7,11 +7,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /** Persistente PvP-Stats: Kills, Tode, aktuelle Streak und Beststreak. */
@@ -49,6 +52,12 @@ public final class PvpStatsService implements PvpStatsTracker {
         }
     }
 
+    public Map<UUID, PvpStatsSnapshot> getAllStats() {
+        Map<UUID, PvpStatsSnapshot> snapshot = new HashMap<UUID, PvpStatsSnapshot>();
+        for (UUID uuid : stats.keySet()) snapshot.put(uuid, getStats(uuid));
+        return Collections.unmodifiableMap(snapshot);
+    }
+
     @Override
     public void recordDeath(UUID victimUuid) {
         MutableStats value = stats.computeIfAbsent(victimUuid, ignored -> new MutableStats());
@@ -70,7 +79,19 @@ public final class PvpStatsService implements PvpStatsTracker {
         saveAsync();
     }
 
-    public void shutdown() { writer.shutdown(); }
+    public void shutdown() {
+        final Map<UUID, PvpStatsSnapshot> snapshot = new HashMap<UUID, PvpStatsSnapshot>();
+        for (UUID uuid : stats.keySet()) snapshot.put(uuid, getStats(uuid));
+        writer.submit(() -> save(snapshot));
+        writer.shutdown();
+        try {
+            if (!writer.awaitTermination(3, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("PvP-Stats-Writer wurde nicht innerhalb von 3 Sekunden beendet.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
 
     private void load() {
         if (!file.exists()) return;
@@ -94,7 +115,7 @@ public final class PvpStatsService implements PvpStatsTracker {
     }
 
     private void saveAsync() {
-        final Map<UUID, PvpStatsSnapshot> snapshot = new java.util.HashMap<UUID, PvpStatsSnapshot>();
+        final Map<UUID, PvpStatsSnapshot> snapshot = new HashMap<UUID, PvpStatsSnapshot>();
         for (UUID uuid : stats.keySet()) snapshot.put(uuid, getStats(uuid));
         writer.submit(() -> save(snapshot));
     }
