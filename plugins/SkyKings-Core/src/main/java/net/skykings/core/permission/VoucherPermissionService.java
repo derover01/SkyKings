@@ -17,13 +17,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Gemeinsame Source of Truth fuer /rechte und spaetere Permission-Gutscheine. */
+/** Gemeinsame Source of Truth fuer /rechte und Permission-/Prefix-Gutscheine. */
 public final class VoucherPermissionService {
 
     public enum GrantStatus {
         GRANTED,
         UNKNOWN_PERMISSION,
-        BRIDGE_UNAVAILABLE
+        BRIDGE_UNAVAILABLE,
+        INVALID_PREFIX
     }
 
     private final PermissionBridge permissionBridge;
@@ -42,45 +43,46 @@ public final class VoucherPermissionService {
 
     public VoucherPermission find(String input) {
         for (VoucherPermission permission : permissions) {
-            if (permission.matches(input)) {
-                return permission;
-            }
+            if (permission.matches(input)) return permission;
         }
         return null;
     }
 
     public GrantStatus grant(UUID uuid, String input, String actor) {
         VoucherPermission permission = find(input);
-        if (permission == null) {
-            return GrantStatus.UNKNOWN_PERMISSION;
-        }
-        if (!permissionBridge.isAvailable()) {
-            return GrantStatus.BRIDGE_UNAVAILABLE;
-        }
+        if (permission == null) return GrantStatus.UNKNOWN_PERMISSION;
+        if (!permissionBridge.isAvailable()) return GrantStatus.BRIDGE_UNAVAILABLE;
         permissionBridge.grantPermission(uuid, permission.getNode());
         loggingService.log(new AuditEvent(AuditEventType.PERMISSION_GRANT, uuid, actor, null,
                 "voucherPermission=" + permission.getId() + ", node=" + permission.getNode()));
         return GrantStatus.GRANTED;
     }
 
+    /** Vergibt ein vorab vom Voucher-System validiertes kosmetisches Prefix-Entitlement. */
+    public GrantStatus grantPrefix(UUID uuid, String prefixId, String actor) {
+        if (prefixId == null || !prefixId.matches("[a-zA-Z0-9_-]{1,32}")) return GrantStatus.INVALID_PREFIX;
+        if (!permissionBridge.isAvailable()) return GrantStatus.BRIDGE_UNAVAILABLE;
+        String normalized = prefixId.toLowerCase(Locale.ROOT);
+        String node = "skykings.prefix." + normalized;
+        permissionBridge.grantPermission(uuid, node);
+        loggingService.log(new AuditEvent(AuditEventType.PERMISSION_GRANT, uuid, actor, null,
+                "prefixEntitlement=" + normalized + ", node=" + node));
+        return GrantStatus.GRANTED;
+    }
+
     private List<VoucherPermission> load(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), "voucher-permissions.yml");
-        if (!file.exists()) {
-            plugin.saveResource("voucher-permissions.yml", false);
-        }
+        if (!file.exists()) plugin.saveResource("voucher-permissions.yml", false);
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         ConfigurationSection root = yaml.getConfigurationSection("permissions");
-        if (root == null) {
-            return Collections.emptyList();
-        }
+        if (root == null) return Collections.emptyList();
         List<VoucherPermission> loaded = new ArrayList<VoucherPermission>();
         for (String id : root.getKeys(false)) {
             ConfigurationSection section = root.getConfigurationSection(id);
             if (section == null) continue;
             String node = section.getString("node", "").trim().toLowerCase(Locale.ROOT);
             if (node.isEmpty()) continue;
-            String display = ChatColor.translateAlternateColorCodes('&',
-                    section.getString("display-name", id));
+            String display = ChatColor.translateAlternateColorCodes('&', section.getString("display-name", id));
             loaded.add(new VoucherPermission(id.toLowerCase(Locale.ROOT), node, display,
                     new java.util.HashSet<String>(section.getStringList("aliases"))));
         }
