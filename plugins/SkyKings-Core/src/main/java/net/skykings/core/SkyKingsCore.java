@@ -12,6 +12,7 @@ import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
 import net.skykings.core.command.RepairCommand;
 import net.skykings.core.command.StackCommand;
+import net.skykings.core.command.TrashCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
@@ -187,6 +188,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
         if (!registerCommand("enderchest", new EnderChestCommand(rankService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
+        if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
