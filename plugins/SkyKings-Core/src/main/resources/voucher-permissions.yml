@@ -30,3 +30,19 @@ permissions:
     aliases: [prefix-auswahl]
     node: skykings.perk.prefix
     display-name: '&ePrefix-Auswahl'
+  killeffect-lightning:
+    aliases: [kill-lightning, blitz]
+    node: skykings.killeffect.lightning
+    display-name: '&bKill-Effect Blitz'
+  killeffect-flame:
+    aliases: [kill-flame, flammen]
+    node: skykings.killeffect.flame
+    display-name: '&6Kill-Effect Flammen'
+  killeffect-heart:
+    aliases: [kill-heart, herzen]
+    node: skykings.killeffect.heart
+    display-name: '&dKill-Effect Herzen'
+  killeffect-ender:
+    aliases: [kill-ender, ender]
+    node: skykings.killeffect.ender
+    display-name: '&5Kill-Effect Ender'
