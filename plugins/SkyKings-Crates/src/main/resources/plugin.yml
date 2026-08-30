@@ -10,16 +10,16 @@ commands:
     description: Admin-Verwaltung und Ausgabe von Crates.
     usage: /crate give <Spieler> <Typ> [Anzahl]
   craterewards:
-    description: Oeffnet die Paid-Rank-Crate-Rewards.
+    description: Öffnet die Paid-Rank-Crate-Rewards.
     usage: /craterewards
   gutscheine:
-    description: Oeffnet das Admin-GUI zur Gutschein-Erzeugung.
+    description: Öffnet das Admin-GUI zur Gutschein-Erzeugung.
     usage: /gutscheine
     aliases: [voucher, vouchers]
 permissions:
   skykings.admin.crate:
     description: Darf Crates administrativ ausgeben.
-    default: op
-  skykings.admin.vouchers:
+    default: false
+  skykings.admin.gutscheine:
     description: Darf Gutscheine administrativ erzeugen.
-    default: op
+    default: false
