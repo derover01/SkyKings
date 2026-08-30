@@ -6,6 +6,10 @@ description: >
   Persistenz und gemeinsame APIs fuer andere SkyKings-Module.
 authors: [SkyKings Team]
 commands:
+  commands:
+    description: Oeffnet die zentrale SkyKings-Befehlsuebersicht.
+    usage: /commands
+    aliases: [befehle, cmds]
   kit:
     description: Zeigt verfuegbare Rank-Kits oder gibt ein Kit aus.
     usage: /kit [name]
@@ -31,3 +35,7 @@ commands:
   repair:
     description: Repariert das gehaltene Item fuer Exile+.
     usage: /repair
+permissions:
+  skykings.admin.commands:
+    description: Zeigt den Admin-Bereich im /commands-Menue.
+    default: op
