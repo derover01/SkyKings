@@ -14,6 +14,7 @@ import net.skykings.core.model.Rank;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +35,9 @@ import java.util.stream.Collectors;
  * Es werden ausschliesslich die von SkyKings verwalteten Rang-Gruppen
  * ({@link RankGroupMapping#managedGroupNames()}) angefasst - andere Gruppen (z. B.
  * Team-/Custom-Gruppen eines Server-Betreibers) bleiben unangetastet. Es werden auch keine
- * Gruppen in LuckPerms angelegt; die 11 Rang-Gruppen muessen dort bereits existieren.
+ * Gruppen in LuckPerms angelegt; die 11 Rang-Gruppen muessen dort bereits existieren -
+ * {@link #syncRank(UUID, Rank)} prueft das vor jeder Synchronisierung und tut bei einer
+ * fehlenden Zielgruppe rein gar nichts (kein Node wird veraendert, keine Gruppe wird angelegt).
  */
 public final class LuckPermsPermissionBridge implements PermissionBridge {
 
@@ -45,13 +48,15 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
         if (registration == null) {
             return new NoOpPermissionBridge();
         }
-        return new LuckPermsPermissionBridge(registration.getProvider(), logger);
+        LuckPermsPermissionBridge bridge = new LuckPermsPermissionBridge(registration.getProvider(), logger);
+        bridge.warnAboutMissingGroups();
+        return bridge;
     }
 
     private final LuckPerms luckPerms;
     private final Logger logger;
 
-    private LuckPermsPermissionBridge(LuckPerms luckPerms, Logger logger) {
+    LuckPermsPermissionBridge(LuckPerms luckPerms, Logger logger) {
         this.luckPerms = Objects.requireNonNull(luckPerms, "luckPerms");
         this.logger = logger;
     }
@@ -69,6 +74,13 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             return;
         }
 
+        if (!groupExists(targetGroup)) {
+            logger.warning("SkyKings-Rang konnte nicht synchronisiert werden, weil die LuckPerms-Gruppe fehlt. "
+                    + "Gruppe='" + targetGroup + "', Spieler=" + uuid + ", Rang=" + rank + ". SkyKings legt "
+                    + "Ranggruppen nicht automatisch an - bitte die Gruppe in LuckPerms anlegen.");
+            return;
+        }
+
         UserManager userManager = luckPerms.getUserManager();
         userManager.loadUser(uuid)
                 .thenCompose(user -> applyRankGroup(user, targetGroup)
@@ -79,6 +91,28 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
                             + targetGroup + "' synchronisieren", ex);
                     return null;
                 });
+    }
+
+    private boolean groupExists(String groupName) {
+        return luckPerms.getGroupManager().getGroup(groupName) != null;
+    }
+
+    /**
+     * Optionale Startpruefung (siehe Auftrag Phase-1B-Hardening): sammelt alle von SkyKings
+     * benoetigten Gruppen, die in LuckPerms fehlen, und loggt sie einmalig gesammelt als
+     * WARNING. Legt keine Gruppen an.
+     */
+    private void warnAboutMissingGroups() {
+        List<String> missing = new ArrayList<>();
+        for (String groupName : RankGroupMapping.managedGroupNames()) {
+            if (!groupExists(groupName)) {
+                missing.add(groupName);
+            }
+        }
+        if (!missing.isEmpty()) {
+            logger.warning("Folgende SkyKings-Ranggruppen fehlen in LuckPerms und muessen manuell angelegt "
+                    + "werden (SkyKings legt sie NICHT automatisch an): " + String.join(", ", missing));
+        }
     }
 
     /**
