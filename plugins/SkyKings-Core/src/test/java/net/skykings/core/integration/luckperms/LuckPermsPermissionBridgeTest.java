@@ -3,6 +3,7 @@ package net.skykings.core.integration.luckperms;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.node.types.InheritanceNode;
+import net.luckperms.api.node.types.PermissionNode;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.model.Rank;
 import org.junit.After;
@@ -15,19 +16,9 @@ import java.util.logging.Logger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Testet {@link LuckPermsPermissionBridge} gegen handgeschriebene Test-Doubles fuer die
- * LuckPerms-API (siehe {@link StubLuckPerms} fuer den Grund: Mockito kann mehrere LuckPerms-
- * API-Interfaces auf diesem JDK-8-Build wegen eines bekannten Reflection-Bugs
- * (TypeAnnotationParser NPE bei generischen, typannotierten Methoden) nicht mocken).
- *
- * <p>{@code InheritanceNode.builder(...)} ruft intern statisch {@code LuckPermsProvider.get()}
- * auf (echtes LuckPerms-Plugin-Verhalten) - dafuer wird hier per Reflection (die eigentliche
- * {@code register}/{@code unregister}-Methode ist package-private) das Test-Double als
- * "aktive LuckPerms-Instanz" registriert, exakt wie es das echte Plugin beim Start taete.
- */
 public class LuckPermsPermissionBridgeTest {
 
     private StubGroupManager groupManager;
@@ -76,7 +67,6 @@ public class LuckPermsPermissionBridgeTest {
     @Test
     public void syncRankProceedsWhenTargetGroupExists() {
         groupManager.addExistingGroup("knight");
-
         bridge().syncRank(uuid, Rank.KNIGHT);
 
         assertEquals(1, userManager.getLoadUserCallCount());
@@ -87,32 +77,18 @@ public class LuckPermsPermissionBridgeTest {
     }
 
     @Test
-    public void syncRankDoesNothingWhenTargetGroupIsMissing() {
-        // "knight" bewusst NICHT als existierende Gruppe registriert.
-        data.seed(inheritanceNode("gold"));
-
+    public void syncRankAutomaticallyCreatesMissingTargetGroup() {
         bridge().syncRank(uuid, Rank.KNIGHT);
 
-        assertEquals("Der Nutzer darf bei fehlender Zielgruppe gar nicht erst geladen werden",
-                0, userManager.getLoadUserCallCount());
-        assertEquals(0, userManager.getSavedUsers().size());
+        assertNotNull(groupManager.getGroup("knight"));
+        assertEquals(1, userManager.getLoadUserCallCount());
+        assertEquals("knight", user.getPrimaryGroupValue());
+        assertTrue(data.currentNodes().stream().anyMatch(n -> n instanceof InheritanceNode
+                && ((InheritanceNode) n).getGroupName().equals("knight")));
     }
 
     @Test
-    public void syncRankWithMissingTargetGroupNeverRemovesExistingSkyKingsGroups() {
-        InheritanceNode goldNode = inheritanceNode("gold");
-        data.seed(goldNode);
-        // "knight" bewusst NICHT als existierende Gruppe registriert.
-
-        bridge().syncRank(uuid, Rank.KNIGHT);
-
-        assertTrue("Bestehende Gruppen duerfen bei fehlender Zielgruppe nicht entfernt werden",
-                data.currentNodes().contains(goldNode));
-        assertEquals(null, user.getPrimaryGroupValue());
-    }
-
-    @Test
-    public void syncRankNeverTouchesForeignOrTeamGroups() {
+    public void syncRankRemovesOnlyOtherManagedRankGroups() {
         InheritanceNode otherSkyKingsGroup = inheritanceNode("gold");
         InheritanceNode foreignGroup = inheritanceNode("builder");
         data.seed(otherSkyKingsGroup, foreignGroup);
@@ -120,10 +96,37 @@ public class LuckPermsPermissionBridgeTest {
 
         bridge().syncRank(uuid, Rank.KNIGHT);
 
-        assertFalse("Die andere SkyKings-Ranggruppe muss entfernt worden sein",
-                data.currentNodes().contains(otherSkyKingsGroup));
-        assertTrue("Eine fremde/Team-Gruppe darf niemals entfernt werden",
-                data.currentNodes().contains(foreignGroup));
+        assertFalse(data.currentNodes().contains(otherSkyKingsGroup));
+        assertTrue(data.currentNodes().contains(foreignGroup));
+    }
+
+    @Test
+    public void ownerGroupSurvivesGameplayRankSyncAndStaysPrimary() {
+        InheritanceNode ownerNode = inheritanceNode("owner");
+        data.seed(ownerNode);
+        user = new StubUser(uuid, data, "owner");
+        userManager = new StubUserManager(uuid, user);
+        luckPerms = new StubLuckPerms(userManager, groupManager);
+        groupManager.addExistingGroup("spieler");
+
+        bridge().syncRank(uuid, Rank.SPIELER);
+
+        assertTrue(data.currentNodes().contains(ownerNode));
+        assertEquals("owner", user.getPrimaryGroupValue());
+        assertTrue(data.currentNodes().stream().anyMatch(n -> n instanceof InheritanceNode
+                && ((InheritanceNode) n).getGroupName().equals("spieler")));
+    }
+
+    @Test
+    public void grantOwnerCreatesOwnerGroupAndWildcardAccess() {
+        bridge().grantOwner(uuid);
+
+        assertNotNull(groupManager.getGroup("owner"));
+        assertEquals("owner", user.getPrimaryGroupValue());
+        assertTrue(data.currentNodes().stream().anyMatch(n -> n instanceof InheritanceNode
+                && ((InheritanceNode) n).getGroupName().equals("owner")));
+        assertTrue(data.currentNodes().stream().anyMatch(n -> n instanceof PermissionNode
+                && ((PermissionNode) n).getPermission().equals("*") && ((PermissionNode) n).getValue()));
     }
 
     @Test
@@ -137,7 +140,7 @@ public class LuckPermsPermissionBridgeTest {
 
         bridge().syncRank(uuid, Rank.KNIGHT);
 
-        assertEquals("Keine zweite Inheritance-Node fuer dieselbe Gruppe", 1, data.currentNodes().size());
+        assertEquals(1, data.currentNodes().size());
         assertEquals(0, userManager.getSavedUsers().size());
     }
 
