@@ -4,9 +4,11 @@ import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.model.Rank;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -70,17 +72,28 @@ public final class CrateRewardsGui {
 
         List<ItemStack> items = new ArrayList<ItemStack>();
         for (int i = 0; i < tier.amount; i++) items.add(codec.create(crate));
-        for (ItemStack item : items) {
-            if (!player.getInventory().addItem(item).isEmpty()) {
-                player.sendMessage(ChatColor.RED + "Du brauchst mehr freien Inventarplatz.");
-                return;
-            }
+        if (!hasSpaceForAll(player, items)) {
+            player.sendMessage(ChatColor.RED + "Du brauchst mehr freien Inventarplatz.");
+            return;
         }
+        for (ItemStack item : items) player.getInventory().addItem(item);
 
         core.getCooldownService().set(player.getUniqueId(), key, tier.hours * 60L * 60L * 1000L);
         player.sendMessage(ChatColor.GREEN + "Crate-Reward fuer " + display(tier.rank) + ChatColor.GREEN
                 + " abgeholt: " + tier.amount + "x " + ChatColor.translateAlternateColorCodes('&', crate.getDisplayName()));
         open(player);
+    }
+
+    private boolean hasSpaceForAll(Player player, List<ItemStack> items) {
+        Inventory temp = Bukkit.createInventory(null, 36);
+        for (int i = 0; i < 36; i++) {
+            ItemStack current = player.getInventory().getItem(i);
+            if (current != null) temp.setItem(i, current.clone());
+        }
+        for (ItemStack item : items) {
+            if (!temp.addItem(item.clone()).isEmpty()) return false;
+        }
+        return true;
     }
 
     private ItemStack icon(Player player, Tier tier) {
