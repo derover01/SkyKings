@@ -6,6 +6,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,7 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
-/** Laedt Crate- und Reward-Tabellen aus crates.yml und berechnet deren Expected Value. */
+/** Lädt Crate- und Reward-Tabellen und ergänzt neue Standard-Tiers automatisch. */
 public final class CrateRegistry {
 
     public enum RewardType { COINS, NETHERSTARS, ITEM, VOUCHER }
@@ -84,9 +86,7 @@ public final class CrateRegistry {
         public double getExpectedValue() {
             if (totalWeight <= 0) return 0D;
             double value = 0D;
-            for (RewardDefinition reward : rewards) {
-                value += ((double) reward.weight / (double) totalWeight) * reward.evValue;
-            }
+            for (RewardDefinition reward : rewards) value += ((double) reward.weight / totalWeight) * reward.evValue;
             return value;
         }
 
@@ -108,7 +108,19 @@ public final class CrateRegistry {
     public CrateRegistry(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), "crates.yml");
         if (!file.exists()) plugin.saveResource("crates.yml", false);
-        load(YamlConfiguration.loadConfiguration(file), plugin);
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+        try {
+            if (plugin.getResource("crates.yml") != null) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(plugin.getResource("crates.yml"), StandardCharsets.UTF_8));
+                yaml.setDefaults(defaults);
+                yaml.options().copyDefaults(true);
+                yaml.save(file);
+            }
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Neue Crate-Defaults konnten nicht vollständig gemerged werden: " + ex.getMessage());
+        }
+        load(yaml, plugin);
     }
 
     private void load(YamlConfiguration yaml, JavaPlugin plugin) {
@@ -138,17 +150,15 @@ public final class CrateRegistry {
                             material = Material.matchMaterial(section.getString("material", "STONE"));
                             if (material == null) throw new IllegalArgumentException("Unbekanntes Material");
                         } else if (type == RewardType.VOUCHER) {
-                            voucherType = VoucherItemCodec.VoucherType.valueOf(
-                                    section.getString("voucher-type", "PREFIX").toUpperCase(Locale.ROOT));
+                            voucherType = VoucherItemCodec.VoucherType.valueOf(section.getString("voucher-type", "PREFIX").toUpperCase(Locale.ROOT));
                             voucherTarget = section.getString("target", "").trim().toLowerCase(Locale.ROOT);
                             if (voucherTarget.isEmpty()) throw new IllegalArgumentException("Voucher target fehlt");
                             voucherDisplay = section.getString("display-target", voucherTarget);
                         }
-
                         rewards.add(new RewardDefinition(rewardId, type, amount, weight, evValue, material, data,
                                 voucherType, voucherTarget, voucherDisplay));
                     } catch (RuntimeException ex) {
-                        plugin.getLogger().warning("Ungueltiger Reward " + crateId + "." + rewardId + ": " + ex.getMessage());
+                        plugin.getLogger().warning("Ungültiger Reward " + crateId + "." + rewardId + ": " + ex.getMessage());
                     }
                 }
             }
@@ -159,15 +169,7 @@ public final class CrateRegistry {
         plugin.getLogger().info("Crates registriert: " + crates.size());
     }
 
-    public CrateDefinition get(String id) {
-        return id == null ? null : crates.get(id.toLowerCase(Locale.ROOT));
-    }
-
-    public Collection<CrateDefinition> getAll() {
-        return Collections.unmodifiableCollection(crates.values());
-    }
-
-    public RewardDefinition draw(CrateDefinition crate) {
-        return crate == null ? null : crate.draw(random);
-    }
+    public CrateDefinition get(String id) { return id == null ? null : crates.get(id.toLowerCase(Locale.ROOT)); }
+    public Collection<CrateDefinition> getAll() { return Collections.unmodifiableCollection(crates.values()); }
+    public RewardDefinition draw(CrateDefinition crate) { return crate == null ? null : crate.draw(random); }
 }
