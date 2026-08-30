@@ -1,0 +1,16 @@
+# Rechte, die per /rechte und spaeter per Gutschein vergeben werden duerfen.
+# Niemals beliebige Permission-Nodes direkt aus Nutzereingaben uebernehmen.
+permissions:
+  fly:
+    node: skykings.perk.fly
+    display-name: '&bFly'
+  stack:
+    node: skykings.perk.stack
+    display-name: '&eStack'
+  bloecke:
+    aliases: [blöcke, blocks]
+    node: skykings.perk.blocks
+    display-name: '&aBlöcke'
+  repair:
+    node: skykings.perk.repair
+    display-name: '&6Repair'
