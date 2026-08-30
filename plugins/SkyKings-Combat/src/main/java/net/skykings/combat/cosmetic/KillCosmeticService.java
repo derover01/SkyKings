@@ -2,17 +2,21 @@ package net.skykings.combat.cosmetic;
 
 import org.bukkit.Effect;
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /** Persistente Auswahl rein kosmetischer Kill-Effects. */
@@ -40,10 +44,16 @@ public final class KillCosmeticService {
     private final JavaPlugin plugin;
     private final File file;
     private final Map<UUID, KillEffect> selected = new ConcurrentHashMap<UUID, KillEffect>();
+    private final ExecutorService writer;
 
     public KillCosmeticService(JavaPlugin plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "kill-effects.yml");
+        this.writer = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "SkyKings-KillEffects");
+            thread.setDaemon(true);
+            return thread;
+        });
         load();
     }
 
@@ -60,7 +70,7 @@ public final class KillCosmeticService {
         if (!canUse(player, effect)) return false;
         if (effect == KillEffect.NONE) selected.remove(player.getUniqueId());
         else selected.put(player.getUniqueId(), effect);
-        save();
+        saveAsync();
         return true;
     }
 
@@ -85,6 +95,19 @@ public final class KillCosmeticService {
         }
     }
 
+    public void shutdown() {
+        Map<UUID, KillEffect> snapshot = new HashMap<UUID, KillEffect>(selected);
+        writer.submit(() -> save(snapshot));
+        writer.shutdown();
+        try {
+            if (!writer.awaitTermination(3, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("Kill-Effect-Writer wurde nicht rechtzeitig beendet.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private void load() {
         if (!file.exists()) return;
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
@@ -100,9 +123,14 @@ public final class KillCosmeticService {
         }
     }
 
-    private void save() {
+    private void saveAsync() {
+        final Map<UUID, KillEffect> snapshot = new HashMap<UUID, KillEffect>(selected);
+        writer.submit(() -> save(snapshot));
+    }
+
+    private void save(Map<UUID, KillEffect> snapshot) {
         YamlConfiguration yaml = new YamlConfiguration();
-        for (Map.Entry<UUID, KillEffect> entry : selected.entrySet()) {
+        for (Map.Entry<UUID, KillEffect> entry : snapshot.entrySet()) {
             yaml.set("players." + entry.getKey().toString(), entry.getValue().name());
         }
         try {
