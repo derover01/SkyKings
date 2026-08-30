@@ -10,8 +10,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-/** Repariert das gehaltene Item fuer Exile+. */
+/** Repariert das gehaltene Item fuer Exile+ oder Spieler mit Repair-Gutscheinrecht. */
 public final class RepairCommand implements CommandExecutor {
+
+    public static final String PERMISSION = "skykings.perk.repair";
 
     private final RankService rankService;
 
@@ -26,8 +28,9 @@ public final class RepairCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.EXILE)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Exile fuer /repair.");
+        if (!player.isOp() && !player.hasPermission(PERMISSION)
+                && !rankService.hasAtLeast(player.getUniqueId(), Rank.EXILE)) {
+            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Exile oder das Repair-Recht.");
             return true;
         }
         ItemStack item = player.getItemInHand();
