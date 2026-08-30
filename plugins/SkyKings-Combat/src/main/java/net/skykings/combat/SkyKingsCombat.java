@@ -51,6 +51,7 @@ import java.util.logging.Level;
 public final class SkyKingsCombat extends JavaPlugin {
 
     private PvpStatsService pvpStatsService;
+    private KillCosmeticService killCosmeticService;
 
     @Override
     public void onEnable() {
@@ -74,7 +75,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         LootProtectionService lootProtectionService = new LootProtectionServiceImpl(this, config.getLootProtectionMillis());
         NetherstarRewardDelivery rewardDelivery = new PhysicalNetherstarRewardDelivery();
         BountyService bountyService = new BountyService(coreApi.getEconomyService(), rewardDelivery);
-        KillCosmeticService killCosmeticService = new KillCosmeticService(this);
+        this.killCosmeticService = new KillCosmeticService(this);
         KillMessageService killMessageService = new KillMessageService();
 
         this.pvpStatsService = new PvpStatsService(this);
@@ -121,6 +122,7 @@ public final class SkyKingsCombat extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (killCosmeticService != null) killCosmeticService.shutdown();
         if (pvpStatsService != null) pvpStatsService.shutdown();
         getServer().getServicesManager().unregisterAll(this);
         getLogger().info("SkyKings-Combat deaktiviert.");
