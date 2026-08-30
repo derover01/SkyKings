@@ -23,6 +23,7 @@ import net.skykings.core.display.PlayerDisplayListener;
 import net.skykings.core.display.PlayerDisplayService;
 import net.skykings.core.display.PlayerJoinMessageListener;
 import net.skykings.core.display.RankDisplayConfig;
+import net.skykings.core.display.SkyKingsScoreboardService;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.economy.EconomyServiceImpl;
 import net.skykings.core.freesign.FreeSignListener;
@@ -139,6 +140,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
+        SkyKingsScoreboardService scoreboardService = new SkyKingsScoreboardService(playerProfileService, rankDisplayConfig);
         RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService, rankProgressionConfig, economyService);
         KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
         BuildBlocksGui buildBlocksGui = new BuildBlocksGui(guiManager);
@@ -160,6 +162,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
             paidRankHolograms.refresh(player);
+            scoreboardService.refresh(player);
         }), 40L, 40L);
 
         if (!registerCommand("commands", new CommandsCommand(commandsGui))) return;
@@ -187,7 +190,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
