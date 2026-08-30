@@ -24,7 +24,7 @@ public final class FlyCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
+        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Knight fuer /fly.");
             return true;
         }
