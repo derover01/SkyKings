@@ -62,56 +62,74 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             return;
         }
 
-        ensureGroup(targetGroup, false).thenCompose(ignored -> loadOrGetUser(uuid))
-                .thenCompose(user -> applyRankGroup(user, targetGroup)
-                        ? luckPerms.getUserManager().saveUser(user)
-                        : CompletableFuture.completedFuture(null))
-                .exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
-                            + targetGroup + "' synchronisieren", ex);
-                    return null;
-                });
+        ensureGroup(targetGroup, false).thenCompose(ignored -> {
+            UserManager userManager = luckPerms.getUserManager();
+            return userManager.loadUser(uuid, null).thenCompose(user ->
+                    applyRankGroup(user, targetGroup)
+                            ? userManager.saveUser(user)
+                            : CompletableFuture.completedFuture(null));
+        }).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
+                    + targetGroup + "' synchronisieren", ex);
+            return null;
+        });
     }
 
     @Override
     public void grantOwner(UUID uuid) {
-        ensureGroup(OWNER_GROUP, true)
-                .thenCompose(ignored -> loadOrGetUser(uuid))
-                .thenCompose(user -> {
-                    boolean changed = false;
-                    NodeMap data = user.data();
+        // Die Gruppe wird unabhaengig davon sichergestellt. Das blockiert den Bukkit-Main-Thread nicht.
+        ensureGroup(OWNER_GROUP, true).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte Owner-Gruppe nicht sicherstellen", ex);
+            return null;
+        });
 
-                    InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
-                    if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
-                        changed = true;
-                    }
+        UserManager userManager = luckPerms.getUserManager();
+        User loaded = userManager.getUser(uuid);
+        if (loaded != null) {
+            saveOwnerChanges(userManager, loaded, uuid);
+            return;
+        }
 
-                    PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
-                    if (data.add(wildcard) == DataMutateResult.SUCCESS) {
-                        changed = true;
-                    }
-
-                    if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
-                            && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
-                        changed = true;
-                    }
-
-                    return changed ? luckPerms.getUserManager().saveUser(user)
-                            : CompletableFuture.completedFuture(null);
-                })
+        userManager.loadUser(uuid, null)
+                .thenAccept(user -> saveOwnerChanges(userManager, user, uuid))
                 .exceptionally(ex -> {
                     logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht setzen", ex);
                     return null;
                 });
     }
 
-    private CompletableFuture<User> loadOrGetUser(UUID uuid) {
-        UserManager userManager = luckPerms.getUserManager();
-        User loaded = userManager.getUser(uuid);
-        if (loaded != null) {
-            return CompletableFuture.completedFuture(loaded);
+    private void saveOwnerChanges(UserManager userManager, User user, UUID uuid) {
+        try {
+            if (applyOwner(user)) {
+                userManager.saveUser(user).exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte Owner-User " + uuid + " nicht speichern", ex);
+                    return null;
+                });
+            }
+        } catch (RuntimeException ex) {
+            logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht anwenden", ex);
         }
-        return userManager.loadUser(uuid, null);
+    }
+
+    private boolean applyOwner(User user) {
+        boolean changed = false;
+        NodeMap data = user.data();
+
+        InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
+        if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
+            changed = true;
+        }
+
+        PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
+        if (data.add(wildcard) == DataMutateResult.SUCCESS) {
+            changed = true;
+        }
+
+        if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
+                && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
+            changed = true;
+        }
+        return changed;
     }
 
     /** Erstellt alle SkyKings-Ranggruppen plus Owner asynchron, falls sie noch fehlen. */
