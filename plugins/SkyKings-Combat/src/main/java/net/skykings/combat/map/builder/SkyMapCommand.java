@@ -1,5 +1,6 @@
 package net.skykings.combat.map.builder;
 
+import net.skykings.combat.map.builder.v3.SkyKingsMapBuilderV3;
 import net.skykings.combat.spawn.SpawnService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -11,7 +12,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** Erstellt die prozedurale SkyKings-Arena in einer neuen Void-Welt. */
+/** Erstellt die aktuelle hand-authored SkyKings Arena V3 in einer neuen Void-Welt. */
 public final class SkyMapCommand implements CommandExecutor {
 
     private final JavaPlugin plugin;
@@ -35,18 +36,19 @@ public final class SkyMapCommand implements CommandExecutor {
         }
         if (args.length == 0 || !args[0].equalsIgnoreCase("generate")) {
             player.sendMessage(ChatColor.YELLOW + "/skymap generate [Weltname]");
-            player.sendMessage(ChatColor.GRAY + "Standard: SkyKingsArenaV2");
+            player.sendMessage(ChatColor.GRAY + "Standard: SkyKingsArenaV3");
             return true;
         }
 
-        String worldName = args.length >= 2 ? sanitize(args[1]) : "SkyKingsArenaV2";
-        if (worldName.length() < 1) worldName = "SkyKingsArenaV2";
+        String worldName = args.length >= 2 ? sanitize(args[1]) : "SkyKingsArenaV3";
+        if (worldName.length() < 1) worldName = "SkyKingsArenaV3";
         if (Bukkit.getWorld(worldName) != null || new java.io.File(Bukkit.getWorldContainer(), worldName).exists()) {
             player.sendMessage(ChatColor.RED + "Die Welt '" + worldName + "' existiert bereits. Aus Sicherheitsgruenden wird sie nicht ueberschrieben.");
             return true;
         }
 
-        player.sendMessage(ChatColor.GOLD + "Erstelle SkyKings Map V2 in Void-Welt " + ChatColor.WHITE + worldName + ChatColor.GRAY + " ...");
+        player.sendMessage(ChatColor.GOLD + "Erstelle SkyKings Arena V3 in Void-Welt "
+                + ChatColor.WHITE + worldName + ChatColor.GRAY + " ...");
         WorldCreator creator = new WorldCreator(worldName);
         creator.environment(World.Environment.NORMAL);
         creator.generator(new VoidChunkGenerator());
@@ -58,7 +60,7 @@ public final class SkyMapCommand implements CommandExecutor {
         }
 
         world.setKeepSpawnInMemory(true);
-        new SkyKingsMapBuilderV2Shops(plugin, world, spawnService, player).start();
+        new SkyKingsMapBuilderV3(plugin, world, spawnService, player).start();
         return true;
     }
 
