@@ -12,9 +12,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
 
 /** /craterewards GUI mit eigenem Cooldown pro Paid-Rang-Tier. */
@@ -74,34 +72,32 @@ public final class CrateRewardsGui {
             player.sendMessage(ChatColor.RED + "Der konfigurierte Crate-Typ ist aktuell nicht verfügbar.");
             return;
         }
-        List<ItemStack> items = new ArrayList<ItemStack>();
-        for (int i = 0; i < tier.amount; i++) items.add(codec.create(crate));
-        if (!hasSpaceForAll(player, items)) {
-            player.sendMessage(ChatColor.RED + "Du brauchst mehr freien Inventarplatz.");
+        ItemStack stack = codec.create(crate, tier.amount);
+        if (!hasSpace(player, stack)) {
+            player.sendMessage(ChatColor.RED + "Du brauchst einen freien Inventarplatz.");
             return;
         }
-        for (ItemStack item : items) player.getInventory().addItem(item);
+        player.getInventory().addItem(stack);
         core.getCooldownService().set(player.getUniqueId(), key, tier.hours * 60L * 60L * 1000L);
         player.sendMessage(ChatColor.GREEN + "Crate-Reward für " + display(tier.rank) + ChatColor.GREEN
                 + " abgeholt: " + tier.amount + "x " + ChatColor.translateAlternateColorCodes('&', crate.getDisplayName()));
         open(player);
     }
 
-    private boolean hasSpaceForAll(Player player, List<ItemStack> items) {
+    private boolean hasSpace(Player player, ItemStack item) {
         Inventory temp = Bukkit.createInventory(null, 36);
         for (int i = 0; i < 36; i++) {
             ItemStack current = player.getInventory().getItem(i);
             if (current != null) temp.setItem(i, current.clone());
         }
-        for (ItemStack item : items) if (!temp.addItem(item.clone()).isEmpty()) return false;
-        return true;
+        return temp.addItem(item.clone()).isEmpty();
     }
 
     private ItemStack icon(Player player, Tier tier) {
         ItemStack item = new ItemStack(tier.material);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(ChatColor.GOLD + display(tier.rank) + ChatColor.YELLOW + " Reward");
-        List<String> lore = new ArrayList<String>();
+        java.util.List<String> lore = new java.util.ArrayList<String>();
         lore.add(ChatColor.GRAY + "Reward: " + ChatColor.WHITE + tier.amount + "x " + tier.crateId + " Crate");
         lore.add(ChatColor.GRAY + "Cooldown: " + ChatColor.WHITE + tier.hours + " Stunden");
         boolean access = canAccess(player, tier);
