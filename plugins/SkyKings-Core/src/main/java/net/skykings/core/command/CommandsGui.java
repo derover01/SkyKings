@@ -25,8 +25,11 @@ public final class CommandsGui {
         gui.setItem(12, icon(Material.DIAMOND_CHESTPLATE, ChatColor.GOLD + "Ränge & Kits", "Rangaufstieg, Kits und Übersicht"), (p,e,s) -> openRanks(p));
         gui.setItem(14, icon(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE + "Crates", "Crates, Rewards und Öffnen"), (p,e,s) -> openCrates(p));
         gui.setItem(16, icon(Material.FEATHER, ChatColor.GREEN + "Perks", "Rang- und Gutschein-Perks"), (p,e,s) -> openPerks(p));
+        if (player.hasPermission("skykings.staff.announcement") || player.hasPermission("skykings.staff.clearchat")) {
+            gui.setItem(20, icon(Material.BOOK_AND_QUILL, ChatColor.BLUE + "Team", "Team- und Moderationsbefehle"), (p,e,s) -> openTeam(p));
+        }
         if (player.hasPermission("skykings.admin.commands")) {
-            gui.setItem(22, icon(Material.REDSTONE_TORCH_ON, ChatColor.RED + "Administration",
+            gui.setItem(24, icon(Material.REDSTONE_TORCH_ON, ChatColor.RED + "Administration",
                     "Nur für Admin-Berechtigte"), (p,e,s) -> openAdmin(p));
         }
         guiManager.open(gui);
@@ -69,6 +72,21 @@ public final class CommandsGui {
         action(gui, 13, Material.BRICK, "/blöcke", "Öffnet den großen kostenlosen Baublock-Katalog.", "bloecke");
         action(gui, 15, Material.ANVIL, "/repair", "Repariert das Item in deiner Hand.", "repair");
         action(gui, 17, Material.ENDER_CHEST, "/ec", "Öffnet die eigene Enderchest ab Gold.", "ec");
+        back(gui);
+        guiManager.open(gui);
+    }
+
+    private void openTeam(Player player) {
+        GuiSession gui = page(player, "Team Commands");
+        if (player.hasPermission("skykings.staff.announcement")) {
+            gui.setItem(11, infoCommand(Material.PAPER, "/announcement <Nachricht>", "Sendet eine auffällige Server-Ankündigung."));
+        }
+        if (player.hasPermission("skykings.staff.clearchat")) {
+            action(gui, 13, Material.EMPTY_MAP, "/clearchat / /cc", "Leert den Chat für alle Spieler.", "clearchat");
+        }
+        if (player.hasPermission("skykings.staff.gamemode")) {
+            gui.setItem(15, infoCommand(Material.GRASS, "/gm <0|1|2|3> [Spieler]", "Ändert den Gamemode."));
+        }
         back(gui);
         guiManager.open(gui);
     }
