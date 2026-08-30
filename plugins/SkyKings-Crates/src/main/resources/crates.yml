@@ -35,7 +35,7 @@ crates:
       coins:
         type: COINS
         amount: 100000
-        weight: 45
+        weight: 44
         ev-value: 100000
       netherstars:
         type: NETHERSTARS
@@ -46,8 +46,15 @@ crates:
         type: ITEM
         material: ENDER_PEARL
         amount: 16
-        weight: 25
+        weight: 24
         ev-value: 80000
+      fighter-prefix:
+        type: VOUCHER
+        voucher-type: PREFIX
+        target: fighter
+        display-target: 'Fighter Prefix'
+        weight: 2
+        ev-value: 300000
 
   rare:
     display-name: '&9&lRare Crate'
@@ -56,17 +63,231 @@ crates:
       coins:
         type: COINS
         amount: 250000
-        weight: 45
+        weight: 42
         ev-value: 250000
       netherstars:
         type: NETHERSTARS
         amount: 12
-        weight: 30
+        weight: 28
         ev-value: 180000
       op-gaps:
         type: ITEM
         material: GOLDEN_APPLE
         data: 1
         amount: 12
-        weight: 25
+        weight: 24
         ev-value: 360000
+      fly-right:
+        type: VOUCHER
+        voucher-type: PERMISSION
+        target: fly
+        display-target: '/fly Recht'
+        weight: 4
+        ev-value: 600000
+      gold-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: gold
+        display-target: 'Gold Rang'
+        weight: 2
+        ev-value: 750000
+
+  epic:
+    display-name: '&5&lEpic Crate'
+    head-owner: 'MHF_Chest'
+    rewards:
+      coins:
+        type: COINS
+        amount: 500000
+        weight: 36
+        ev-value: 500000
+      netherstars:
+        type: NETHERSTARS
+        amount: 25
+        weight: 26
+        ev-value: 375000
+      op-gaps:
+        type: ITEM
+        material: GOLDEN_APPLE
+        data: 1
+        amount: 24
+        weight: 22
+        ev-value: 720000
+      epic-kit:
+        type: VOUCHER
+        voucher-type: KIT
+        target: epic
+        display-target: 'Epic Kit'
+        weight: 8
+        ev-value: 850000
+      hunter-prefix:
+        type: VOUCHER
+        voucher-type: PREFIX
+        target: hunter
+        display-target: 'Hunter Prefix'
+        weight: 5
+        ev-value: 650000
+      diamond-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: diamond
+        display-target: 'Diamond Rang'
+        weight: 3
+        ev-value: 7500000
+
+  legendary:
+    display-name: '&6&lLegendary Crate'
+    head-owner: 'MHF_Chest'
+    rewards:
+      coins:
+        type: COINS
+        amount: 1000000
+        weight: 35
+        ev-value: 1000000
+      netherstars:
+        type: NETHERSTARS
+        amount: 50
+        weight: 25
+        ev-value: 750000
+      op-gaps:
+        type: ITEM
+        material: GOLDEN_APPLE
+        data: 1
+        amount: 40
+        weight: 20
+        ev-value: 1200000
+      phoenix-kit:
+        type: VOUCHER
+        voucher-type: KIT
+        target: phoenix
+        display-target: 'Phoenix Kit'
+        weight: 8
+        ev-value: 1400000
+      stack-right:
+        type: VOUCHER
+        voucher-type: PERMISSION
+        target: stack
+        display-target: '/stack Recht'
+        weight: 6
+        ev-value: 900000
+      legend-prefix:
+        type: VOUCHER
+        voucher-type: PREFIX
+        target: legend
+        display-target: 'Legend Prefix'
+        weight: 5
+        ev-value: 1200000
+      knight-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: knight
+        display-target: 'Knight Rang'
+        weight: 1
+        ev-value: 12000000
+
+  royal:
+    display-name: '&d&lRoyal Crate'
+    head-owner: 'MHF_Chest'
+    rewards:
+      coins:
+        type: COINS
+        amount: 2000000
+        weight: 34
+        ev-value: 2000000
+      netherstars:
+        type: NETHERSTARS
+        amount: 100
+        weight: 25
+        ev-value: 1500000
+      op-gaps:
+        type: ITEM
+        material: GOLDEN_APPLE
+        data: 1
+        amount: 64
+        weight: 20
+        ev-value: 1920000
+      eternal-kit:
+        type: VOUCHER
+        voucher-type: KIT
+        target: eternal
+        display-target: 'Eternal Kit'
+        weight: 8
+        ev-value: 2200000
+      repair-right:
+        type: VOUCHER
+        voucher-type: PERMISSION
+        target: repair
+        display-target: '/repair Recht'
+        weight: 6
+        ev-value: 1800000
+      royal-prefix:
+        type: VOUCHER
+        voucher-type: PREFIX
+        target: royal
+        display-target: 'Royal Prefix'
+        weight: 5
+        ev-value: 2000000
+      phoenix-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: phoenix
+        display-target: 'Phoenix Rang'
+        weight: 2
+        ev-value: 20000000
+
+  king:
+    display-name: '&e&lKing Crate'
+    head-owner: 'MHF_Chest'
+    rewards:
+      coins:
+        type: COINS
+        amount: 5000000
+        weight: 35
+        ev-value: 5000000
+      netherstars:
+        type: NETHERSTARS
+        amount: 250
+        weight: 25
+        ev-value: 3750000
+      op-gaps:
+        type: ITEM
+        material: GOLDEN_APPLE
+        data: 1
+        amount: 64
+        weight: 18
+        ev-value: 1920000
+      king-kit:
+        type: VOUCHER
+        voucher-type: KIT
+        target: king
+        display-target: 'King Kit'
+        weight: 8
+        ev-value: 5000000
+      bloecke-right:
+        type: VOUCHER
+        voucher-type: PERMISSION
+        target: bloecke
+        display-target: '/bloecke Recht'
+        weight: 6
+        ev-value: 2500000
+      kingkiller-prefix:
+        type: VOUCHER
+        voucher-type: PREFIX
+        target: kingkiller
+        display-target: 'KingKiller Prefix'
+        weight: 5
+        ev-value: 3500000
+      eternal-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: eternal
+        display-target: 'Eternal Rang'
+        weight: 2
+        ev-value: 30000000
+      king-rank:
+        type: VOUCHER
+        voucher-type: RANK
+        target: king
+        display-target: 'King Rang'
+        weight: 1
+        ev-value: 100000000
