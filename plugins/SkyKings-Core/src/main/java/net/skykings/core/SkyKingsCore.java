@@ -24,6 +24,7 @@ import net.skykings.core.integration.luckperms.LuckPermsPermissionBridge;
 import net.skykings.core.integration.vault.VaultEconomyBridge;
 import net.skykings.core.kit.KitGrantService;
 import net.skykings.core.kit.KitGrantServiceImpl;
+import net.skykings.core.kit.KitGui;
 import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.kit.KitRegistryImpl;
 import net.skykings.core.kit.RankKitLoader;
@@ -117,6 +118,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
         RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService,
                 rankProgressionConfig, economyService);
+        KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
 
         this.economyBridge = createEconomyBridge();
 
@@ -136,7 +138,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        KitCommand kitExecutor = new KitCommand(kitGrantService, cooldownService);
+        KitCommand kitExecutor = new KitCommand(kitGrantService, kitGui);
         kitCommand.setExecutor(kitExecutor);
         kitCommand.setTabCompleter(kitExecutor);
 
@@ -159,7 +161,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display + Free-Rankup + Raenge-GUI) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Kit-GUI + Rank-Display + Free-Rankup + Raenge-GUI) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
