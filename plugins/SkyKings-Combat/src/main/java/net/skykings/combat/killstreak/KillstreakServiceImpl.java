@@ -14,12 +14,6 @@ public final class KillstreakServiceImpl implements KillstreakService {
     private final Map<UUID, AtomicInteger> streaks = new ConcurrentHashMap<>();
     private final List<KillstreakTier> tiers;
 
-    /**
-     * @param baseNetherstarsPerKill Reward fuer Streak 0-4 (config-Key {@code base-netherstars-per-kill}).
-     * @param additionalTiers        weitere Stufen ab Streak &gt; 0 (config-Key {@code killstreak.tiers}),
-     *                               muessen keinen threshold=0-Eintrag enthalten - der wird aus
-     *                               {@code baseNetherstarsPerKill} synthetisiert.
-     */
     public KillstreakServiceImpl(long baseNetherstarsPerKill, List<KillstreakTier> additionalTiers) {
         List<KillstreakTier> all = new ArrayList<>();
         all.add(new KillstreakTier(0, baseNetherstarsPerKill, 0));
@@ -40,6 +34,15 @@ public final class KillstreakServiceImpl implements KillstreakService {
     }
 
     @Override
+    public void restore(UUID uuid, int streak) {
+        if (uuid == null || streak <= 0) {
+            if (uuid != null) streaks.remove(uuid);
+            return;
+        }
+        streaks.put(uuid, new AtomicInteger(streak));
+    }
+
+    @Override
     public KillstreakResult recordKill(UUID killerUuid) {
         int newStreak = streaks.computeIfAbsent(killerUuid, u -> new AtomicInteger()).incrementAndGet();
         KillstreakTier applicable = applicableTier(newStreak);
@@ -50,11 +53,8 @@ public final class KillstreakServiceImpl implements KillstreakService {
     private KillstreakTier applicableTier(int streak) {
         KillstreakTier applicable = tiers.get(0);
         for (KillstreakTier tier : tiers) {
-            if (tier.getThreshold() <= streak) {
-                applicable = tier;
-            } else {
-                break;
-            }
+            if (tier.getThreshold() <= streak) applicable = tier;
+            else break;
         }
         return applicable;
     }
