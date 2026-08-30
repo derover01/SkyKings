@@ -42,6 +42,7 @@ import net.skykings.core.logging.PersistentAuditSink;
 import net.skykings.core.logging.PluginLoggerAuditSink;
 import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.netherstar.NetherstarServiceImpl;
+import net.skykings.core.permission.VoucherPermissionService;
 import net.skykings.core.perk.BuildBlocksGui;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
@@ -84,6 +85,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private KitRegistry kitRegistry;
     private KitGrantService kitGrantService;
     private GuiManager guiManager;
+    private VoucherPermissionService voucherPermissionService;
 
     @Override
     public void onEnable() {
@@ -121,6 +123,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         new RankKitLoader(this, kitRegistry).loadAndRegister();
         this.kitGrantService = new KitGrantServiceImpl(kitRegistry, playerProfileService, cooldownService);
         this.guiManager = new GuiManager();
+        this.voucherPermissionService = new VoucherPermissionService(this, permissionBridge, loggingService);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -140,7 +143,6 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
-        // Haelt Tab-Prefixe und optionale Paid-Rank-Hologramme auch nach Rank-Aenderungen aktuell.
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
             paidRankHolograms.refresh(player);
@@ -168,24 +170,20 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Kits + Rankup + GUIs + Paid-Perks + Hologram-Bridge + Join-Display) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
         PluginCommand command = requireCommand(name);
-        if (command == null) {
-            return false;
-        }
+        if (command == null) return false;
         command.setExecutor(executor);
         return true;
     }
 
     private PluginCommand requireCommand(String name) {
         PluginCommand command = getCommand(name);
-        if (command != null) {
-            return command;
-        }
+        if (command != null) return command;
         getLogger().severe("/" + name + " fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
         getServer().getPluginManager().disablePlugin(this);
         return null;
@@ -193,9 +191,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     @Override
     public void onDisable() {
-        if (playerProfileService != null) {
-            playerProfileService.saveAll();
-        }
+        if (playerProfileService != null) playerProfileService.saveAll();
         if (dbExecutor != null) {
             dbExecutor.shutdown();
             try {
@@ -206,9 +202,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
                 Thread.currentThread().interrupt();
             }
         }
-        if (dataStore != null) {
-            dataStore.close();
-        }
+        if (dataStore != null) dataStore.close();
         getServer().getServicesManager().unregisterAll(this);
         getLogger().info("SkyKings-Core deaktiviert.");
     }
@@ -219,61 +213,44 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
             File file = new File(getDataFolder(), configService.getSqliteFileName());
             return new SQLiteDataStore(file, getLogger());
         }
-        throw new DataStoreException("MySQL/MariaDB-Storage ist architektonisch vorbereitet (siehe DataStore-"
-                + "Interface), aber noch nicht implementiert. Bitte storage.type: SQLITE verwenden.");
+        throw new DataStoreException("MySQL/MariaDB-Storage ist architektonisch vorbereitet, aber noch nicht implementiert. Bitte storage.type: SQLITE verwenden.");
     }
 
     private PermissionBridge createPermissionBridge() {
-        if (getServer().getPluginManager().getPlugin("LuckPerms") == null) {
-            return new NoOpPermissionBridge();
-        }
+        if (getServer().getPluginManager().getPlugin("LuckPerms") == null) return new NoOpPermissionBridge();
         try {
             return LuckPermsPermissionBridge.createIfAvailable(getLogger());
         } catch (Throwable t) {
-            getLogger().log(Level.WARNING, "LuckPerms erkannt, aber die Bridge konnte nicht initialisiert werden - "
-                    + "SkyKings-Core laeuft ohne Rang-Synchronisation weiter.", t);
+            getLogger().log(Level.WARNING, "LuckPerms erkannt, aber die Bridge konnte nicht initialisiert werden.", t);
             return new NoOpPermissionBridge();
         }
     }
 
     private EconomyBridge createEconomyBridge() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            return new NoOpEconomyBridge();
-        }
+        if (getServer().getPluginManager().getPlugin("Vault") == null) return new NoOpEconomyBridge();
         try {
             return VaultEconomyBridge.createAndRegister(this, economyService, getLogger());
         } catch (Throwable t) {
-            getLogger().log(Level.WARNING, "Vault/VaultUnlocked erkannt, aber die Economy-Bridge konnte nicht "
-                    + "registriert werden - SkyKings-Coins sind ueber Vault nicht nutzbar.", t);
+            getLogger().log(Level.WARNING, "Vault/VaultUnlocked erkannt, aber die Economy-Bridge konnte nicht registriert werden.", t);
             return new NoOpEconomyBridge();
         }
     }
 
     private void logIntegrationStatus() {
-        boolean luckPerms = getServer().getPluginManager().getPlugin("LuckPerms") != null;
-        boolean vault = getServer().getPluginManager().getPlugin("Vault") != null;
-        getLogger().info("LuckPerms verfuegbar: " + luckPerms);
+        getLogger().info("LuckPerms verfuegbar: " + (getServer().getPluginManager().getPlugin("LuckPerms") != null));
         getLogger().info("PermissionBridge aktiv: " + permissionBridge.isAvailable());
-        getLogger().info("Vault/VaultUnlocked verfuegbar: " + vault);
+        getLogger().info("Vault/VaultUnlocked verfuegbar: " + (getServer().getPluginManager().getPlugin("Vault") != null));
         getLogger().info("SkyKings Economy Provider registriert: " + economyBridge.isRegistered());
     }
 
-    @Override
-    public PlayerProfileService getPlayerProfileService() { return playerProfileService; }
-    @Override
-    public RankService getRankService() { return rankService; }
-    @Override
-    public EconomyService getEconomyService() { return economyService; }
-    @Override
-    public NetherstarService getNetherstarService() { return netherstarService; }
-    @Override
-    public CooldownService getCooldownService() { return cooldownService; }
-    @Override
-    public LoggingService getLoggingService() { return loggingService; }
-    @Override
-    public KitRegistry getKitRegistry() { return kitRegistry; }
-    @Override
-    public KitGrantService getKitGrantService() { return kitGrantService; }
-    @Override
-    public GuiManager getGuiManager() { return guiManager; }
+    @Override public PlayerProfileService getPlayerProfileService() { return playerProfileService; }
+    @Override public RankService getRankService() { return rankService; }
+    @Override public EconomyService getEconomyService() { return economyService; }
+    @Override public NetherstarService getNetherstarService() { return netherstarService; }
+    @Override public CooldownService getCooldownService() { return cooldownService; }
+    @Override public LoggingService getLoggingService() { return loggingService; }
+    @Override public KitRegistry getKitRegistry() { return kitRegistry; }
+    @Override public KitGrantService getKitGrantService() { return kitGrantService; }
+    @Override public GuiManager getGuiManager() { return guiManager; }
+    @Override public VoucherPermissionService getVoucherPermissionService() { return voucherPermissionService; }
 }
