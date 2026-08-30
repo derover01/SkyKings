@@ -48,32 +48,45 @@ Definition of Done:
 - Fly-Deaktivierung beim Betreten PvP
 - Pearl Cooldown
 - Kill-/Death-Verarbeitung
-- Nethersterne
-- Killstreaks
+- physische Nethersterne als PvP-Währung
+- persistente PvP-Stats
+- Killstreaks / Beststreak
 - Anti-Killfarm
 - Loot Protection
 - Newbie Protection
+- Bounty-System mit Coins und Nethersternen
+- Streak-Boni und Streak-Broadcasts
+- besondere Kill-/Streak-Death-Messages
+- Kill Sounds / Kill Effects als Cosmetics
+- /top Leaderboards
 
 ## Phase 3 — Kits & Rank Progression
 
 - /kit GUI
 - alle Rang-Kits
 - rangabhängige Cooldowns
-- höhere Ränge können niedrigere Kits verwenden
+- höhere Gameplay-Ränge können niedrigere Kits verwenden
+- Teamränge geben keine Gameplay-Kit-Rechte
+- Kit-Gutscheine ohne Cooldown
 - Free-Rank-Kauf mit Coins
 - /ränge GUI
 - Paid-Rank-Hologramm-Anbindung
 - /fly, /stack, /blöcke, /repair gemäß Berechtigungen
+- /ec ab Gold
+- /trash und /müll als temporäres 6x9-Müllinventar
 
 ## Phase 4 — Crates & Gutscheine
 
 - Head-Crates als echte Items
 - Preview/Open GUI
+- Animation oder Sofortöffnung auswählbar
+- stackbare Crates bis 64
 - Reward Tables
 - Expected-Value-Konfiguration
 - /craterewards
-- Open-All ab Exile
+- Open-All ab Exile/Recht
 - Rank-/Kit-/Permission-/Prefix-Voucher
+- Feature-Rechte als Gutscheine
 - Unique IDs
 - Anti-Dupe
 - /gutscheine Admin-GUI
@@ -82,23 +95,43 @@ Definition of Done:
 ## Phase 5 — Economy & Shops
 
 - globales Economy-Balancing
+- Coins als normale Server-/Economy-Währung
+- physische Nethersterne als PvP-Shop-Währung
 - Systemshop
+- Netherstern-Villager-Shops für PvP-/Restock-Items
 - Villager-PlayerShops
 - Shop-Mietflächen
 - Gebühren / Money Sinks
-- /trade + Logs
+- /trade + sichere GUI + Logs
 - Jackpot
 - Black Market / Traveling Merchant ohne Paid-Ränge
+- Blacksmith-/Repair-Shop
+- Enchant-Shop mit XP/Lapis/Coins/Nethersternen
+- Bottle Recycler
 
 ## Phase 6 — Map Gameplay
 
 - finale SkyPvP Map integrieren
-- Loot Chests
+- Free Signs über die gesamte Map verteilen
+- thematische Inseln mit echtem Gameplay-Zweck
+  - End Island: Enderperlen / End-Loot
+  - Blacksmith Island: Repair / Amboss
+  - Level Island: XP / Lapis / Enchanting
+  - Merchant Island: PvP-/Netherstern-Shops
+  - Gold Island: Golden Apples / OP-Gap-Restock
+  - King Zone: höchstes Risiko / bester Loot
+  - Secret Islands: Parkour/Pearl-only/Secrets
+- respawnende Loot Chests (Common/Rare/Epic/Legendary)
+- Supply Drops auf zufälligen Inseln
 - Hot Zones
 - King Zone
-- Booster-Druckplatten
-- Blacksmith / Restock Stations
+- King Altar / KOTH-artiges Objective
+- Booster-/Jump-Pads
+- Secret Rooms, Fake Walls, Pearl-only Rooms, versteckte Leitern und risky Shortcuts
+- Easter Eggs
 - serverweite Ankündigungen und Hologramme
+- physische Leaderboard-Ecke am Spawn
+- Mülltonnen/Kessel zusätzlich zu /trash
 
 ## Phase 7 — Islands, Plots & Spawner
 
@@ -116,10 +149,60 @@ Definition of Done:
 - Prefixe
 - Death Messages mit Mehrfachauswahl
 - Collection Book
-- Achievements
+- Achievements mit echten PvP-Zielen
+  - First Blood
+  - Unstoppable (10er Streak)
+  - Sky Legend (50er Streak)
+  - Untouchable
+  - King Slayer
+  - The Hunter
+  - Rich Fighter
+  - Clutch
 - Season-System
 - Hall of Fame
-- Battle Pass
+- PvP-Level 1–100, Prestige erst später
+- Island Mastery (Kills/Zeit/Aktivitäten pro Insel)
+
+### Battle Pass
+
+SkyKings erhält einen PvP-/Map-fokussierten Battle Pass mit Free Track und Premium Track.
+Der Premium Track soll kein hartes Pay-to-Win erzeugen und deshalb primär Cosmetics,
+Crates, Komfort-Rechte und kleine Zusatzbelohnungen enthalten.
+
+Grundstruktur:
+- Season-basierter Battle Pass
+- Free Track + Premium Track
+- 50–100 Season-Level
+- Season-XP durch passende SkyPvP-Aufgaben
+- keine generischen Grind-Aufgaben wie „500 Blöcke abbauen“
+- Fortschritt persistent
+- übersichtliches /battlepass GUI
+- Claim-Status pro Level persistent
+- Season-Reset ohne vollständigen Serverreset
+
+Beispiel-Aufgaben:
+- Töte 10 Spieler
+- Erreiche eine 5er Killstreak
+- Sammle 25 Nethersterne
+- Töte einen Spieler mit mindestens 10er Streak
+- Öffne 3 Crates
+- Gewinne ein Duel
+- Erobere den King Altar
+- Töte 3 Spieler auf der End Island
+- Sammle eine Bounty ein
+- Öffne eine Rare Map Chest
+- Nutze 20 Enderperlen
+- Gewinne ein Server-Event
+
+Reward-Mix:
+- Coins
+- Crates
+- Prefixe
+- Kill Effects
+- Cosmetics
+- Komfort-/Feature-Gutscheine
+- Season-exklusive Cosmetics/Titel
+- keine garantierten starken Paid-Rank-Upgrades im Premium Track
 
 ## Phase 9 — Events & Community
 
@@ -130,8 +213,12 @@ Definition of Done:
 - Tournament
 - Juggernaut
 - Clan Wars
+- /duel mit Kit-Auswahl
+- optionale Duel-Wagers mit Coins/Nethersternen
+- kleines Friend-/Peace-System als moderne Variante alter SkyPvP-/friede-Systeme
 - Discord Integration
 - Event-Hologramme
+- Supply-Drop-Events
 
 ## Phase 10 — Release Hardening
 
