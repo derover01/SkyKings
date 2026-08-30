@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -25,6 +26,16 @@ public class SkyKingsCrates extends JavaPlugin {
         this.crateItemCodec = new CrateItemCodec();
         getServer().getPluginManager().registerEvents(
                 new CrateInteractionListener(crateRegistry, crateItemCodec, core), this);
+
+        PluginCommand crateCommand = getCommand("crate");
+        if (crateCommand == null) {
+            getLogger().severe("/crate fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        CrateCommand executor = new CrateCommand(crateRegistry, crateItemCodec);
+        crateCommand.setExecutor(executor);
+        crateCommand.setTabCompleter(executor);
 
         getLogger().info("SkyKings-Crates (Phase 4 Head-Crates + Preview/Open + Reward Tables + EV) aktiviert.");
     }
