@@ -3,7 +3,7 @@ version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
 depend: [SkyKings-Core]
 description: >
-  Admin-Modul fuer Staff-Commands, Gutscheine, Audit, Events und Discord-Logging.
+  Admin-Modul für Staff-Commands, Gutscheine, Audit, Events und Discord-Logging.
 authors: [SkyKings Team]
 commands:
   rang:
@@ -15,7 +15,7 @@ commands:
 permissions:
   skykings.admin.rang:
     description: Darf /rang verwenden.
-    default: op
+    default: false
   skykings.admin.rechte:
     description: Darf /rechte verwenden.
-    default: op
+    default: false
