@@ -1,15 +1,20 @@
 package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.command.BlocksCommand;
+import net.skykings.core.command.FlyCommand;
 import net.skykings.core.command.KitCommand;
 import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
+import net.skykings.core.command.RepairCommand;
+import net.skykings.core.command.StackCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
 import net.skykings.core.cooldown.CooldownService;
 import net.skykings.core.cooldown.CooldownServiceImpl;
 import net.skykings.core.display.OwnerAccessListener;
+import net.skykings.core.display.PaidRankHologramListener;
 import net.skykings.core.display.PlayerDisplayListener;
 import net.skykings.core.display.PlayerDisplayService;
 import net.skykings.core.display.RankDisplayConfig;
@@ -36,6 +41,7 @@ import net.skykings.core.logging.PersistentAuditSink;
 import net.skykings.core.logging.PluginLoggerAuditSink;
 import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.netherstar.NetherstarServiceImpl;
+import net.skykings.core.perk.BuildBlocksGui;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
 import net.skykings.core.rank.RankProgressionConfig;
@@ -46,6 +52,7 @@ import net.skykings.core.rank.RanksGui;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -58,7 +65,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit- und Display-Services. */
+/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit-, Perk- und Display-Services. */
 public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private DataStore dataStore;
@@ -119,6 +126,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService,
                 rankProgressionConfig, economyService);
         KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
+        BuildBlocksGui buildBlocksGui = new BuildBlocksGui(guiManager);
+        PaidRankHologramListener paidRankHolograms = new PaidRankHologramListener(this, rankService);
 
         this.economyBridge = createEconomyBridge();
 
@@ -126,43 +135,58 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
                 new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
         getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
         getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
+        getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
-        // Ein globaler, leichter Refresh haelt Tab-Prefixe auch nach spaeteren Rank-Aenderungen aktuell.
-        getServer().getScheduler().runTaskTimer(this, () ->
-                getServer().getOnlinePlayers().forEach(displayService::refreshTab), 40L, 40L);
+        // Haelt Tab-Prefixe und optionale Paid-Rank-Hologramme auch nach Rank-Aenderungen aktuell.
+        getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
+            displayService.refreshTab(player);
+            paidRankHolograms.refresh(player);
+        }), 40L, 40L);
 
-        PluginCommand kitCommand = getCommand("kit");
-        if (kitCommand == null) {
-            getLogger().severe("/kit fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        PluginCommand kitCommand = requireCommand("kit");
+        if (kitCommand == null) return;
         KitCommand kitExecutor = new KitCommand(kitGrantService, kitGui);
         kitCommand.setExecutor(kitExecutor);
         kitCommand.setTabCompleter(kitExecutor);
 
-        PluginCommand rankupCommand = getCommand("rankup");
-        if (rankupCommand == null) {
-            getLogger().severe("/rankup fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        PluginCommand rankupCommand = requireCommand("rankup");
+        if (rankupCommand == null) return;
         rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
 
-        PluginCommand ranksCommand = getCommand("raenge");
-        if (ranksCommand == null) {
-            getLogger().severe("/raenge fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
-            getServer().getPluginManager().disablePlugin(this);
-            return;
-        }
+        PluginCommand ranksCommand = requireCommand("raenge");
+        if (ranksCommand == null) return;
         ranksCommand.setExecutor(new RanksCommand(ranksGui));
+
+        if (!registerCommand("fly", new FlyCommand(rankService))) return;
+        if (!registerCommand("stack", new StackCommand(rankService))) return;
+        if (!registerCommand("bloecke", new BlocksCommand(rankService, buildBlocksGui))) return;
+        if (!registerCommand("repair", new RepairCommand(rankService))) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Kit-GUI + Rank-Display + Free-Rankup + Raenge-GUI) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 Kits + Rankup + GUIs + Paid-Perks + Hologram-Bridge) aktiviert. Storage: "
                 + configService.getStorageType());
+    }
+
+    private boolean registerCommand(String name, CommandExecutor executor) {
+        PluginCommand command = requireCommand(name);
+        if (command == null) {
+            return false;
+        }
+        command.setExecutor(executor);
+        return true;
+    }
+
+    private PluginCommand requireCommand(String name) {
+        PluginCommand command = getCommand(name);
+        if (command != null) {
+            return command;
+        }
+        getLogger().severe("/" + name + " fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
+        getServer().getPluginManager().disablePlugin(this);
+        return null;
     }
 
     @Override
