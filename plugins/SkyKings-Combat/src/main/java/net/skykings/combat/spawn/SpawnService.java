@@ -1,10 +1,12 @@
 package net.skykings.combat.spawn;
 
+import net.skykings.combat.map.builder.VoidChunkGenerator;
 import net.skykings.combat.tag.CombatTagService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.WorldCreator;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -34,11 +36,7 @@ public final class SpawnService implements Listener, CommandExecutor {
     private static final class PendingTeleport {
         final Location origin;
         final BukkitTask task;
-
-        PendingTeleport(Location origin, BukkitTask task) {
-            this.origin = origin;
-            this.task = task;
-        }
+        PendingTeleport(Location origin, BukkitTask task) { this.origin = origin; this.task = task; }
     }
 
     private final JavaPlugin plugin;
@@ -61,8 +59,7 @@ public final class SpawnService implements Listener, CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("setspawn")) return handleSetSpawn(player);
-        return handleSpawn(player);
+        return command.getName().equalsIgnoreCase("setspawn") ? handleSetSpawn(player) : handleSpawn(player);
     }
 
     private boolean handleSpawn(final Player player) {
@@ -129,10 +126,8 @@ public final class SpawnService implements Listener, CommandExecutor {
         if (teleport == null || event.getTo() == null) return;
         Location from = teleport.origin;
         Location to = event.getTo();
-        if (from.getWorld() != to.getWorld()
-                || from.getBlockX() != to.getBlockX()
-                || from.getBlockY() != to.getBlockY()
-                || from.getBlockZ() != to.getBlockZ()) {
+        if (from.getWorld() != to.getWorld() || from.getBlockX() != to.getBlockX()
+                || from.getBlockY() != to.getBlockY() || from.getBlockZ() != to.getBlockZ()) {
             cancel(event.getPlayer(), "Teleport abgebrochen: Du hast dich bewegt.");
         }
     }
@@ -142,10 +137,7 @@ public final class SpawnService implements Listener, CommandExecutor {
         if (event.getEntity() instanceof Player) cancel((Player) event.getEntity(), "Teleport abgebrochen: Du hast Schaden bekommen.");
     }
 
-    @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        cancel(event.getPlayer(), null);
-    }
+    @EventHandler public void onQuit(PlayerQuitEvent event) { cancel(event.getPlayer(), null); }
 
     public void shutdown() {
         for (PendingTeleport teleport : pending.values()) teleport.task.cancel();
@@ -163,12 +155,28 @@ public final class SpawnService implements Listener, CommandExecutor {
         if (!file.exists()) return;
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         String worldName = yaml.getString("world");
-        if (worldName == null) return;
+        if (worldName == null || worldName.trim().isEmpty()) return;
+
         World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            File worldFolder = new File(Bukkit.getWorldContainer(), worldName);
+            if (worldFolder.exists() && worldFolder.isDirectory()) {
+                try {
+                    WorldCreator creator = new WorldCreator(worldName);
+                    creator.generator(new VoidChunkGenerator());
+                    creator.generateStructures(false);
+                    world = creator.createWorld();
+                    if (world != null) plugin.getLogger().info("SkyKings-Spawnwelt automatisch geladen: " + worldName);
+                } catch (RuntimeException ex) {
+                    plugin.getLogger().log(Level.SEVERE, "SkyKings-Spawnwelt konnte nicht geladen werden: " + worldName, ex);
+                }
+            }
+        }
         if (world == null) return;
-        spawn = new Location(world,
-                yaml.getDouble("x"), yaml.getDouble("y"), yaml.getDouble("z"),
+
+        spawn = new Location(world, yaml.getDouble("x"), yaml.getDouble("y"), yaml.getDouble("z"),
                 (float) yaml.getDouble("yaw"), (float) yaml.getDouble("pitch"));
+        world.setSpawnLocation(spawn.getBlockX(), spawn.getBlockY(), spawn.getBlockZ());
     }
 
     private synchronized void save() {
@@ -176,11 +184,8 @@ public final class SpawnService implements Listener, CommandExecutor {
         if (current == null || current.getWorld() == null) return;
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("world", current.getWorld().getName());
-        yaml.set("x", current.getX());
-        yaml.set("y", current.getY());
-        yaml.set("z", current.getZ());
-        yaml.set("yaw", current.getYaw());
-        yaml.set("pitch", current.getPitch());
+        yaml.set("x", current.getX()); yaml.set("y", current.getY()); yaml.set("z", current.getZ());
+        yaml.set("yaw", current.getYaw()); yaml.set("pitch", current.getPitch());
         try {
             File parent = file.getParentFile();
             if (parent != null && !parent.exists()) parent.mkdirs();
