@@ -12,6 +12,9 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -66,6 +69,60 @@ public class SQLiteDataStoreTest {
         assertEquals(42L, reloaded.getNetherstars());
         assertEquals(1000L, reloaded.getCreatedAt());
         assertEquals(2000L, reloaded.getLastSeen());
+        assertFalse("Standard-Konstruktor soll newbieProtectionDisabled=false setzen", reloaded.isNewbieProtectionDisabled());
+    }
+
+    @Test
+    public void profileRoundTripPreservesNewbieProtectionDisabledFlag() {
+        UUID uuid = UUID.randomUUID();
+        PlayerProfile original = new PlayerProfile(uuid, "Marti", Rank.SPIELER, 0L, 0L, 1000L, 2000L, true);
+
+        dataStore.saveProfile(original);
+        PlayerProfile reloaded = dataStore.loadProfile(uuid).orElseThrow(AssertionError::new);
+
+        assertTrue(reloaded.isNewbieProtectionDisabled());
+    }
+
+    @Test
+    public void migrationAddsNewbieProtectionColumnToPreExistingDatabaseWithoutLosingData() throws Exception {
+        // Simuliert eine Datenbank, die vor Phase 2 (ohne die neue Spalte) angelegt wurde.
+        File legacyFile = File.createTempFile("skykings-core-legacy-test", ".db");
+        legacyFile.delete();
+        try {
+            Class.forName("org.sqlite.JDBC");
+            UUID uuid = UUID.randomUUID();
+            try (Connection legacyConnection = DriverManager.getConnection("jdbc:sqlite:" + legacyFile.getAbsolutePath())) {
+                try (Statement statement = legacyConnection.createStatement()) {
+                    statement.executeUpdate("CREATE TABLE player_profiles ("
+                            + "uuid TEXT PRIMARY KEY, last_known_name TEXT NOT NULL, rank TEXT NOT NULL, "
+                            + "coins INTEGER NOT NULL DEFAULT 0, netherstars INTEGER NOT NULL DEFAULT 0, "
+                            + "created_at INTEGER NOT NULL, last_seen INTEGER NOT NULL)");
+                    statement.executeUpdate("INSERT INTO player_profiles "
+                            + "(uuid, last_known_name, rank, coins, netherstars, created_at, last_seen) VALUES ("
+                            + "'" + uuid + "', 'LegacyPlayer', 'KING', 500, 7, 111, 222)");
+                }
+            }
+
+            SQLiteDataStore migrated = new SQLiteDataStore(legacyFile, Logger.getLogger("SQLiteDataStoreTest"));
+            migrated.initialize();
+            try {
+                PlayerProfile reloaded = migrated.loadProfile(uuid).orElseThrow(AssertionError::new);
+                assertEquals("LegacyPlayer", reloaded.getLastKnownName());
+                assertEquals(Rank.KING, reloaded.getRank());
+                assertEquals(500L, reloaded.getCoins());
+                assertEquals(7L, reloaded.getNetherstars());
+                assertFalse("Migrierte Alt-Zeilen muessen den sicheren Default false bekommen",
+                        reloaded.isNewbieProtectionDisabled());
+
+                // Migration muss idempotent sein (zweites initialize()/ALTER TABLE darf nicht fehlschlagen).
+                reloaded.setNewbieProtectionDisabled(true);
+                migrated.saveProfile(reloaded);
+            } finally {
+                migrated.close();
+            }
+        } finally {
+            legacyFile.delete();
+        }
     }
 
     @Test

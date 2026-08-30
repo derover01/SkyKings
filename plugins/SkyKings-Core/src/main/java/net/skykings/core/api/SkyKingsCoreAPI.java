@@ -5,6 +5,7 @@ import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.logging.LoggingService;
+import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.rank.RankService;
 
@@ -24,6 +25,8 @@ public interface SkyKingsCoreAPI {
     RankService getRankService();
 
     EconomyService getEconomyService();
+
+    NetherstarService getNetherstarService();
 
     CooldownService getCooldownService();
 

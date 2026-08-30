@@ -19,6 +19,12 @@ public interface LoggingService {
 
     void logEconomySet(UUID target, long oldBalance, long newBalance, String actor, String reason);
 
+    void logNetherstarDeposit(UUID target, long amount, long newBalance, String actor, String reason);
+
+    void logNetherstarWithdraw(UUID target, long amount, long newBalance, String actor, String reason);
+
+    void logNetherstarSet(UUID target, long oldBalance, long newBalance, String actor, String reason);
+
     void logRankChange(UUID target, Rank oldRank, Rank newRank, String actor);
 
     void logProfileCreated(UUID target, String name);

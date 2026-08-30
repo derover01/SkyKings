@@ -48,7 +48,8 @@ public final class SQLiteDataStore implements DataStore {
             + "coins INTEGER NOT NULL DEFAULT 0, "
             + "netherstars INTEGER NOT NULL DEFAULT 0, "
             + "created_at INTEGER NOT NULL, "
-            + "last_seen INTEGER NOT NULL)";
+            + "last_seen INTEGER NOT NULL, "
+            + "newbie_protection_disabled INTEGER NOT NULL DEFAULT 0)";
 
     private static final String CREATE_COOLDOWNS = "CREATE TABLE IF NOT EXISTS cooldowns ("
             + "uuid TEXT NOT NULL, "
@@ -95,9 +96,40 @@ public final class SQLiteDataStore implements DataStore {
                 statement.executeUpdate(CREATE_COOLDOWNS);
                 statement.executeUpdate(CREATE_AUDIT_LOG);
             }
+            migrateSchema();
         } catch (SQLException e) {
             throw new DataStoreException("Konnte SQLite-Datenbank nicht initialisieren: " + databaseFile, e);
         }
+    }
+
+    /**
+     * Rueckwaertskompatible Migration fuer Datenbanken, die vor Phase 2 angelegt wurden (noch
+     * ohne {@code newbie_protection_disabled}-Spalte). Bei einer bereits aktuellen bzw. frisch
+     * ueber {@link #CREATE_PLAYER_PROFILES} erzeugten Tabelle ist dies ein No-Op. Bestehende
+     * Zeilen bekommen den sicheren Default {@code 0} (false) - das ist unschaedlich, da die
+     * eigentliche Newbie-Protection zusaetzlich ueber das 20-Minuten-Zeitfenster ab
+     * {@code created_at} begrenzt ist und fuer laengst existierende Spieler ohnehin laengst
+     * abgelaufen ist.
+     */
+    private void migrateSchema() throws SQLException {
+        if (!columnExists("player_profiles", "newbie_protection_disabled")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.executeUpdate(
+                        "ALTER TABLE player_profiles ADD COLUMN newbie_protection_disabled INTEGER NOT NULL DEFAULT 0");
+            }
+        }
+    }
+
+    private boolean columnExists(String table, String column) throws SQLException {
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                if (column.equalsIgnoreCase(rs.getString("name"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
@@ -114,8 +146,8 @@ public final class SQLiteDataStore implements DataStore {
 
     @Override
     public synchronized Optional<PlayerProfile> loadProfile(UUID uuid) {
-        String sql = "SELECT last_known_name, rank, coins, netherstars, created_at, last_seen "
-                + "FROM player_profiles WHERE uuid = ?";
+        String sql = "SELECT last_known_name, rank, coins, netherstars, created_at, last_seen, "
+                + "newbie_protection_disabled FROM player_profiles WHERE uuid = ?";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
@@ -128,7 +160,9 @@ public final class SQLiteDataStore implements DataStore {
                 long netherstars = rs.getLong("netherstars");
                 long createdAt = rs.getLong("created_at");
                 long lastSeen = rs.getLong("last_seen");
-                return Optional.of(new PlayerProfile(uuid, name, rank, coins, netherstars, createdAt, lastSeen));
+                boolean newbieProtectionDisabled = rs.getInt("newbie_protection_disabled") != 0;
+                return Optional.of(new PlayerProfile(uuid, name, rank, coins, netherstars, createdAt, lastSeen,
+                        newbieProtectionDisabled));
             }
         } catch (SQLException e) {
             throw new DataStoreException("Konnte PlayerProfile nicht laden: " + uuid, e);
@@ -138,7 +172,8 @@ public final class SQLiteDataStore implements DataStore {
     @Override
     public synchronized void saveProfile(PlayerProfile profile) {
         String sql = "INSERT OR REPLACE INTO player_profiles "
-                + "(uuid, last_known_name, rank, coins, netherstars, created_at, last_seen) VALUES (?,?,?,?,?,?,?)";
+                + "(uuid, last_known_name, rank, coins, netherstars, created_at, last_seen, "
+                + "newbie_protection_disabled) VALUES (?,?,?,?,?,?,?,?)";
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, profile.getUuid().toString());
             ps.setString(2, profile.getLastKnownName());
@@ -147,6 +182,7 @@ public final class SQLiteDataStore implements DataStore {
             ps.setLong(5, profile.getNetherstars());
             ps.setLong(6, profile.getCreatedAt());
             ps.setLong(7, profile.getLastSeen());
+            ps.setInt(8, profile.isNewbieProtectionDisabled() ? 1 : 0);
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new DataStoreException("Konnte PlayerProfile nicht speichern: " + profile.getUuid(), e);

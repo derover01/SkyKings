@@ -47,6 +47,23 @@ public final class LoggingServiceImpl implements LoggingService {
     }
 
     @Override
+    public void logNetherstarDeposit(UUID target, long amount, long newBalance, String actor, String reason) {
+        log(new AuditEvent(AuditEventType.NETHERSTAR_DEPOSIT, target, actor, amount, describe(newBalance, reason)));
+    }
+
+    @Override
+    public void logNetherstarWithdraw(UUID target, long amount, long newBalance, String actor, String reason) {
+        log(new AuditEvent(AuditEventType.NETHERSTAR_WITHDRAW, target, actor, amount, describe(newBalance, reason)));
+    }
+
+    @Override
+    public void logNetherstarSet(UUID target, long oldBalance, long newBalance, String actor, String reason) {
+        String details = "alterKontostand=" + oldBalance + ", neuerKontostand=" + newBalance
+                + (reason != null ? ", grund=" + reason : "");
+        log(new AuditEvent(AuditEventType.NETHERSTAR_SET, target, actor, newBalance - oldBalance, details));
+    }
+
+    @Override
     public void logRankChange(UUID target, Rank oldRank, Rank newRank, String actor) {
         log(new AuditEvent(AuditEventType.RANK_CHANGE, target, actor, null,
                 "alterRang=" + oldRank + ", neuerRang=" + newRank));

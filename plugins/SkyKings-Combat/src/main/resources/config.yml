@@ -1,0 +1,53 @@
+# SkyKings-Combat Konfiguration (Phase 2)
+#
+# Alle Balancewerte sind hier konfigurierbar - siehe CLAUDE.md Punkt 3. Aenderungen wirken
+# erst nach einem Server-/Plugin-Neustart.
+
+combat-tag-seconds: 15
+enderpearl-cooldown-seconds: 3
+loot-protection-seconds: 5
+newbie-protection-minutes: 20
+
+# Netherstern-Reward fuer Killstreak 0-4 (siehe killstreak.tiers fuer hoehere Stufen).
+base-netherstars-per-kill: 1
+
+starter-kit:
+  enabled: true
+  # Anzahl normaler (NICHT enchanteter) Golden Apples im Death-Starter-Kit.
+  golden-apples: 8
+
+# Killstreak-Stufen ab dem jeweiligen Schwellenwert (siehe Auftrag Phase 2, Abschnitt 11).
+# "threshold" ist die Anzahl Kills in Folge, ab der "per-kill" gilt; "milestone-bonus" wird
+# genau EINMAL vergeben, wenn der Streak exakt "threshold" erreicht.
+killstreak:
+  tiers:
+    - threshold: 5
+      per-kill: 2
+      milestone-bonus: 3
+    - threshold: 10
+      per-kill: 2
+      milestone-bonus: 8
+    - threshold: 20
+      per-kill: 3
+      milestone-bonus: 15
+    - threshold: 30
+      per-kill: 3
+      milestone-bonus: 25
+    - threshold: 50
+      per-kill: 4
+      milestone-bonus: 50
+    - threshold: 100
+      per-kill: 5
+      milestone-bonus: 125
+
+# Anti-Killfarm (siehe Auftrag Phase 2, Abschnitt 12): Kills 1..full-reward-max-kills gegen
+# denselben Gegner in Folge geben vollen Reward, bis half-reward-max-kills die Haelfte,
+# danach keinen Netherstern-Reward mehr (der Kill zaehlt aber weiterhin fuer Killstreak/Stats).
+anti-farm:
+  full-reward-max-kills: 5
+  half-reward-max-kills: 6
+  half-reward-multiplier: 0.5
+
+feedback:
+  # Mindestabstand zwischen zwei Schutz-/Cooldown-Hinweisen an denselben Spieler (Spam-Schutz).
+  message-cooldown-seconds: 2

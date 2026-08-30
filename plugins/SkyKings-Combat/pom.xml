@@ -17,9 +17,9 @@
   <description>
     Combat-Modul (siehe docs/ARCHITECTURE.md): kein Fallschaden, Starter-Kit nach Tod,
     Combat Tag, Enderperlen-Cooldown, Kill-/Death-Verarbeitung, Nethersterne, Killstreaks,
-    Anti-Killfarm, Lootschutz, Newbie Protection, Hot Zones, King Zone, Loot-Chest-Events,
-    Booster-Druckplatten.
-    Phase 0: nur Plugin-Grundgeruest, keine Features implementiert.
+    Anti-Killfarm, Lootschutz, Newbie Protection. Phase 2: Grundlegendes SkyPvP-Combat-System
+    (siehe docs/ROADMAP.md). Hot Zones, King Zone, Loot-Chest-Events und Booster-Druckplatten
+    folgen in einer spaeteren Phase.
   </description>
 
   <dependencies>
@@ -33,6 +33,21 @@
       <artifactId>SkyKings-Core</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <!-- Test-only, siehe SkyKings-Core/pom.xml fuer die Begruendung der Versionswahl. -->
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- Test-only: "inline" statt "core", da mehrere Bukkit-API-Typen finale Methoden haben
+           (siehe SkyKings-Core/pom.xml fuer Details). -->
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-inline</artifactId>
+      <version>4.11.0</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

@@ -20,9 +20,15 @@ public final class PlayerProfile {
     private volatile long netherstars;
     private final long createdAt;
     private volatile long lastSeen;
+    private volatile boolean newbieProtectionDisabled;
 
     public PlayerProfile(UUID uuid, String lastKnownName, Rank rank, long coins, long netherstars,
                           long createdAt, long lastSeen) {
+        this(uuid, lastKnownName, rank, coins, netherstars, createdAt, lastSeen, false);
+    }
+
+    public PlayerProfile(UUID uuid, String lastKnownName, Rank rank, long coins, long netherstars,
+                          long createdAt, long lastSeen, boolean newbieProtectionDisabled) {
         this.uuid = Objects.requireNonNull(uuid, "uuid");
         this.lastKnownName = Objects.requireNonNull(lastKnownName, "lastKnownName");
         this.rank = Objects.requireNonNull(rank, "rank");
@@ -30,6 +36,7 @@ public final class PlayerProfile {
         setNetherstars(netherstars);
         this.createdAt = createdAt;
         this.lastSeen = lastSeen;
+        this.newbieProtectionDisabled = newbieProtectionDisabled;
     }
 
     public UUID getUuid() {
@@ -86,10 +93,23 @@ public final class PlayerProfile {
         this.lastSeen = lastSeen;
     }
 
+    /**
+     * Ob die Newbie-Protection (siehe SkyKings-Combat) fuer diesen Spieler vorzeitig/permanent
+     * beendet wurde (z. B. weil er selbst zuerst einen anderen Spieler angegriffen hat).
+     * Solange {@code false}, gilt weiterhin das 20-Minuten-Zeitfenster ab {@link #getCreatedAt()}.
+     */
+    public boolean isNewbieProtectionDisabled() {
+        return newbieProtectionDisabled;
+    }
+
+    public void setNewbieProtectionDisabled(boolean newbieProtectionDisabled) {
+        this.newbieProtectionDisabled = newbieProtectionDisabled;
+    }
+
     @Override
     public String toString() {
         return "PlayerProfile{uuid=" + uuid + ", lastKnownName='" + lastKnownName + "', rank=" + rank
-                + ", coins=" + coins + ", netherstars=" + netherstars
-                + ", createdAt=" + createdAt + ", lastSeen=" + lastSeen + '}';
+                + ", coins=" + coins + ", netherstars=" + netherstars + ", createdAt=" + createdAt
+                + ", lastSeen=" + lastSeen + ", newbieProtectionDisabled=" + newbieProtectionDisabled + '}';
     }
 }

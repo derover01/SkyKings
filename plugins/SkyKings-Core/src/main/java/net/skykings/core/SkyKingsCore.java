@@ -23,6 +23,8 @@ import net.skykings.core.logging.LoggingService;
 import net.skykings.core.logging.LoggingServiceImpl;
 import net.skykings.core.logging.PersistentAuditSink;
 import net.skykings.core.logging.PluginLoggerAuditSink;
+import net.skykings.core.netherstar.NetherstarService;
+import net.skykings.core.netherstar.NetherstarServiceImpl;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
 import net.skykings.core.rank.RankService;
@@ -58,6 +60,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private PlayerProfileService playerProfileService;
     private RankService rankService;
     private EconomyService economyService;
+    private NetherstarService netherstarService;
     private CooldownService cooldownService;
     private PermissionBridge permissionBridge;
     private EconomyBridge economyBridge;
@@ -92,6 +95,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.permissionBridge = createPermissionBridge();
         this.rankService = new RankServiceImpl(playerProfileService, loggingService, permissionBridge);
         this.economyService = new EconomyServiceImpl(playerProfileService, loggingService);
+        this.netherstarService = new NetherstarServiceImpl(playerProfileService, loggingService);
         this.cooldownService = new CooldownServiceImpl(dataStore, dbExecutor, getLogger());
         this.kitRegistry = new KitRegistryImpl();
         this.guiManager = new GuiManager();
@@ -196,6 +200,11 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     @Override
     public EconomyService getEconomyService() {
         return economyService;
+    }
+
+    @Override
+    public NetherstarService getNetherstarService() {
+        return netherstarService;
     }
 
     @Override
