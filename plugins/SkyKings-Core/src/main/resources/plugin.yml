@@ -18,3 +18,16 @@ commands:
     description: Oeffnet die Rang-Uebersicht.
     usage: /raenge
     aliases: [ränge, ranks, rang]
+  fly:
+    description: Schaltet den Flugmodus fuer Knight+ um.
+    usage: /fly
+  stack:
+    description: Verdichtet stackbare Inventar-Items fuer Knight+.
+    usage: /stack
+  bloecke:
+    description: Oeffnet unbegrenzte No-Sell-Buildbloecke fuer Phoenix+.
+    usage: /bloecke
+    aliases: [blöcke, blocks]
+  repair:
+    description: Repariert das gehaltene Item fuer Exile+.
+    usage: /repair
