@@ -31,7 +31,7 @@ public final class CommandsGui {
                 (p, e, s) -> openPerks(p));
         if (player.isOp() || player.hasPermission("skykings.admin.commands")) {
             gui.setItem(22, icon(Material.REDSTONE_TORCH_ON, ChatColor.RED + "Administration",
-                    "Rang-, Rechte- und Crate-Verwaltung"), (p, e, s) -> openAdmin(p));
+                    "Rang-, Rechte-, Crate- und Gutschein-Verwaltung"), (p, e, s) -> openAdmin(p));
         }
         guiManager.open(gui);
     }
@@ -84,9 +84,8 @@ public final class CommandsGui {
                 "Vergibt ein freigegebenes Gutschein-/Perk-Recht."));
         gui.setItem(14, infoCommand(Material.CHEST, "/crate give <Spieler> <Typ> [Anzahl]",
                 "Gibt Crates mit eindeutiger Seriennummer aus."));
-        gui.setItem(16, icon(Material.REDSTONE, ChatColor.RED + "Admin-Hinweis",
-                ChatColor.GRAY + "Argument-Befehle werden nur angezeigt,",
-                ChatColor.GRAY + "damit nichts versehentlich ausgefuehrt wird."));
+        action(gui, 16, Material.EMERALD, "/gutscheine",
+                "Oeffnet die sichere Gutschein-Erzeugung.", "gutscheine");
         back(gui);
         guiManager.open(gui);
     }
