@@ -18,7 +18,7 @@ import java.util.Random;
 /** Laedt Crate- und Reward-Tabellen aus crates.yml und berechnet deren Expected Value. */
 public final class CrateRegistry {
 
-    public enum RewardType { COINS, NETHERSTARS, ITEM }
+    public enum RewardType { COINS, NETHERSTARS, ITEM, VOUCHER }
 
     public static final class RewardDefinition {
         private final String id;
@@ -28,9 +28,13 @@ public final class CrateRegistry {
         private final long evValue;
         private final Material material;
         private final short data;
+        private final VoucherItemCodec.VoucherType voucherType;
+        private final String voucherTarget;
+        private final String voucherDisplay;
 
         RewardDefinition(String id, RewardType type, long amount, int weight, long evValue,
-                         Material material, short data) {
+                         Material material, short data, VoucherItemCodec.VoucherType voucherType,
+                         String voucherTarget, String voucherDisplay) {
             this.id = id;
             this.type = type;
             this.amount = amount;
@@ -38,6 +42,9 @@ public final class CrateRegistry {
             this.evValue = evValue;
             this.material = material;
             this.data = data;
+            this.voucherType = voucherType;
+            this.voucherTarget = voucherTarget;
+            this.voucherDisplay = voucherDisplay;
         }
 
         public String getId() { return id; }
@@ -47,6 +54,9 @@ public final class CrateRegistry {
         public long getEvValue() { return evValue; }
         public Material getMaterial() { return material; }
         public short getData() { return data; }
+        public VoucherItemCodec.VoucherType getVoucherType() { return voucherType; }
+        public String getVoucherTarget() { return voucherTarget; }
+        public String getVoucherDisplay() { return voucherDisplay; }
     }
 
     public static final class CrateDefinition {
@@ -120,11 +130,23 @@ public final class CrateRegistry {
                         long evValue = Math.max(0L, section.getLong("ev-value", 0L));
                         Material material = null;
                         short data = (short) section.getInt("data", 0);
+                        VoucherItemCodec.VoucherType voucherType = null;
+                        String voucherTarget = null;
+                        String voucherDisplay = null;
+
                         if (type == RewardType.ITEM) {
                             material = Material.matchMaterial(section.getString("material", "STONE"));
                             if (material == null) throw new IllegalArgumentException("Unbekanntes Material");
+                        } else if (type == RewardType.VOUCHER) {
+                            voucherType = VoucherItemCodec.VoucherType.valueOf(
+                                    section.getString("voucher-type", "PREFIX").toUpperCase(Locale.ROOT));
+                            voucherTarget = section.getString("target", "").trim().toLowerCase(Locale.ROOT);
+                            if (voucherTarget.isEmpty()) throw new IllegalArgumentException("Voucher target fehlt");
+                            voucherDisplay = section.getString("display-target", voucherTarget);
                         }
-                        rewards.add(new RewardDefinition(rewardId, type, amount, weight, evValue, material, data));
+
+                        rewards.add(new RewardDefinition(rewardId, type, amount, weight, evValue, material, data,
+                                voucherType, voucherTarget, voucherDisplay));
                     } catch (RuntimeException ex) {
                         plugin.getLogger().warning("Ungueltiger Reward " + crateId + "." + rewardId + ": " + ex.getMessage());
                     }
