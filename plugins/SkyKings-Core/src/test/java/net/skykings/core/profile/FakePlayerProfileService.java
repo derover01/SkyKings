@@ -7,8 +7,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** In-Memory-Test-Double ohne Persistenz - fuer isolierte Unit-Tests von RankService/EconomyService. */
-public final class FakePlayerProfileService implements PlayerProfileService {
+/**
+ * In-Memory-Test-Double ohne Persistenz - fuer isolierte Unit-Tests von RankService/EconomyService.
+ * Bewusst nicht {@code final}, damit einzelne Tests (z. B. PlayerLifecycleListenerTest) gezielt
+ * einen Fehlerfall ueberschreiben koennen, ohne ein komplett neues Test-Double zu schreiben.
+ */
+public class FakePlayerProfileService implements PlayerProfileService {
 
     private final Map<UUID, PlayerProfile> cache = new HashMap<>();
 

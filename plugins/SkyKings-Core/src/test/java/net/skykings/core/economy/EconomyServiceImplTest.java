@@ -19,13 +19,14 @@ import static org.junit.Assert.assertTrue;
 
 public class EconomyServiceImplTest {
 
+    private FakePlayerProfileService profileService;
     private RecordingAuditSink auditSink;
     private EconomyServiceImpl economyService;
     private UUID uuid;
 
     @Before
     public void setUp() {
-        FakePlayerProfileService profileService = new FakePlayerProfileService();
+        profileService = new FakePlayerProfileService();
         auditSink = new RecordingAuditSink();
         LoggingServiceImpl loggingService = new LoggingServiceImpl(Collections.singletonList(auditSink), Logger.getLogger("test"));
         economyService = new EconomyServiceImpl(profileService, loggingService);
@@ -91,5 +92,31 @@ public class EconomyServiceImplTest {
     @Test(expected = IllegalStateException.class)
     public void operationsOnUnloadedProfileThrow() {
         economyService.getBalance(UUID.randomUUID());
+    }
+
+    @Test
+    public void depositThrowsOnOverflowAndLeavesBalanceAndAuditUnchanged() {
+        UUID richUuid = UUID.randomUUID();
+        profileService.put(new PlayerProfile(richUuid, "Rich", Rank.SPIELER, Long.MAX_VALUE - 5, 0L, 0L, 0L));
+
+        try {
+            economyService.deposit(richUuid, 10L, "TEST", null);
+            org.junit.Assert.fail("Erwartete EconomyOverflowException");
+        } catch (EconomyOverflowException expected) {
+            // erwartet
+        }
+
+        assertEquals(Long.MAX_VALUE - 5, economyService.getBalance(richUuid));
+        assertTrue("Kein Audit-Event fuer eine fehlgeschlagene Transaktion erwartet", auditSink.getEvents().isEmpty());
+    }
+
+    @Test
+    public void depositRightAtOverflowBoundarySucceeds() {
+        UUID boundaryUuid = UUID.randomUUID();
+        profileService.put(new PlayerProfile(boundaryUuid, "Boundary", Rank.SPIELER, Long.MAX_VALUE - 10, 0L, 0L, 0L));
+
+        economyService.deposit(boundaryUuid, 10L, "TEST", null);
+
+        assertEquals(Long.MAX_VALUE, economyService.getBalance(boundaryUuid));
     }
 }

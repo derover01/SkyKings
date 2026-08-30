@@ -28,6 +28,8 @@ public final class EconomyServiceImpl implements EconomyService {
 
     @Override
     public void setBalance(UUID uuid, long amount, String actor, String reason) {
+        // Kein Overflow-Risiko: amount wird direkt als neuer Kontostand uebernommen, es findet
+        // keine Addition zweier Werte statt.
         if (amount < 0) {
             throw new IllegalArgumentException("Kontostand darf nicht negativ sein: " + amount);
         }
@@ -49,7 +51,14 @@ public final class EconomyServiceImpl implements EconomyService {
         PlayerProfile profile = requireProfile(uuid);
         long newBalance;
         synchronized (profile) {
-            newBalance = profile.getCoins() + amount;
+            try {
+                newBalance = Math.addExact(profile.getCoins(), amount);
+            } catch (ArithmeticException e) {
+                // Profil bewusst NICHT veraendert und KEIN Audit-Event geschrieben - die Transaktion
+                // ist fehlgeschlagen, bevor irgendein Zustand mutiert wurde.
+                throw new EconomyOverflowException("Einzahlung wuerde den gueltigen Wertebereich ueberschreiten: "
+                        + "uuid=" + uuid + ", aktuellerKontostand=" + profile.getCoins() + ", betrag=" + amount, e);
+            }
             profile.setCoins(newBalance);
         }
         profileService.save(uuid);
@@ -64,6 +73,8 @@ public final class EconomyServiceImpl implements EconomyService {
         PlayerProfile profile = requireProfile(uuid);
         long newBalance;
         synchronized (profile) {
+            // Kein Overflow-Risiko: amount ist hier immer positiv und durch die Pruefung direkt
+            // darunter <= profile.getCoins() (>= 0), das Ergebnis liegt also stets in [0, coins].
             if (profile.getCoins() < amount) {
                 return false;
             }

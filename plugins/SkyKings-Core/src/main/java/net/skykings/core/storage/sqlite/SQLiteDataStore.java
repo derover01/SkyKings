@@ -14,6 +14,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -165,6 +167,23 @@ public final class SQLiteDataStore implements DataStore {
             }
         } catch (SQLException e) {
             throw new DataStoreException("Konnte Cooldown nicht laden: " + uuid + "/" + key, e);
+        }
+    }
+
+    @Override
+    public synchronized Map<String, Long> loadCooldowns(UUID uuid) {
+        String sql = "SELECT cooldown_key, expires_at FROM cooldowns WHERE uuid = ?";
+        Map<String, Long> result = new HashMap<>();
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, uuid.toString());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getString("cooldown_key"), rs.getLong("expires_at"));
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new DataStoreException("Konnte Cooldowns nicht laden: " + uuid, e);
         }
     }
 

@@ -95,6 +95,26 @@ public class SQLiteDataStoreTest {
     }
 
     @Test
+    public void loadCooldownsReturnsEmptyMapWhenNoneExist() {
+        assertTrue(dataStore.loadCooldowns(UUID.randomUUID()).isEmpty());
+    }
+
+    @Test
+    public void loadCooldownsReturnsAllKeysForPlayerAndIsScopedPerPlayer() {
+        UUID uuid = UUID.randomUUID();
+        UUID otherUuid = UUID.randomUUID();
+        dataStore.saveCooldown(uuid, "pearl", 1000L);
+        dataStore.saveCooldown(uuid, "kit-spieler", 2000L);
+        dataStore.saveCooldown(otherUuid, "pearl", 9999L);
+
+        java.util.Map<String, Long> loaded = dataStore.loadCooldowns(uuid);
+
+        assertEquals(2, loaded.size());
+        assertEquals(Long.valueOf(1000L), loaded.get("pearl"));
+        assertEquals(Long.valueOf(2000L), loaded.get("kit-spieler"));
+    }
+
+    @Test
     public void appendAuditEventDoesNotThrow() {
         AuditEvent event = new AuditEvent(AuditEventType.ECONOMY_DEPOSIT, UUID.randomUUID(), "SYSTEM", 100L, "test");
         dataStore.appendAuditEvent(event);

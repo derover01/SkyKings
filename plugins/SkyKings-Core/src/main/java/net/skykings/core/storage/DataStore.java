@@ -3,6 +3,7 @@ package net.skykings.core.storage;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.model.PlayerProfile;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,13 @@ public interface DataStore {
     void saveProfile(PlayerProfile profile);
 
     Optional<Long> loadCooldown(UUID uuid, String key);
+
+    /**
+     * Laedt alle persistierten Cooldowns eines Spielers auf einmal (Schluessel -> Ablaufzeitpunkt).
+     * Wird beim Login genutzt, damit CooldownService waehrend des Onlinespielens keinen weiteren
+     * synchronen Datenbank-Read mehr braucht.
+     */
+    Map<String, Long> loadCooldowns(UUID uuid);
 
     void saveCooldown(UUID uuid, String key, long expiresAtMillis);
 

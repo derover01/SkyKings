@@ -2,8 +2,10 @@ package net.skykings.core.cooldown;
 
 import net.skykings.core.storage.DataStore;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -11,13 +13,18 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Haelt aktive Cooldowns im Speicher (schneller Zugriff) und schreibt jede Aenderung
- * asynchron in die Datenbank, damit sie einen Serverneustart uebersteht.
+ * Haelt Cooldowns ausschliesslich im Speicher, solange ein Spieler online ist.
  *
- * <p>Da Cooldown-Keys erst von spaeteren Modulen (Kits, Faehigkeiten) definiert werden und es
- * daher keine Moeglichkeit gibt, "alle Keys eines Spielers" vorab zu kennen, wird ein Key beim
- * ersten Zugriff pro Session einmalig synchron aus der Datenbank nachgeladen und danach aus
- * dem Cache bedient.
+ * <p>{@link #loadForPlayer(UUID)} laedt beim (Async-)Login ALLE persistierten Cooldowns eines
+ * Spielers auf einmal (siehe {@link DataStore#loadCooldowns(UUID)}). Danach greifen
+ * {@link #isActive(UUID, String)} und {@link #getRemainingMillis(UUID, String)} ausschliesslich
+ * auf den Cache zu - kein synchroner Datenbank-Read mehr im Gameplay-Pfad, auch nicht fuer
+ * bislang unbekannte Keys. {@link #set(UUID, String, long)} und {@link #remove(UUID, String)}
+ * schreiben weiterhin asynchron durch, damit ein Serverneustart ueberstanden wird.
+ *
+ * <p>Bereits beim Laden abgelaufene Cooldowns werden nicht in den Cache uebernommen und
+ * asynchron aus der Datenbank entfernt; waehrend der Session abgelaufene Eintraege werden bei
+ * Zugriff lazy aus dem Cache entfernt (kein zusaetzlicher DB-Zugriff dafuer noetig).
  */
 public final class CooldownServiceImpl implements CooldownService {
 
@@ -34,7 +41,37 @@ public final class CooldownServiceImpl implements CooldownService {
 
     @Override
     public void loadForPlayer(UUID uuid) {
-        cache.computeIfAbsent(uuid, u -> new ConcurrentHashMap<>());
+        Map<String, Long> persisted;
+        try {
+            persisted = dataStore.loadCooldowns(uuid);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Konnte Cooldowns nicht laden: " + uuid, e);
+            persisted = Collections.emptyMap();
+        }
+
+        long now = System.currentTimeMillis();
+        Map<String, Long> active = new ConcurrentHashMap<>();
+        List<String> expiredKeys = new ArrayList<>();
+        for (Map.Entry<String, Long> entry : persisted.entrySet()) {
+            if (entry.getValue() > now) {
+                active.put(entry.getKey(), entry.getValue());
+            } else {
+                expiredKeys.add(entry.getKey());
+            }
+        }
+        cache.put(uuid, active);
+
+        if (!expiredKeys.isEmpty()) {
+            dbExecutor.execute(() -> {
+                for (String key : expiredKeys) {
+                    try {
+                        dataStore.deleteCooldown(uuid, key);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Konnte abgelaufenen Cooldown nicht bereinigen: " + uuid + "/" + key, e);
+                    }
+                }
+            });
+        }
     }
 
     @Override
@@ -49,11 +86,20 @@ public final class CooldownServiceImpl implements CooldownService {
 
     @Override
     public long getRemainingMillis(UUID uuid, String key) {
-        Long expiresAt = resolve(uuid, key);
+        Map<String, Long> playerCooldowns = cache.get(uuid);
+        if (playerCooldowns == null) {
+            return 0L;
+        }
+        Long expiresAt = playerCooldowns.get(key);
         if (expiresAt == null) {
             return 0L;
         }
-        return Math.max(0L, expiresAt - System.currentTimeMillis());
+        long remaining = expiresAt - System.currentTimeMillis();
+        if (remaining <= 0) {
+            playerCooldowns.remove(key);
+            return 0L;
+        }
+        return remaining;
     }
 
     @Override
@@ -85,19 +131,5 @@ public final class CooldownServiceImpl implements CooldownService {
                 logger.log(Level.SEVERE, "Konnte Cooldown nicht entfernen: " + uuid + "/" + key, e);
             }
         });
-    }
-
-    private Long resolve(UUID uuid, String key) {
-        Map<String, Long> playerCooldowns = cache.computeIfAbsent(uuid, u -> new ConcurrentHashMap<>());
-        Long cached = playerCooldowns.get(key);
-        if (cached != null) {
-            return cached;
-        }
-        Optional<Long> fromDb = dataStore.loadCooldown(uuid, key);
-        if (fromDb.isPresent()) {
-            playerCooldowns.put(key, fromDb.get());
-            return fromDb.get();
-        }
-        return null;
     }
 }

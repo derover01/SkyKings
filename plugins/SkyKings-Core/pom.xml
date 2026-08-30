@@ -46,5 +46,15 @@
       <version>3.45.1.0</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <!-- Test-only: einziger Zweck ist ein leichtgewichtiges Interface-Mock fuer
+           org.bukkit.entity.Player (kein volles MockBukkit/Server-Mock noetig), um den
+           defensiven Kick-Pfad in PlayerLifecycleListener#onJoin zu testen. Letzte
+           Java-8-kompatible Mockito-4.x-Version. -->
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>4.11.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
