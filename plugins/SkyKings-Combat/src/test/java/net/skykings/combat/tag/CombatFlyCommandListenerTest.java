@@ -6,10 +6,9 @@ import org.junit.Test;
 
 import java.util.UUID;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,14 +19,18 @@ public class CombatFlyCommandListenerTest {
         UUID uuid = UUID.randomUUID();
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(uuid);
+
+        PlayerCommandPreprocessEvent event = mock(PlayerCommandPreprocessEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getMessage()).thenReturn("/fly");
+
         CombatTagService service = mock(CombatTagService.class);
         when(service.isTagged(uuid)).thenReturn(true);
         when(service.getRemainingMillis(uuid)).thenReturn(4500L);
 
-        PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(player, "/fly");
         new CombatFlyCommandListener(service).onCommand(event);
 
-        assertTrue(event.isCancelled());
+        verify(event).setCancelled(true);
         verify(player).sendMessage(contains("Combat-Tag"));
     }
 
@@ -36,26 +39,27 @@ public class CombatFlyCommandListenerTest {
         UUID uuid = UUID.randomUUID();
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(uuid);
+
+        PlayerCommandPreprocessEvent event = mock(PlayerCommandPreprocessEvent.class);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getMessage()).thenReturn("/fly");
+
         CombatTagService service = mock(CombatTagService.class);
         when(service.isTagged(uuid)).thenReturn(false);
 
-        PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(player, "/fly");
         new CombatFlyCommandListener(service).onCommand(event);
 
-        assertFalse(event.isCancelled());
+        verify(event, never()).setCancelled(true);
     }
 
     @Test
     public void ignoresOtherCommandsWhileTagged() {
-        UUID uuid = UUID.randomUUID();
-        Player player = mock(Player.class);
-        when(player.getUniqueId()).thenReturn(uuid);
-        CombatTagService service = mock(CombatTagService.class);
-        when(service.isTagged(uuid)).thenReturn(true);
+        PlayerCommandPreprocessEvent event = mock(PlayerCommandPreprocessEvent.class);
+        when(event.getMessage()).thenReturn("/kit king");
 
-        PlayerCommandPreprocessEvent event = new PlayerCommandPreprocessEvent(player, "/kit king");
+        CombatTagService service = mock(CombatTagService.class);
         new CombatFlyCommandListener(service).onCommand(event);
 
-        assertFalse(event.isCancelled());
+        verify(event, never()).setCancelled(true);
     }
 }
