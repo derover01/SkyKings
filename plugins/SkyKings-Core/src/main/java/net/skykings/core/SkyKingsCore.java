@@ -2,6 +2,8 @@ package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.command.BlocksCommand;
+import net.skykings.core.command.CommandsCommand;
+import net.skykings.core.command.CommandsGui;
 import net.skykings.core.command.FlyCommand;
 import net.skykings.core.command.KitCommand;
 import net.skykings.core.command.RanksCommand;
@@ -132,6 +134,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
         BuildBlocksGui buildBlocksGui = new BuildBlocksGui(guiManager);
         PaidRankHologramListener paidRankHolograms = new PaidRankHologramListener(this, rankService);
+        CommandsGui commandsGui = new CommandsGui(guiManager);
 
         this.economyBridge = createEconomyBridge();
 
@@ -147,6 +150,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
             displayService.refreshTab(player);
             paidRankHolograms.refresh(player);
         }), 40L, 40L);
+
+        if (!registerCommand("commands", new CommandsCommand(commandsGui))) return;
 
         PluginCommand kitCommand = requireCommand("kit");
         if (kitCommand == null) return;
@@ -170,7 +175,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 + Voucher-Permission-Registry + Commands-GUI) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
