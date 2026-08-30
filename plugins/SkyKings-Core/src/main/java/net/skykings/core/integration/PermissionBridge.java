@@ -15,5 +15,7 @@ public interface PermissionBridge {
     void grantOwner(UUID uuid);
 
     /** Vergibt eine einzelne, von SkyKings freigegebene Permission-Node. */
-    void grantPermission(UUID uuid, String permission);
+    default void grantPermission(UUID uuid, String permission) {
+        // Default fuer einfache Test-/Fallback-Bridges; echte Bridges ueberschreiben diese Methode.
+    }
 }
