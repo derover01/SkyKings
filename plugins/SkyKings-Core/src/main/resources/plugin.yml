@@ -2,43 +2,54 @@ name: SkyKings-Core
 version: ${project.version}
 main: net.skykings.core.SkyKingsCore
 description: >
-  Zentrales SkyKings-Modul fuer Player-Profile, Raenge, Economy, Cooldowns, Rank-Kits,
-  Persistenz und gemeinsame APIs fuer andere SkyKings-Module.
+  Zentrales SkyKings-Modul für Player-Profile, Ränge, Economy, Cooldowns, Rank-Kits,
+  Persistenz und gemeinsame APIs für andere SkyKings-Module.
 authors: [SkyKings Team]
 commands:
   commands:
-    description: Oeffnet die zentrale SkyKings-Befehlsuebersicht.
+    description: Öffnet die zentrale SkyKings-Befehlsübersicht.
     usage: /commands
     aliases: [befehle, cmds]
   kit:
-    description: Zeigt verfuegbare Rank-Kits oder gibt ein Kit aus.
+    description: Zeigt verfügbare Rank-Kits oder gibt ein Kit aus.
     usage: /kit [name]
     aliases: [kits]
   rankup:
-    description: Kauft den naechsten Free-Rang mit Coins.
+    description: Kauft den nächsten Free-Rang mit Coins.
     usage: /rankup
     aliases: [rangup]
   raenge:
-    description: Oeffnet die Rang-Uebersicht.
+    description: Öffnet die Rang-Übersicht.
     usage: /raenge
     aliases: [ränge, ranks, rang]
   fly:
-    description: Schaltet den Flugmodus fuer Knight+ um.
+    description: Schaltet den Flugmodus für Knight+ um.
     usage: /fly
   stack:
-    description: Verdichtet stackbare Inventar-Items fuer Knight+.
+    description: Verdichtet stackbare Inventar-Items für Knight+.
     usage: /stack
   bloecke:
-    description: Oeffnet unbegrenzte No-Sell-Buildbloecke fuer Phoenix+.
+    description: Öffnet unbegrenzte No-Sell-Baublöcke für Phoenix+.
     usage: /bloecke
     aliases: [blöcke, blocks]
   repair:
-    description: Repariert das gehaltene Item fuer Exile+.
+    description: Repariert das gehaltene Item für Exile+.
     usage: /repair
+  enderchest:
+    description: Öffnet die eigene Enderchest für Gold+.
+    usage: /enderchest
+    aliases: [ec]
+  gm:
+    description: Staff-Gamemode-Befehl.
+    usage: /gm <0|1|2|3> [Spieler]
+    aliases: [gamemode]
 permissions:
   skykings.admin.commands:
-    description: Zeigt den Admin-Bereich im /commands-Menue.
-    default: op
+    description: Zeigt den Admin-Bereich im /commands-Menü.
+    default: false
   skykings.admin.freesign:
     description: Darf persistente SkyKings-Free-Signs erstellen und entfernen.
-    default: op
+    default: false
+  skykings.staff.gamemode:
+    description: Darf /gm verwenden.
+    default: false
