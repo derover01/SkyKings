@@ -4,7 +4,7 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, Pearl-Cooldown, physische Nethersterne,
-  Anti-Killfarm, Lootschutz, Bounties und persistente PvP-Stats.
+  Anti-Killfarm, Lootschutz und persistente PvP-Stats.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -12,6 +12,23 @@ commands:
     usage: /stats [Spieler]
     aliases: [pvpstats]
   top:
-    description: Öffnet die SkyKings PvP-Leaderboards.
+    description: Öffnet die SkyKings-PvP-Toplisten.
     usage: /top
     aliases: [leaderboard, leaderboards]
+  killeffect:
+    description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
+    usage: /killeffect
+    aliases: [killeffects, killeffekt]
+permissions:
+  skykings.killeffect.lightning:
+    description: Schaltet den Blitz-Kill-Effect frei.
+    default: false
+  skykings.killeffect.flame:
+    description: Schaltet den Flammen-Kill-Effect frei.
+    default: false
+  skykings.killeffect.heart:
+    description: Schaltet den Herz-Kill-Effect frei.
+    default: false
+  skykings.killeffect.ender:
+    description: Schaltet den Ender-Kill-Effect frei.
+    default: false
