@@ -69,21 +69,28 @@ public class PlayerLifecycleListenerTest {
         org.junit.Assert.assertFalse(event.getKickMessage().contains("Datenbankfehler"));
     }
 
+    // --- Test B: Profil laedt erfolgreich, aber CooldownService.loadForPlayer() wirft - Login muss trotzdem abgelehnt werden ---
     @Test
-    public void preLoginIsDisallowedWhenCooldownLoadingThrows() {
+    public void preLoginIsDisallowedWithGenericMessageWhenCooldownLoadingThrowsEvenIfProfileSucceeded() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         CooldownService failingCooldownService = new NoOpCooldownService() {
             @Override
             public void loadForPlayer(UUID uuid) {
-                throw new RuntimeException("cooldown DB down");
+                throw new RuntimeException("cooldown DB down - enthaelt sensible interne Details");
             }
         };
         PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, failingCooldownService, Logger.getLogger("test"));
 
-        AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, UUID.randomUUID());
+        UUID uuid = UUID.randomUUID();
+        AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
         listener.onAsyncPreLogin(event);
 
+        // Das Profil selbst wurde erfolgreich geladen/erstellt (loadOrCreate laeuft vor loadForPlayer).
+        assertNotNull(profileService.getCached(uuid));
+        // Trotzdem muss der gesamte Login wegen der fehlgeschlagenen Cooldown-Persistenz abgelehnt werden.
         assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, event.getLoginResult());
+        assertEquals(PlayerLifecycleListener.LOAD_FAILURE_MESSAGE, event.getKickMessage());
+        org.junit.Assert.assertFalse(event.getKickMessage().contains("cooldown DB down"));
     }
 
     @Test

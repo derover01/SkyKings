@@ -3,7 +3,6 @@ package net.skykings.core.cooldown;
 import net.skykings.core.storage.DataStore;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,9 +43,15 @@ public final class CooldownServiceImpl implements CooldownService {
         Map<String, Long> persisted;
         try {
             persisted = dataStore.loadCooldowns(uuid);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, "Konnte Cooldowns nicht laden: " + uuid, e);
-            persisted = Collections.emptyMap();
+        } catch (RuntimeException e) {
+            // NICHT abfangen/verschlucken: persistente Cooldowns (Kits/Crates/Abilities) duerfen bei
+            // einem DB-Ausfall nicht stillschweigend durch einen leeren Cache ersetzt werden - das
+            // wuerde sie effektiv umgehbar machen. Der Aufrufer (PlayerLifecycleListener) faengt
+            // diese Exception ab und lehnt den Login ab. Ein eventuell vorhandener Cache-Eintrag
+            // fuer diese UUID (z. B. aus einem frueheren, erfolgreichen Load) wird entfernt, damit
+            // niemals ein veralteter oder nur teilweise befuellter Zustand als gueltig gilt.
+            cache.remove(uuid);
+            throw e;
         }
 
         long now = System.currentTimeMillis();

@@ -3,6 +3,7 @@ package net.skykings.core.cooldown;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.storage.DataStore;
+import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
 import org.junit.After;
 import org.junit.Before;
@@ -146,6 +147,48 @@ public class CooldownServiceImplTest {
         cooldownService.set(UUID.randomUUID(), "pearl", 0L);
     }
 
+    // --- Test A: DataStoreException aus loadCooldowns() muss aus loadForPlayer() herauspropagieren ---
+    @Test
+    public void loadForPlayerPropagatesExceptionFromDataStore() {
+        FlakyLoadCooldownsDataStore flaky = new FlakyLoadCooldownsDataStore(realDataStore);
+        flaky.failNextLoadCooldowns();
+        CooldownServiceImpl service = new CooldownServiceImpl(flaky, new SameThreadExecutorService(), Logger.getLogger("test"));
+
+        try {
+            service.loadForPlayer(UUID.randomUUID());
+            org.junit.Assert.fail("loadForPlayer() haette die DataStoreException weitergeben muessen");
+        } catch (DataStoreException expected) {
+            assertEquals("simulierter Datenbankfehler beim Cooldown-Load", expected.getMessage());
+        }
+    }
+
+    // --- Test C: ein fehlgeschlagener Reload darf keinen (auch nicht teilweise/veralteten) Cache stehen lassen ---
+    @Test
+    public void failedReloadRemovesAnyPreviouslyCachedStateInsteadOfKeepingIt() {
+        UUID uuid = UUID.randomUUID();
+        FlakyLoadCooldownsDataStore flaky = new FlakyLoadCooldownsDataStore(realDataStore);
+        CooldownServiceImpl service = new CooldownServiceImpl(flaky, new SameThreadExecutorService(), Logger.getLogger("test"));
+
+        // Erfolgreicher Erst-Load, danach ein aktiver Cooldown im Cache.
+        service.loadForPlayer(uuid);
+        service.set(uuid, "pearl", 60000L);
+        assertTrue(service.isActive(uuid, "pearl"));
+
+        // Ein erneuter (z. B. durch einen zweiten Login-Versuch ausgeloester) Load schlaegt fehl.
+        flaky.failNextLoadCooldowns();
+        try {
+            service.loadForPlayer(uuid);
+            org.junit.Assert.fail("Erwartete DataStoreException");
+        } catch (DataStoreException expected) {
+            // erwartet
+        }
+
+        // Der zuvor gecachte Zustand darf NICHT weiterverwendet werden - "fail closed" statt
+        // stillschweigend mit potenziell veralteten Daten weiterzumachen.
+        assertFalse("Nach fehlgeschlagenem Reload darf kein (auch kein alter) Cooldown-Cache mehr aktiv sein",
+                service.isActive(uuid, "pearl"));
+    }
+
     /** Zaehlt Lesezugriffe auf den DataStore, um zu belegen, dass der Gameplay-Pfad ihn nicht mehr aufruft. */
     private static final class CountingDataStore implements DataStore {
         private final DataStore delegate;
@@ -188,6 +231,69 @@ public class CooldownServiceImplTest {
         @Override
         public Map<String, Long> loadCooldowns(UUID uuid) {
             readCallCount.incrementAndGet();
+            return delegate.loadCooldowns(uuid);
+        }
+
+        @Override
+        public void saveCooldown(UUID uuid, String key, long expiresAtMillis) {
+            delegate.saveCooldown(uuid, key, expiresAtMillis);
+        }
+
+        @Override
+        public void deleteCooldown(UUID uuid, String key) {
+            delegate.deleteCooldown(uuid, key);
+        }
+
+        @Override
+        public void appendAuditEvent(AuditEvent event) {
+            delegate.appendAuditEvent(event);
+        }
+    }
+
+    /** Wirft bei Bedarf einmalig eine DataStoreException aus loadCooldowns(), sonst normales Delegate-Verhalten. */
+    private static final class FlakyLoadCooldownsDataStore implements DataStore {
+        private final DataStore delegate;
+        private volatile boolean failNextLoadCooldowns;
+
+        FlakyLoadCooldownsDataStore(DataStore delegate) {
+            this.delegate = delegate;
+        }
+
+        void failNextLoadCooldowns() {
+            this.failNextLoadCooldowns = true;
+        }
+
+        @Override
+        public void initialize() {
+            delegate.initialize();
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
+
+        @Override
+        public Optional<PlayerProfile> loadProfile(UUID uuid) {
+            return delegate.loadProfile(uuid);
+        }
+
+        @Override
+        public void saveProfile(PlayerProfile profile) {
+            delegate.saveProfile(profile);
+        }
+
+        @Override
+        public Optional<Long> loadCooldown(UUID uuid, String key) {
+            return delegate.loadCooldown(uuid, key);
+        }
+
+        @Override
+        public Map<String, Long> loadCooldowns(UUID uuid) {
+            if (failNextLoadCooldowns) {
+                failNextLoadCooldowns = false;
+                throw new DataStoreException("simulierter Datenbankfehler beim Cooldown-Load");
+            }
             return delegate.loadCooldowns(uuid);
         }
 
