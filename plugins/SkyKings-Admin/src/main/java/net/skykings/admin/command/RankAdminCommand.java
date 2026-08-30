@@ -5,9 +5,9 @@ import net.skykings.core.rank.RankService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -21,14 +21,12 @@ public final class RankAdminCommand implements CommandExecutor, TabCompleter {
     public static final String ADMIN_PERMISSION = "skykings.admin.rang";
     private final RankService rankService;
 
-    public RankAdminCommand(RankService rankService) {
-        this.rankService = rankService;
-    }
+    public RankAdminCommand(RankService rankService) { this.rankService = rankService; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.isOp() && !sender.hasPermission(ADMIN_PERMISSION)) {
-            sender.sendMessage(ChatColor.RED + "Dafuer hast du keine Berechtigung.");
+        if (!sender.hasPermission(ADMIN_PERMISSION)) {
+            sender.sendMessage(ChatColor.RED + "Dafür hast du keine Berechtigung.");
             return true;
         }
         if (args.length != 2) {
@@ -41,15 +39,13 @@ public final class RankAdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         Rank rank;
-        try {
-            rank = Rank.valueOf(args[1].toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            sender.sendMessage(ChatColor.RED + "Unbekannter Rang. Gueltig: Spieler, Iron, Gold, Epic, Diamond, Knight, Phoenix, Eternal, Exile, Endling, King.");
+        try { rank = Rank.valueOf(args[1].toUpperCase(Locale.ROOT)); }
+        catch (IllegalArgumentException ex) {
+            sender.sendMessage(ChatColor.RED + "Unbekannter Rang. Gültig: Spieler, Iron, Gold, Epic, Diamond, Knight, Phoenix, Eternal, Exile, Endling, King.");
             return true;
         }
-        try {
-            rankService.setRank(target.getUniqueId(), rank, sender.getName());
-        } catch (RuntimeException ex) {
+        try { rankService.setRank(target.getUniqueId(), rank, sender.getName()); }
+        catch (RuntimeException ex) {
             sender.sendMessage(ChatColor.RED + "Der Rang konnte nicht gesetzt werden.");
             return true;
         }
@@ -60,13 +56,11 @@ public final class RankAdminCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.isOp() && !sender.hasPermission(ADMIN_PERMISSION)) return Collections.emptyList();
+        if (!sender.hasPermission(ADMIN_PERMISSION)) return Collections.emptyList();
         if (args.length == 1) {
             List<String> names = new ArrayList<String>();
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) names.add(player.getName());
-            }
+            for (Player player : Bukkit.getOnlinePlayers()) if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) names.add(player.getName());
             return names;
         }
         if (args.length == 2) {
