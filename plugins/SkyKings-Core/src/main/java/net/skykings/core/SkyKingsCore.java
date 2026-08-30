@@ -50,6 +50,8 @@ import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.netherstar.NetherstarServiceImpl;
 import net.skykings.core.permission.VoucherPermissionService;
 import net.skykings.core.perk.BuildBlockSafetyListener;
+import net.skykings.core.perk.BuildBlockStore;
+import net.skykings.core.perk.BuildBlockWorldListener;
 import net.skykings.core.perk.BuildBlocksGui;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
@@ -94,6 +96,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private GuiManager guiManager;
     private VoucherPermissionService voucherPermissionService;
     private FreeSignStore freeSignStore;
+    private BuildBlockStore buildBlockStore;
 
     @Override
     public void onEnable() {
@@ -132,6 +135,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.guiManager = new GuiManager();
         this.voucherPermissionService = new VoucherPermissionService(this, permissionBridge, loggingService);
         this.freeSignStore = new FreeSignStore(this);
+        this.buildBlockStore = new BuildBlockStore(this);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -149,6 +153,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(new PlayerJoinMessageListener(rankDisplayConfig, rankService), this);
         getServer().getPluginManager().registerEvents(new FreeSignListener(freeSignStore, guiManager), this);
         getServer().getPluginManager().registerEvents(new BuildBlockSafetyListener(), this);
+        getServer().getPluginManager().registerEvents(new BuildBlockWorldListener(buildBlockStore), this);
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
@@ -202,6 +207,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     @Override
     public void onDisable() {
+        if (buildBlockStore != null) buildBlockStore.shutdown();
         if (freeSignStore != null) freeSignStore.shutdown();
         if (playerProfileService != null) playerProfileService.saveAll();
         if (dbExecutor != null) {
