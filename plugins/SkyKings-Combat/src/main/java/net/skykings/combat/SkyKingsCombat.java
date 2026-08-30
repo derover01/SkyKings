@@ -4,9 +4,11 @@ import net.skykings.combat.antifarm.AntiFarmService;
 import net.skykings.combat.antifarm.AntiFarmServiceImpl;
 import net.skykings.combat.config.CombatConfig;
 import net.skykings.combat.falldamage.FallDamageListener;
+import net.skykings.combat.kill.BountyService;
 import net.skykings.combat.kill.CombatDeathListener;
 import net.skykings.combat.kill.CombatKillService;
 import net.skykings.combat.kill.CombatKillServiceImpl;
+import net.skykings.combat.kill.NetherstarRewardDelivery;
 import net.skykings.combat.kill.PhysicalNetherstarRewardDelivery;
 import net.skykings.combat.killstreak.KillstreakService;
 import net.skykings.combat.killstreak.KillstreakServiceImpl;
@@ -23,6 +25,7 @@ import net.skykings.combat.starterkit.DeathStarterKits;
 import net.skykings.combat.starterkit.StarterKitRespawnListener;
 import net.skykings.combat.stats.PvpStatsService;
 import net.skykings.combat.stats.StatsCommand;
+import net.skykings.combat.stats.TopCommand;
 import net.skykings.combat.tag.CombatFlyCommandListener;
 import net.skykings.combat.tag.CombatTagService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
@@ -65,11 +68,14 @@ public final class SkyKingsCombat extends JavaPlugin {
         AntiFarmService antiFarmService = new AntiFarmServiceImpl(config.getAntiFarmFullRewardMaxKills(),
                 config.getAntiFarmHalfRewardMaxKills(), config.getAntiFarmHalfRewardMultiplier());
         LootProtectionService lootProtectionService = new LootProtectionServiceImpl(this, config.getLootProtectionMillis());
+        NetherstarRewardDelivery rewardDelivery = new PhysicalNetherstarRewardDelivery();
+        BountyService bountyService = new BountyService(coreApi.getEconomyService(), rewardDelivery);
+
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
         CombatKillService combatKillService = new CombatKillServiceImpl(killstreakService, antiFarmService,
-                new PhysicalNetherstarRewardDelivery(), lootProtectionService, pvpStatsService, getLogger());
+                rewardDelivery, lootProtectionService, pvpStatsService, bountyService, getLogger());
 
         DeathStarterKit starterKit = DeathStarterKits.createDefault(config.getStarterKitGoldenApples());
         DeathStarterKitService starterKitService = new DeathStarterKitService(starterKit, config.isStarterKitEnabled());
@@ -89,15 +95,19 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
 
         PluginCommand statsCommand = getCommand("stats");
-        if (statsCommand == null) {
-            getLogger().severe("/stats fehlt in plugin.yml - SkyKings-Combat wird deaktiviert.");
+        PluginCommand topCommand = getCommand("top");
+        if (statsCommand == null || topCommand == null) {
+            getLogger().severe("/stats oder /top fehlt in plugin.yml - SkyKings-Combat wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
         statsCommand.setExecutor(new StatsCommand(pvpStatsService));
+        TopCommand topExecutor = new TopCommand(pvpStatsService);
+        topCommand.setExecutor(topExecutor);
+        getServer().getPluginManager().registerEvents(topExecutor, this);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (PvP-Stats + physische Netherstern-Rewards) aktiviert.");
+        getLogger().info("SkyKings-Combat (PvP-Stats + /top + Bounty + physische Netherstern-Rewards) aktiviert.");
     }
 
     @Override
