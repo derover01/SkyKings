@@ -12,9 +12,10 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Verdichtet gleichartige stackbare Inventar-Items fuer Knight+. */
+/** Verdichtet gleichartige stackbare Inventar-Items fuer Knight+ oder Gutscheinrecht. */
 public final class StackCommand implements CommandExecutor {
 
+    public static final String PERMISSION = "skykings.perk.stack";
     private static final int STORAGE_SLOTS = 36;
 
     private final RankService rankService;
@@ -30,8 +31,9 @@ public final class StackCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Knight fuer /stack.");
+        if (!player.isOp() && !player.hasPermission(PERMISSION)
+                && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
+            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Knight oder das Stack-Recht.");
             return true;
         }
 
