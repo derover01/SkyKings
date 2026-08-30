@@ -1,9 +1,9 @@
 package net.skykings.core.command;
 
-import net.skykings.core.cooldown.CooldownService;
 import net.skykings.core.kit.KitDefinition;
 import net.skykings.core.kit.KitGrantResult;
 import net.skykings.core.kit.KitGrantService;
+import net.skykings.core.kit.KitGui;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -12,20 +12,19 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** /kit [name] – listet eigene+niedrigere Rank-Kits oder beansprucht eines davon. */
+/** /kit oeffnet die GUI; /kit <name> beansprucht weiterhin direkt ein Rank-Kit. */
 public final class KitCommand implements CommandExecutor, TabCompleter {
 
     private final KitGrantService kitGrantService;
-    private final CooldownService cooldownService;
+    private final KitGui kitGui;
 
-    public KitCommand(KitGrantService kitGrantService, CooldownService cooldownService) {
+    public KitCommand(KitGrantService kitGrantService, KitGui kitGui) {
         this.kitGrantService = kitGrantService;
-        this.cooldownService = cooldownService;
+        this.kitGui = kitGui;
     }
 
     @Override
@@ -37,11 +36,11 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
 
         Player player = (Player) sender;
         if (args.length == 0) {
-            showAvailable(player);
+            kitGui.open(player);
             return true;
         }
         if (args.length != 1) {
-            player.sendMessage(ChatColor.RED + "Verwendung: /kit <name>");
+            player.sendMessage(ChatColor.RED + "Verwendung: /kit [name]");
             return true;
         }
 
@@ -51,7 +50,7 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.GREEN + "Kit " + display(result.getKit()) + ChatColor.GREEN + " erhalten.");
                 break;
             case NOT_FOUND:
-                player.sendMessage(ChatColor.RED + "Dieses Kit existiert nicht. Nutze /kit fuer deine verfuegbaren Kits.");
+                player.sendMessage(ChatColor.RED + "Dieses Kit existiert nicht. Nutze /kit fuer die Kit-Uebersicht.");
                 break;
             case NO_PERMISSION:
                 player.sendMessage(ChatColor.RED + "Dein Rang ist fuer dieses Kit nicht hoch genug.");
@@ -71,24 +70,6 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
                 break;
         }
         return true;
-    }
-
-    private void showAvailable(Player player) {
-        Collection<KitDefinition> kits = kitGrantService.getAccessibleKits(player);
-        if (kits.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "Aktuell sind keine Kits fuer dich verfuegbar.");
-            return;
-        }
-
-        player.sendMessage(ChatColor.GOLD + "Deine SkyKings-Kits:");
-        for (KitDefinition kit : kits) {
-            long remaining = cooldownService.getRemainingMillis(player.getUniqueId(), "kit:" + kit.getId().toLowerCase(Locale.ROOT));
-            String state = remaining > 0L
-                    ? ChatColor.RED + "Cooldown: " + formatDuration(remaining)
-                    : ChatColor.GREEN + "bereit";
-            player.sendMessage(ChatColor.DARK_GRAY + "- " + display(kit) + ChatColor.GRAY + " - " + state);
-        }
-        player.sendMessage(ChatColor.GRAY + "Nutze /kit <name> zum Beanspruchen.");
     }
 
     @Override
