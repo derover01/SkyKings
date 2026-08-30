@@ -31,10 +31,7 @@ public final class RankKitLoader {
 
     public void loadAndRegister() {
         File file = new File(plugin.getDataFolder(), "rank-kits.yml");
-        if (!file.exists()) {
-            plugin.saveResource("rank-kits.yml", false);
-        }
-
+        if (!file.exists()) plugin.saveResource("rank-kits.yml", false);
         YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
         int registered = 0;
         for (Rank rank : Rank.values()) {
@@ -62,9 +59,13 @@ public final class RankKitLoader {
         spec.swordMaterial = material(section.getString("gear.sword", "IRON_SWORD"));
         spec.sharpness = section.getInt("gear.sharpness", 0);
         spec.fireAspect = section.getInt("gear.fire-aspect", 0);
+        spec.bowPower = nonNegative(section.getInt("gear.bow-power", 1), "bow-power");
+        spec.bowPunch = nonNegative(section.getInt("gear.bow-punch", 0), "bow-punch");
+        spec.bowFlame = nonNegative(section.getInt("gear.bow-flame", 0), "bow-flame");
         spec.goldenApples = nonNegative(section.getInt("consumables.golden-apples", 0), "golden-apples");
         spec.opApples = nonNegative(section.getInt("consumables.op-apples", 0), "op-apples");
         spec.enderPearls = nonNegative(section.getInt("consumables.enderpearls", 0), "enderpearls");
+        spec.arrows = nonNegative(section.getInt("consumables.arrows", 32), "arrows");
 
         long cooldownMinutes = Math.max(0L, section.getLong("cooldown-minutes", 0L));
         int strengthTicks = effectTicks(section.getLong("effects.strength-seconds", 0L));
@@ -75,13 +76,8 @@ public final class RankKitLoader {
                 .requiredRank(rank)
                 .cooldownMillis(TimeUnit.MINUTES.toMillis(cooldownMinutes))
                 .itemFactory(() -> createItems(spec));
-
-        if (strengthTicks > 0) {
-            builder.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, strengthTicks, 1));
-        }
-        if (speedTicks > 0) {
-            builder.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedTicks, 1));
-        }
+        if (strengthTicks > 0) builder.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, strengthTicks, 1));
+        if (speedTicks > 0) builder.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedTicks, 1));
         return builder.build();
     }
 
@@ -93,17 +89,19 @@ public final class RankKitLoader {
         items.add(armor(spec.armorPrefix + "_BOOTS", spec.protection, spec.unbreaking));
 
         ItemBuilder sword = new ItemBuilder(spec.swordMaterial);
-        if (spec.sharpness > 0) {
-            sword.enchant(Enchantment.DAMAGE_ALL, spec.sharpness);
-        }
-        if (spec.fireAspect > 0) {
-            sword.enchant(Enchantment.FIRE_ASPECT, spec.fireAspect);
-        }
-        if (spec.unbreaking > 0) {
-            sword.enchant(Enchantment.DURABILITY, spec.unbreaking);
-        }
+        if (spec.sharpness > 0) sword.enchant(Enchantment.DAMAGE_ALL, spec.sharpness);
+        if (spec.fireAspect > 0) sword.enchant(Enchantment.FIRE_ASPECT, spec.fireAspect);
+        if (spec.unbreaking > 0) sword.enchant(Enchantment.DURABILITY, spec.unbreaking);
         items.add(sword.build());
 
+        ItemBuilder bow = new ItemBuilder(Material.BOW);
+        if (spec.bowPower > 0) bow.enchant(Enchantment.ARROW_DAMAGE, spec.bowPower);
+        if (spec.bowPunch > 0) bow.enchant(Enchantment.ARROW_KNOCKBACK, spec.bowPunch);
+        if (spec.bowFlame > 0) bow.enchant(Enchantment.ARROW_FIRE, spec.bowFlame);
+        if (spec.unbreaking > 0) bow.enchant(Enchantment.DURABILITY, spec.unbreaking);
+        items.add(bow.build());
+
+        addStacked(items, Material.ARROW, spec.arrows, (short) 0);
         addStacked(items, Material.GOLDEN_APPLE, spec.goldenApples, (short) 0);
         addStacked(items, Material.GOLDEN_APPLE, spec.opApples, (short) 1);
         addStacked(items, Material.ENDER_PEARL, spec.enderPearls, (short) 0);
@@ -112,12 +110,8 @@ public final class RankKitLoader {
 
     private ItemStack armor(String materialName, int protection, int unbreaking) {
         ItemBuilder builder = new ItemBuilder(material(materialName));
-        if (protection > 0) {
-            builder.enchant(Enchantment.PROTECTION_ENVIRONMENTAL, protection);
-        }
-        if (unbreaking > 0) {
-            builder.enchant(Enchantment.DURABILITY, unbreaking);
-        }
+        if (protection > 0) builder.enchant(Enchantment.PROTECTION_ENVIRONMENTAL, protection);
+        if (unbreaking > 0) builder.enchant(Enchantment.DURABILITY, unbreaking);
         return builder.build();
     }
 
@@ -132,24 +126,19 @@ public final class RankKitLoader {
     }
 
     private Material material(String name) {
-        try {
-            return Material.valueOf(name.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
+        try { return Material.valueOf(name.toUpperCase(Locale.ROOT)); }
+        catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Unbekanntes 1.8.8-Material in rank-kits.yml: " + name, e);
         }
     }
 
     private int effectTicks(long seconds) {
-        if (seconds <= 0L) {
-            return 0;
-        }
+        if (seconds <= 0L) return 0;
         return (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
     }
 
     private int nonNegative(int value, String field) {
-        if (value < 0) {
-            throw new IllegalArgumentException(field + " darf nicht negativ sein: " + value);
-        }
+        if (value < 0) throw new IllegalArgumentException(field + " darf nicht negativ sein: " + value);
         return value;
     }
 
@@ -160,6 +149,10 @@ public final class RankKitLoader {
         private Material swordMaterial;
         private int sharpness;
         private int fireAspect;
+        private int bowPower;
+        private int bowPunch;
+        private int bowFlame;
+        private int arrows;
         private int goldenApples;
         private int opApples;
         private int enderPearls;
