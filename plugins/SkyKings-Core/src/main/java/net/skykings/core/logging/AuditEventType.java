@@ -1,0 +1,13 @@
+package net.skykings.core.logging;
+
+/**
+ * Ereignistypen fuer den Core-Audit-Log (siehe docs/GAMEPLAY.md "Logging" und
+ * CLAUDE.md Punkt 10: kritische Economy-/Rang-Aktionen muessen nachvollziehbar sein).
+ */
+public enum AuditEventType {
+    ECONOMY_DEPOSIT,
+    ECONOMY_WITHDRAW,
+    ECONOMY_SET,
+    RANK_CHANGE,
+    PROFILE_CREATED
+}

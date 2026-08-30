@@ -1,0 +1,24 @@
+# SkyKings-Core Konfiguration (Phase 1A)
+#
+# WICHTIG (siehe CLAUDE.md Punkt 5): Diese Vorlage darf niemals echte Zugangsdaten
+# enthalten. Die generierte Laufzeitversion liegt unter
+# server/plugins/SkyKings-Core/config.yml und ist per .gitignore von Git ausgeschlossen.
+
+debug: false
+
+storage:
+  # SQLITE ist in Phase 1A implementiert und Standard fuer die lokale Entwicklung.
+  # MYSQL ist als Zielarchitektur vorbereitet (siehe DataStore-Interface), aber noch
+  # NICHT implementiert - siehe Abschlussbericht "offene Punkte".
+  type: SQLITE
+
+  sqlite:
+    file: skykings-core.db
+
+  mysql:
+    host: localhost
+    port: 3306
+    database: skykings
+    username: skykings
+    password: ""
+    useSSL: false

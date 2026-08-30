@@ -27,5 +27,24 @@
       <artifactId>spigot-api</artifactId>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <!-- Test-only (nicht im Plugin-JAR enthalten), beeinflusst die 1.8.8-Legacy-
+           Laufzeitkompatibilitaet nicht. Pinned auf die letzte JUnit-4-Version. -->
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <!-- NUR fuer Tests auf der Build-Maschine: SQLiteDataStore ruft zur Laufzeit auf dem
+           echten Server org.sqlite.JDBC aus dem Spigot-1.8.8-JAR (Version 3.7.2) auf, das
+           ist HIER nicht auf dem Classpath. Diese moderne Testversion beeinflusst die
+           Produktionslaufzeit nicht, sie verifiziert nur, dass unser SQL (bewusst kein
+           Upsert, siehe SQLiteDataStore) gegen eine echte SQLite-Engine funktioniert. -->
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.45.1.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>
