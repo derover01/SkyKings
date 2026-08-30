@@ -1,7 +1,6 @@
 name: SkyKings-Core
 version: ${project.version}
 main: net.skykings.core.SkyKingsCore
-api-version: 1.8
 description: >
   Zentrales SkyKings-Modul (Player-Profile, Rank-/Economy-API, Kit-Registry, Configs,
   Persistenz, Events fuer andere SkyKings-Module). Phase 0: Grundgeruest ohne Features.

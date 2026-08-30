@@ -1,7 +1,6 @@
 name: SkyKings-Crates
 version: ${project.version}
 main: net.skykings.crates.SkyKingsCrates
-api-version: 1.8
 depend: [SkyKings-Core]
 description: >
   Crates-Modul (Head-Crates, Preview/Open-GUI, Open-All, Gutscheine, Anti-Dupe, Logs).
