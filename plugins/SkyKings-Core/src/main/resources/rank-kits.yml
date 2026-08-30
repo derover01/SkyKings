@@ -1,0 +1,81 @@
+# SkyKings Rank-Kits – Phase 3 Balance-Draft
+# Alle Werte sind absichtlich konfigurierbar. Hoehere Raenge koennen eigene und niedrigere Kits nutzen.
+# Strength II / Speed II werden beim Claim direkt als temporaere Effekte angewendet (Amplifier 1 = Level II).
+
+kits:
+  spieler:
+    display-name: "&7Spieler"
+    cooldown-minutes: 30
+    effects: { strength-seconds: 480, speed-seconds: 480 }
+    gear: { armor: IRON, protection: 2, unbreaking: 1, sword: IRON_SWORD, sharpness: 2, fire-aspect: 0 }
+    consumables: { golden-apples: 16, op-apples: 0, enderpearls: 4 }
+
+  iron:
+    display-name: "&fIron"
+    cooldown-minutes: 45
+    effects: { strength-seconds: 480, speed-seconds: 480 }
+    gear: { armor: IRON, protection: 3, unbreaking: 2, sword: DIAMOND_SWORD, sharpness: 2, fire-aspect: 0 }
+    consumables: { golden-apples: 24, op-apples: 0, enderpearls: 6 }
+
+  gold:
+    display-name: "&6Gold"
+    cooldown-minutes: 60
+    effects: { strength-seconds: 480, speed-seconds: 480 }
+    gear: { armor: DIAMOND, protection: 2, unbreaking: 2, sword: DIAMOND_SWORD, sharpness: 3, fire-aspect: 0 }
+    consumables: { golden-apples: 32, op-apples: 1, enderpearls: 8 }
+
+  epic:
+    display-name: "&5Epic"
+    cooldown-minutes: 90
+    effects: { strength-seconds: 480, speed-seconds: 480 }
+    gear: { armor: DIAMOND, protection: 3, unbreaking: 2, sword: DIAMOND_SWORD, sharpness: 3, fire-aspect: 1 }
+    consumables: { golden-apples: 48, op-apples: 2, enderpearls: 10 }
+
+  diamond:
+    display-name: "&bDiamond"
+    cooldown-minutes: 120
+    effects: { strength-seconds: 480, speed-seconds: 480 }
+    gear: { armor: DIAMOND, protection: 4, unbreaking: 3, sword: DIAMOND_SWORD, sharpness: 4, fire-aspect: 1 }
+    consumables: { golden-apples: 64, op-apples: 4, enderpearls: 12 }
+
+  knight:
+    display-name: "&8Knight"
+    cooldown-minutes: 120
+    effects: { strength-seconds: 600, speed-seconds: 600 }
+    gear: { armor: DIAMOND, protection: 4, unbreaking: 3, sword: DIAMOND_SWORD, sharpness: 4, fire-aspect: 2 }
+    consumables: { golden-apples: 64, op-apples: 8, enderpearls: 16 }
+
+  phoenix:
+    display-name: "&cPhoenix"
+    cooldown-minutes: 180
+    effects: { strength-seconds: 600, speed-seconds: 600 }
+    gear: { armor: DIAMOND, protection: 4, unbreaking: 4, sword: DIAMOND_SWORD, sharpness: 5, fire-aspect: 1 }
+    consumables: { golden-apples: 96, op-apples: 12, enderpearls: 16 }
+
+  eternal:
+    display-name: "&dEternal"
+    cooldown-minutes: 240
+    effects: { strength-seconds: 720, speed-seconds: 720 }
+    gear: { armor: DIAMOND, protection: 4, unbreaking: 4, sword: DIAMOND_SWORD, sharpness: 5, fire-aspect: 2 }
+    consumables: { golden-apples: 128, op-apples: 16, enderpearls: 20 }
+
+  exile:
+    display-name: "&4Exile"
+    cooldown-minutes: 360
+    effects: { strength-seconds: 720, speed-seconds: 720 }
+    gear: { armor: DIAMOND, protection: 5, unbreaking: 4, sword: DIAMOND_SWORD, sharpness: 5, fire-aspect: 2 }
+    consumables: { golden-apples: 128, op-apples: 24, enderpearls: 24 }
+
+  endling:
+    display-name: "&3Endling"
+    cooldown-minutes: 480
+    effects: { strength-seconds: 900, speed-seconds: 900 }
+    gear: { armor: DIAMOND, protection: 5, unbreaking: 5, sword: DIAMOND_SWORD, sharpness: 5, fire-aspect: 2 }
+    consumables: { golden-apples: 128, op-apples: 32, enderpearls: 28 }
+
+  king:
+    display-name: "&e&lKing"
+    cooldown-minutes: 720
+    effects: { strength-seconds: 900, speed-seconds: 900 }
+    gear: { armor: DIAMOND, protection: 6, unbreaking: 5, sword: DIAMOND_SWORD, sharpness: 6, fire-aspect: 2 }
+    consumables: { golden-apples: 192, op-apples: 32, enderpearls: 32 }
