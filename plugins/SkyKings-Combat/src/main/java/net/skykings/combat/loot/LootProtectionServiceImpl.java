@@ -59,8 +59,6 @@ public final class LootProtectionServiceImpl implements LootProtectionService {
             return;
         }
 
-        // Snapshot VOR Abschluss des PlayerDeathEvent: Diese Item-Entities lagen bereits herum
-        // und duerfen niemals als Death-Drops dieses Opfers markiert werden.
         Set<UUID> preExistingItemIds = new HashSet<>();
         for (Entity entity : world.getNearbyEntities(deathLocation, SEARCH_RADIUS, SEARCH_RADIUS, SEARCH_RADIUS)) {
             if (entity instanceof Item) {
@@ -95,11 +93,11 @@ public final class LootProtectionServiceImpl implements LootProtectionService {
             protectedDrops.remove(entityId, drop);
             return true;
         }
-        if (drop.ownerUuid.equals(player.getUniqueId())) {
-            protectedDrops.remove(entityId, drop);
-            return true;
-        }
-        return false;
+
+        // Der Besitzer darf aufheben, aber der Tracking-Eintrag wird HIER noch nicht entfernt.
+        // Ein anderes Plugin kann denselben Pickup spaeter noch canceln. Erst ein erfolgreicher,
+        // am MONITOR-Punkt weiterhin nicht gecancelter Pickup entfernt den Schutz (LootPickupListener).
+        return drop.ownerUuid.equals(player.getUniqueId());
     }
 
     @Override

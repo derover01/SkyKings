@@ -3,6 +3,7 @@ package net.skykings.combat.loot;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ItemDespawnEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
@@ -16,7 +17,7 @@ public final class LootPickupListener implements Listener {
         this.lootProtectionService = lootProtectionService;
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onPickup(PlayerPickupItemEvent event) {
         Item item = event.getItem();
         Player player = event.getPlayer();
@@ -25,9 +26,17 @@ public final class LootPickupListener implements Listener {
         }
     }
 
+    /**
+     * Cleanup erst ganz am Ende des Event-Pfads: Nur wenn der Pickup bis MONITOR weiterhin
+     * nicht gecancelt wurde, gilt er als erfolgreich genug, um den Schutz zu entfernen.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSuccessfulPickup(PlayerPickupItemEvent event) {
+        lootProtectionService.forget(event.getItem());
+    }
+
     @EventHandler
     public void onDespawn(ItemDespawnEvent event) {
-        // Memory-Leak-Schutz: Tracking-Eintrag entfernen, sobald die Entity aus der Welt verschwindet.
         lootProtectionService.forget(event.getEntity());
     }
 }

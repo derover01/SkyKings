@@ -57,10 +57,6 @@ public class LootProtectionServiceImplTest {
         return item;
     }
 
-    /**
-     * Der erste Nearby-Scan passiert vor Abschluss des Death-Events, der zweite im geplanten
-     * Next-Tick-Task. So koennen Tests Alt-Items und neu entstandene Death-Drops unterscheiden.
-     */
     private void nearbyBeforeAndAfter(java.util.Collection<? extends Entity> before,
                                       java.util.Collection<? extends Entity> after) {
         AtomicInteger calls = new AtomicInteger();
@@ -77,6 +73,25 @@ public class LootProtectionServiceImplTest {
         Player killer = mock(Player.class);
         when(killer.getUniqueId()).thenReturn(killerUuid);
         assertTrue(service.canPickup(drop, killer));
+    }
+
+    @Test
+    public void ownerPickupCheckDoesNotReleaseProtectionBeforePickupActuallySucceeds() {
+        Item drop = item();
+        nearbyBeforeAndAfter(Collections.emptyList(), Collections.singletonList(drop));
+        service.protectDeathDrops(deathLocation, killerUuid);
+
+        Player killer = mock(Player.class);
+        when(killer.getUniqueId()).thenReturn(killerUuid);
+        Player stranger = mock(Player.class);
+        when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
+
+        assertTrue(service.canPickup(drop, killer));
+        assertFalse("Nur das Pruefen des Besitzer-Pickups darf den Schutz noch nicht entfernen",
+                service.canPickup(drop, stranger));
+
+        service.forget(drop);
+        assertTrue(service.canPickup(drop, stranger));
     }
 
     @Test

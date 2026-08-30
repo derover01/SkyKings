@@ -8,6 +8,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +50,18 @@ public class LootPickupListenerTest {
 
         listener.onPickup(event);
 
-        verify(event, org.mockito.Mockito.never()).setCancelled(true);
+        verify(event, never()).setCancelled(true);
+    }
+
+    @Test
+    public void successfulPickupForgetsItemAtMonitorStage() {
+        Item item = mock(Item.class);
+        PlayerPickupItemEvent event = mock(PlayerPickupItemEvent.class);
+        when(event.getItem()).thenReturn(item);
+
+        listener.onSuccessfulPickup(event);
+
+        verify(lootProtectionService).forget(item);
     }
 
     @Test
