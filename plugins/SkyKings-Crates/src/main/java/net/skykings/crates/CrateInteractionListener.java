@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.gui.GuiSession;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
@@ -23,9 +24,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Linksklick = Preview, Rechtsklick = eine Crate, Shift+Rechtsklick = Open-All ab Exile. */
+/** Crate UX: Preview, Auswahlmenü, Animation/Sofort und Open-All. */
 public final class CrateInteractionListener implements Listener {
 
+    public static final String OPEN_ALL_PERMISSION = "skykings.perk.crate.openall";
     private static final String PREVIEW_TITLE = ChatColor.DARK_GRAY + "Crate Preview";
 
     private final JavaPlugin plugin;
@@ -49,11 +51,10 @@ public final class CrateInteractionListener implements Listener {
         ItemStack hand = event.getItem();
         CrateItemCodec.DecodedCrate decoded = codec.decode(hand);
         if (decoded == null) return;
-
         CrateRegistry.CrateDefinition crate = registry.get(decoded.getCrateId());
         if (crate == null) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(ChatColor.RED + "Diese Crate ist nicht mehr gueltig.");
+            event.getPlayer().sendMessage(ChatColor.RED + "Diese Crate ist nicht mehr gültig.");
             return;
         }
 
@@ -69,27 +70,62 @@ public final class CrateInteractionListener implements Listener {
                 event.getPlayer().sendMessage(ChatColor.RED + "Das Crate-System startet noch. Bitte versuche es gleich erneut.");
                 return;
             }
-            if (event.getPlayer().isSneaking()) {
-                if (!event.getPlayer().isOp()
-                        && !core.getRankService().hasAtLeast(event.getPlayer().getUniqueId(), Rank.EXILE)) {
-                    event.getPlayer().sendMessage(ChatColor.RED + "Open-All ist ab Exile verfuegbar.");
-                    return;
-                }
-                openAll(event.getPlayer(), crate);
-            } else {
-                openSerial(event.getPlayer(), crate, decoded.getSerial(), null);
-            }
+            openChoice(event.getPlayer(), crate, decoded);
         }
     }
 
-    @EventHandler
-    public void onPreviewClick(InventoryClickEvent event) {
+    @EventHandler public void onPreviewClick(InventoryClickEvent event) {
+        if (event.getView() != null && PREVIEW_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
+    @EventHandler public void onPreviewDrag(InventoryDragEvent event) {
         if (event.getView() != null && PREVIEW_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
     }
 
-    @EventHandler
-    public void onPreviewDrag(InventoryDragEvent event) {
-        if (event.getView() != null && PREVIEW_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    private void openChoice(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Crate öffnen", 27);
+        gui.setItem(11, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE + "Mit Animation",
+                ChatColor.GRAY + "Öffnet eine Crate mit Roulette-Animation.", ChatColor.YELLOW + "Klicken"),
+                (p,e,s) -> startAnimation(p, crate, decoded));
+        gui.setItem(15, named(Material.ENDER_CHEST, ChatColor.GREEN + "Sofort öffnen",
+                ChatColor.GRAY + "Zeigt dir den Gewinn direkt.", ChatColor.YELLOW + "Klicken"),
+                (p,e,s) -> {
+                    p.closeInventory();
+                    openSerial(p, crate, decoded.getSerial(), decoded.getMaxClaims(), null);
+                });
+        if (canOpenAll(player)) {
+            gui.setItem(22, named(Material.CHEST, ChatColor.GOLD + "Alle sofort öffnen",
+                    ChatColor.GRAY + "Öffnet alle Crates dieses Typs nacheinander.", ChatColor.YELLOW + "Klicken"),
+                    (p,e,s) -> {
+                        p.closeInventory();
+                        openAll(p, crate);
+                    });
+        }
+        core.getGuiManager().open(gui);
+    }
+
+    private boolean canOpenAll(Player player) {
+        return player.hasPermission(OPEN_ALL_PERMISSION)
+                || core.getRankService().hasAtLeast(player.getUniqueId(), Rank.EXILE);
+    }
+
+    private void startAnimation(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Öffnung", 27);
+        for (int i = 0; i < 27; i++) gui.setItem(i, named(Material.STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "•"));
+        core.getGuiManager().open(gui);
+        final int[] step = {0};
+        final int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            if (!player.isOnline()) return;
+            CrateRegistry.RewardDefinition preview = registry.draw(crate);
+            if (preview != null) gui.getInventory().setItem(13, rewardIcon(preview));
+            player.updateInventory();
+            step[0]++;
+        }, 0L, 3L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Bukkit.getScheduler().cancelTask(taskId);
+            if (!player.isOnline()) return;
+            player.closeInventory();
+            openSerial(player, crate, decoded.getSerial(), decoded.getMaxClaims(), null);
+        }, 30L);
     }
 
     private void openPreview(Player player, CrateRegistry.CrateDefinition crate) {
@@ -103,8 +139,7 @@ public final class CrateInteractionListener implements Listener {
             ItemMeta meta = icon.getItemMeta();
             List<String> lore = new ArrayList<String>();
             double chance = totalWeight <= 0 ? 0D : (100D * reward.getWeight() / totalWeight);
-            lore.add(ChatColor.GRAY + "Chance: " + ChatColor.WHITE
-                    + String.format(java.util.Locale.US, "%.1f%%", chance));
+            lore.add(ChatColor.GRAY + "Chance: " + ChatColor.WHITE + String.format(java.util.Locale.US, "%.2f%%", chance));
             lore.add(ChatColor.GRAY + "Wert: " + ChatColor.GOLD + reward.getEvValue());
             meta.setLore(lore);
             icon.setItemMeta(meta);
@@ -116,67 +151,70 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private void openAll(Player player, CrateRegistry.CrateDefinition crate) {
-        List<UUID> serials = new ArrayList<UUID>();
+        List<Claim> claims = new ArrayList<Claim>();
         for (ItemStack item : player.getInventory().getContents()) {
             CrateItemCodec.DecodedCrate decoded = codec.decode(item);
-            if (decoded != null && crate.getId().equalsIgnoreCase(decoded.getCrateId())) serials.add(decoded.getSerial());
+            if (decoded == null || !crate.getId().equalsIgnoreCase(decoded.getCrateId())) continue;
+            for (int i = 0; i < item.getAmount(); i++) {
+                claims.add(new Claim(decoded.getSerial(), decoded.getMaxClaims()));
+            }
         }
-        if (serials.isEmpty()) {
+        if (claims.isEmpty()) {
             player.sendMessage(ChatColor.RED + "Du besitzt keine Crates dieses Typs.");
             return;
         }
-        player.sendMessage(ChatColor.GOLD + "Open-All: " + ChatColor.YELLOW + serials.size()
-                + ChatColor.GRAY + " Crates werden nacheinander geoeffnet...");
-        openAllNext(player, crate, serials, 0);
+        player.sendMessage(ChatColor.GOLD + "Open-All: " + ChatColor.YELLOW + claims.size()
+                + ChatColor.GRAY + " Crates werden nacheinander geöffnet...");
+        openAllNext(player, crate, claims, 0);
     }
 
-    private void openAllNext(Player player, CrateRegistry.CrateDefinition crate, List<UUID> serials, int index) {
+    private void openAllNext(Player player, CrateRegistry.CrateDefinition crate, List<Claim> claims, int index) {
         if (!player.isOnline()) return;
-        if (index >= serials.size()) {
+        if (index >= claims.size()) {
             player.sendMessage(ChatColor.GREEN + "Open-All abgeschlossen.");
             return;
         }
-        openSerial(player, crate, serials.get(index), () -> openAllNext(player, crate, serials, index + 1));
+        Claim claim = claims.get(index);
+        openSerial(player, crate, claim.serial, claim.maxClaims,
+                () -> openAllNext(player, crate, claims, index + 1));
     }
 
-    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial, Runnable onFinished) {
+    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial, int maxClaims, Runnable onFinished) {
         CrateRegistry.RewardDefinition reward = registry.draw(crate);
         if (reward == null) {
-            player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
+            player.sendMessage(ChatColor.RED + "Diese Crate hat keine gültigen Rewards.");
             finish(onFinished);
             return;
         }
         if ((reward.getType() == CrateRegistry.RewardType.ITEM || reward.getType() == CrateRegistry.RewardType.VOUCHER)
                 && !hasSpace(player, reward)) {
-            player.sendMessage(ChatColor.RED + "Open-All gestoppt: Nicht genug Inventarplatz fuer den naechsten Reward.");
+            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz für den nächsten Reward.");
             return;
         }
 
-        redemptionStore.redeem(serial).thenAccept(firstRedemption ->
+        redemptionStore.redeem(serial, maxClaims).thenAccept(firstRedemption ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (!player.isOnline()) return;
                     if (!firstRedemption) {
-                        removeSerial(player, serial);
-                        player.sendMessage(ChatColor.RED + "Eine bereits eingeloeste Crate wurde entfernt.");
+                        removeOne(player, serial);
+                        player.sendMessage(ChatColor.RED + "Eine bereits vollständig eingelöste Crate-Batch wurde bereinigt.");
                         finish(onFinished);
                         return;
                     }
                     if (!grant(player, reward)) {
-                        removeSerial(player, serial);
-                        player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Die Seriennummer wurde sicher gesperrt.");
+                        removeOne(player, serial);
+                        player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Der Claim wurde sicher gesperrt.");
                         return;
                     }
-                    removeSerial(player, serial);
-                    player.sendMessage(ChatColor.GOLD + "Crate geoeffnet! " + ChatColor.YELLOW + rewardText(reward));
+                    removeOne(player, serial);
+                    player.sendMessage(ChatColor.GOLD + "Gewinn: " + ChatColor.YELLOW + rewardText(reward));
                     finish(onFinished);
                 }));
     }
 
-    private void finish(Runnable onFinished) {
-        if (onFinished != null) onFinished.run();
-    }
+    private void finish(Runnable onFinished) { if (onFinished != null) onFinished.run(); }
 
-    private void removeSerial(Player player, UUID serial) {
+    private void removeOne(Player player, UUID serial) {
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
             ItemStack item = player.getInventory().getItem(slot);
             CrateItemCodec.DecodedCrate decoded = codec.decode(item);
@@ -212,33 +250,28 @@ public final class CrateInteractionListener implements Listener {
         try {
             switch (reward.getType()) {
                 case COINS:
-                    core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE",
-                            "Crate-Reward " + reward.getId());
+                    core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case NETHERSTARS:
-                    core.getNetherstarService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE",
-                            "Crate-Reward " + reward.getId());
+                    core.getNetherstarService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case ITEM:
                     if (!hasSpace(player, reward)) return false;
-                    return player.getInventory().addItem(new ItemStack(reward.getMaterial(),
-                            (int) reward.getAmount(), reward.getData())).isEmpty();
+                    return player.getInventory().addItem(new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData())).isEmpty();
                 case VOUCHER:
                     if (!hasSpace(player, reward)) return false;
                     ItemStack voucher = voucherCodec.create(reward.getVoucherType(), reward.getVoucherTarget(), reward.getVoucherDisplay());
                     VoucherItemCodec.DecodedVoucher decoded = voucherCodec.decode(voucher);
-                    if (decoded == null) return false;
-                    if (!player.getInventory().addItem(voucher).isEmpty()) return false;
+                    if (decoded == null || !player.getInventory().addItem(voucher).isEmpty()) return false;
                     core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_GENERATED,
                             player.getUniqueId(), "CRATE", null,
                             "serial=" + decoded.getSerial() + ", type=" + decoded.getType()
                                     + ", target=" + decoded.getTarget() + ", reward=" + reward.getId()));
                     return true;
-                default:
-                    return false;
+                default: return false;
             }
         } catch (RuntimeException ex) {
-            plugin.getLogger().warning("Crate-Reward fehlgeschlagen fuer " + player.getName() + ": " + ex.getMessage());
+            plugin.getLogger().warning("Crate-Reward fehlgeschlagen für " + player.getName() + ": " + ex.getMessage());
             return false;
         }
     }
@@ -263,8 +296,23 @@ public final class CrateInteractionListener implements Listener {
             case COINS: return reward.getAmount() + " Coins";
             case NETHERSTARS: return reward.getAmount() + " Nethersterne";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
-            case VOUCHER: return "Gutschein: " + reward.getVoucherDisplay();
+            case VOUCHER: return ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
             default: return reward.getId();
         }
+    }
+
+    private ItemStack named(Material material, String name, String... lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(name);
+        if (lore != null && lore.length > 0) meta.setLore(java.util.Arrays.asList(lore));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private static final class Claim {
+        final UUID serial;
+        final int maxClaims;
+        Claim(UUID serial, int maxClaims) { this.serial = serial; this.maxClaims = maxClaims; }
     }
 }
