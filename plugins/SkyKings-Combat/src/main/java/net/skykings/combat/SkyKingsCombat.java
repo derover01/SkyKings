@@ -7,6 +7,7 @@ import net.skykings.combat.falldamage.FallDamageListener;
 import net.skykings.combat.kill.CombatDeathListener;
 import net.skykings.combat.kill.CombatKillService;
 import net.skykings.combat.kill.CombatKillServiceImpl;
+import net.skykings.combat.kill.PhysicalNetherstarRewardDelivery;
 import net.skykings.combat.killstreak.KillstreakService;
 import net.skykings.combat.killstreak.KillstreakServiceImpl;
 import net.skykings.combat.loot.LootPickupListener;
@@ -28,7 +29,6 @@ import net.skykings.combat.tag.LastAttackerServiceImpl;
 import net.skykings.combat.util.MessageCooldownTracker;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.cooldown.CooldownService;
-import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.profile.PlayerProfileService;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,30 +42,24 @@ public final class SkyKingsCombat extends JavaPlugin {
     public void onEnable() {
         SkyKingsCoreAPI coreApi = resolveCoreApi();
         if (coreApi == null) {
-            getLogger().severe("SkyKingsCoreAPI wurde nicht gefunden - SkyKings-Combat wird deaktiviert. "
-                    + "Ist SkyKings-Core installiert und erfolgreich gestartet?");
+            getLogger().severe("SkyKingsCoreAPI wurde nicht gefunden - SkyKings-Combat wird deaktiviert. Ist SkyKings-Core installiert und erfolgreich gestartet?");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
         CombatConfig config = new CombatConfig(this);
-
         PlayerProfileService profileService = coreApi.getPlayerProfileService();
-        NetherstarService netherstarService = coreApi.getNetherstarService();
         CooldownService cooldownService = coreApi.getCooldownService();
 
         CombatTagService combatTagService = new CombatTagServiceImpl(config.getCombatTagMillis());
         LastAttackerService lastAttackerService = new LastAttackerServiceImpl(config.getCombatTagMillis());
-        NewbieProtectionService newbieProtectionService =
-                new NewbieProtectionServiceImpl(profileService, config.getNewbieProtectionMillis());
-        KillstreakService killstreakService =
-                new KillstreakServiceImpl(config.getBaseNetherstarsPerKill(), config.getKillstreakTiers());
+        NewbieProtectionService newbieProtectionService = new NewbieProtectionServiceImpl(profileService, config.getNewbieProtectionMillis());
+        KillstreakService killstreakService = new KillstreakServiceImpl(config.getBaseNetherstarsPerKill(), config.getKillstreakTiers());
         AntiFarmService antiFarmService = new AntiFarmServiceImpl(config.getAntiFarmFullRewardMaxKills(),
                 config.getAntiFarmHalfRewardMaxKills(), config.getAntiFarmHalfRewardMultiplier());
-        LootProtectionService lootProtectionService =
-                new LootProtectionServiceImpl(this, config.getLootProtectionMillis());
+        LootProtectionService lootProtectionService = new LootProtectionServiceImpl(this, config.getLootProtectionMillis());
         CombatKillService combatKillService = new CombatKillServiceImpl(killstreakService, antiFarmService,
-                netherstarService, lootProtectionService, getLogger());
+                new PhysicalNetherstarRewardDelivery(), lootProtectionService, getLogger());
 
         DeathStarterKit starterKit = DeathStarterKits.createDefault(config.getStarterKitGoldenApples());
         DeathStarterKitService starterKitService = new DeathStarterKitService(starterKit, config.isStarterKitEnabled());
@@ -75,19 +69,17 @@ public final class SkyKingsCombat extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new FallDamageListener(), this);
         getServer().getPluginManager().registerEvents(
-                new PvpDamageListener(combatTagService, lastAttackerService, newbieProtectionService, newbieFeedbackCooldown),
-                this);
+                new PvpDamageListener(combatTagService, lastAttackerService, newbieProtectionService, newbieFeedbackCooldown), this);
         getServer().getPluginManager().registerEvents(new CombatFlyCommandListener(combatTagService), this);
         getServer().getPluginManager().registerEvents(
-                new EnderpearlCooldownListener(cooldownService, config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown),
-                this);
+                new EnderpearlCooldownListener(cooldownService, config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown), this);
         getServer().getPluginManager().registerEvents(
                 new CombatDeathListener(combatKillService, combatTagService, lastAttackerService, getLogger()), this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 2 + Fly-Combat-Lock) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 2 + physische Netherstern-Rewards) aktiviert.");
     }
 
     @Override
@@ -97,11 +89,10 @@ public final class SkyKingsCombat extends JavaPlugin {
 
     private SkyKingsCoreAPI resolveCoreApi() {
         try {
-            RegisteredServiceProvider<SkyKingsCoreAPI> registration =
-                    getServer().getServicesManager().getRegistration(SkyKingsCoreAPI.class);
+            RegisteredServiceProvider<SkyKingsCoreAPI> registration = getServer().getServicesManager().getRegistration(SkyKingsCoreAPI.class);
             return registration != null ? registration.getProvider() : null;
         } catch (Throwable t) {
-            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht aufloesen.", t);
+            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht auflösen.", t);
             return null;
         }
     }
