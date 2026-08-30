@@ -1,5 +1,6 @@
 package net.skykings.combat.kill;
 
+import net.skykings.combat.cosmetic.KillCosmeticService;
 import net.skykings.combat.tag.CombatTagService;
 import net.skykings.combat.tag.LastAttackerService;
 import org.bukkit.Bukkit;
@@ -17,22 +18,14 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Verbindet echte PvP-Tode UND Combat-Logout mit {@link CombatKillService} - beide nutzen
- * denselben Pfad ({@link PlayerDeathEvent}), siehe Auftrag Phase 2, Abschnitt 6.
- *
- * <p>Combat-Logout: Verlaesst ein Spieler den Server waehrend eines aktiven Combat Tags, wird
- * er ueber {@code setHealth(0)} regulaer getoetet, BEVOR die Verbindung vollstaendig getrennt
- * wird - das loest den normalen {@link PlayerDeathEvent}-Pfad aus (normale Drops, kein
- * Item-Duping, keine doppelte Verarbeitung). Da Bukkits eigenes {@code Player#getKiller()} nur
- * ein kurzes (~5s) Zeitfenster kennt, wird der zuletzt bekannte Angreifer separat ueber
- * {@link LastAttackerService} ermittelt und fuer genau diesen einen Tod "durchgereicht".
- */
+/** Verbindet echte PvP-Tode und Combat-Logout mit dem zentralen Kill-Pfad. */
 public final class CombatDeathListener implements Listener {
 
     private final CombatKillService combatKillService;
     private final CombatTagService combatTagService;
     private final LastAttackerService lastAttackerService;
+    private final KillMessageService killMessageService;
+    private final KillCosmeticService killCosmeticService;
     private final Logger logger;
     private final Function<UUID, Player> playerResolver;
 
@@ -41,15 +34,29 @@ public final class CombatDeathListener implements Listener {
 
     public CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                                 LastAttackerService lastAttackerService, Logger logger) {
-        this(combatKillService, combatTagService, lastAttackerService, logger, Bukkit::getPlayer);
+        this(combatKillService, combatTagService, lastAttackerService, null, null, logger, Bukkit::getPlayer);
     }
 
-    /** Sichtbar fuer Tests: erlaubt, die Bukkit-Online-Spieler-Suche durch ein Test-Double zu ersetzen. */
+    public CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
+                                LastAttackerService lastAttackerService, KillMessageService killMessageService,
+                                KillCosmeticService killCosmeticService, Logger logger) {
+        this(combatKillService, combatTagService, lastAttackerService, killMessageService, killCosmeticService,
+                logger, Bukkit::getPlayer);
+    }
+
     CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                          LastAttackerService lastAttackerService, Logger logger, Function<UUID, Player> playerResolver) {
+        this(combatKillService, combatTagService, lastAttackerService, null, null, logger, playerResolver);
+    }
+
+    CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
+                         LastAttackerService lastAttackerService, KillMessageService killMessageService,
+                         KillCosmeticService killCosmeticService, Logger logger, Function<UUID, Player> playerResolver) {
         this.combatKillService = combatKillService;
         this.combatTagService = combatTagService;
         this.lastAttackerService = lastAttackerService;
+        this.killMessageService = killMessageService;
+        this.killCosmeticService = killCosmeticService;
         this.logger = logger;
         this.playerResolver = playerResolver;
     }
@@ -58,15 +65,15 @@ public final class CombatDeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         UUID victimUuid = victim.getUniqueId();
-
         Player killer = resolveKiller(victim, victimUuid);
 
-        // Das Opfer ist tot und kann deshalb keinen aktiven Combat-Tag mehr sinnvoll behalten.
-        // Der Killer bleibt dagegen absichtlich getaggt: Sein letzter PvP-Hit liegt gerade erst
-        // zurueck. Wuerden wir seinen Tag hier loeschen, koennte er unmittelbar nach einem Kill
-        // ausloggen und das 15-Sekunden-Combat-Logging umgehen.
         combatTagService.clear(victimUuid);
         lastAttackerService.clear(victimUuid);
+
+        if (killer != null && !killer.getUniqueId().equals(victimUuid)) {
+            if (killMessageService != null) event.setDeathMessage(killMessageService.create(killer, victim));
+            if (killCosmeticService != null) killCosmeticService.play(killer, victim.getLocation());
+        }
 
         combatKillService.handleDeath(victim, killer);
     }
@@ -76,36 +83,21 @@ public final class CombatDeathListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
-        if (!combatTagService.isTagged(uuid)) {
-            return;
-        }
-        if (player.isDead()) {
-            // Bereits ueber einen anderen Pfad gestorben (z. B. regulaerer PvP-Hit im selben
-            // Tick) - keine doppelte Todesverarbeitung ausloesen.
-            return;
-        }
+        if (!combatTagService.isTagged(uuid) || player.isDead()) return;
 
         UUID attackerUuid = lastAttackerService.getLastAttacker(uuid);
         pendingCombatLogout.add(uuid);
-        if (attackerUuid != null) {
-            pendingCombatLogoutKiller.put(uuid, attackerUuid);
-        }
+        if (attackerUuid != null) pendingCombatLogoutKiller.put(uuid, attackerUuid);
 
         try {
             player.setHealth(0.0);
         } catch (Exception e) {
-            logger.log(Level.SEVERE, "Combat-Logout-Verarbeitung fuer " + uuid + " fehlgeschlagen", e);
+            logger.log(Level.SEVERE, "Combat-Logout-Verarbeitung für " + uuid + " fehlgeschlagen", e);
             pendingCombatLogout.remove(uuid);
             pendingCombatLogoutKiller.remove(uuid);
         }
     }
 
-    /**
-     * Ein Consumable/One-Shot-Lookup: liefert fuer einen Combat-Logout-Tod den zuvor ermittelten
-     * Angreifer (ggf. {@code null}, falls keiner mehr feststellbar war - dann wird NIE auf
-     * {@code getKiller()} zurueckgefallen, um keinen erfundenen Killer zu erzeugen). Fuer einen
-     * normalen Tod wird ganz normal {@code victim.getKiller()} verwendet.
-     */
     private Player resolveKiller(Player victim, UUID victimUuid) {
         if (pendingCombatLogout.remove(victimUuid)) {
             UUID attackerUuid = pendingCombatLogoutKiller.remove(victimUuid);
