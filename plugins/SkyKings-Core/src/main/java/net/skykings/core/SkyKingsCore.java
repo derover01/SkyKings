@@ -7,6 +7,10 @@ import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
 import net.skykings.core.cooldown.CooldownService;
 import net.skykings.core.cooldown.CooldownServiceImpl;
+import net.skykings.core.display.OwnerAccessListener;
+import net.skykings.core.display.PlayerDisplayListener;
+import net.skykings.core.display.PlayerDisplayService;
+import net.skykings.core.display.RankDisplayConfig;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.economy.EconomyServiceImpl;
 import net.skykings.core.gui.GuiManager;
@@ -48,7 +52,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown- und Kit-Services. */
+/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit- und Display-Services. */
 public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private DataStore dataStore;
@@ -101,11 +105,20 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.kitGrantService = new KitGrantServiceImpl(kitRegistry, playerProfileService, cooldownService);
         this.guiManager = new GuiManager();
 
+        RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
+        PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
+
         this.economyBridge = createEconomyBridge();
 
         getServer().getPluginManager().registerEvents(
                 new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
+        getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
+        getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
         getServer().getPluginManager().registerEvents(guiManager, this);
+
+        // Ein globaler, leichter Refresh haelt Tab-Prefixe auch nach spaeteren Rank-Aenderungen aktuell.
+        getServer().getScheduler().runTaskTimer(this, () ->
+                getServer().getOnlinePlayers().forEach(displayService::refreshTab), 40L, 40L);
 
         PluginCommand kitCommand = getCommand("kit");
         if (kitCommand == null) {
@@ -120,7 +133,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display) aktiviert. Storage: "
+                + configService.getStorageType());
     }
 
     @Override
@@ -191,47 +205,21 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     }
 
     @Override
-    public PlayerProfileService getPlayerProfileService() {
-        return playerProfileService;
-    }
-
+    public PlayerProfileService getPlayerProfileService() { return playerProfileService; }
     @Override
-    public RankService getRankService() {
-        return rankService;
-    }
-
+    public RankService getRankService() { return rankService; }
     @Override
-    public EconomyService getEconomyService() {
-        return economyService;
-    }
-
+    public EconomyService getEconomyService() { return economyService; }
     @Override
-    public NetherstarService getNetherstarService() {
-        return netherstarService;
-    }
-
+    public NetherstarService getNetherstarService() { return netherstarService; }
     @Override
-    public CooldownService getCooldownService() {
-        return cooldownService;
-    }
-
+    public CooldownService getCooldownService() { return cooldownService; }
     @Override
-    public LoggingService getLoggingService() {
-        return loggingService;
-    }
-
+    public LoggingService getLoggingService() { return loggingService; }
     @Override
-    public KitRegistry getKitRegistry() {
-        return kitRegistry;
-    }
-
+    public KitRegistry getKitRegistry() { return kitRegistry; }
     @Override
-    public KitGrantService getKitGrantService() {
-        return kitGrantService;
-    }
-
+    public KitGrantService getKitGrantService() { return kitGrantService; }
     @Override
-    public GuiManager getGuiManager() {
-        return guiManager;
-    }
+    public GuiManager getGuiManager() { return guiManager; }
 }
