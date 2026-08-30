@@ -1,6 +1,8 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.logging.AuditEvent;
+import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -29,6 +31,7 @@ public final class CrateInteractionListener implements Listener {
     private final JavaPlugin plugin;
     private final CrateRegistry registry;
     private final CrateItemCodec codec;
+    private final VoucherItemCodec voucherCodec = new VoucherItemCodec();
     private final CrateRedemptionStore redemptionStore;
     private final SkyKingsCoreAPI core;
 
@@ -133,8 +136,9 @@ public final class CrateInteractionListener implements Listener {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
             return;
         }
-        if (reward.getType() == CrateRegistry.RewardType.ITEM && !hasSpace(player, reward)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer einen moeglichen Item-Reward.");
+        if ((reward.getType() == CrateRegistry.RewardType.ITEM || reward.getType() == CrateRegistry.RewardType.VOUCHER)
+                && !hasSpace(player, reward)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den Reward.");
             return;
         }
 
@@ -173,8 +177,13 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private boolean hasSpace(Player player, CrateRegistry.RewardDefinition reward) {
-        if (reward.getAmount() > 64L) return false;
-        ItemStack rewardItem = new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData());
+        ItemStack rewardItem;
+        if (reward.getType() == CrateRegistry.RewardType.VOUCHER) {
+            rewardItem = voucherCodec.create(reward.getVoucherType(), reward.getVoucherTarget(), reward.getVoucherDisplay());
+        } else {
+            if (reward.getAmount() > 64L) return false;
+            rewardItem = new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData());
+        }
         Inventory temp = Bukkit.createInventory(null, 36);
         for (int i = 0; i < 36; i++) {
             ItemStack current = player.getInventory().getItem(i);
@@ -198,6 +207,17 @@ public final class CrateInteractionListener implements Listener {
                     if (!hasSpace(player, reward)) return false;
                     return player.getInventory().addItem(new ItemStack(reward.getMaterial(),
                             (int) reward.getAmount(), reward.getData())).isEmpty();
+                case VOUCHER:
+                    if (!hasSpace(player, reward)) return false;
+                    ItemStack voucher = voucherCodec.create(reward.getVoucherType(), reward.getVoucherTarget(), reward.getVoucherDisplay());
+                    VoucherItemCodec.DecodedVoucher decoded = voucherCodec.decode(voucher);
+                    if (decoded == null) return false;
+                    if (!player.getInventory().addItem(voucher).isEmpty()) return false;
+                    core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_GENERATED,
+                            player.getUniqueId(), "CRATE", null,
+                            "serial=" + decoded.getSerial() + ", type=" + decoded.getType()
+                                    + ", target=" + decoded.getTarget() + ", reward=" + reward.getId()));
+                    return true;
                 default:
                     return false;
             }
@@ -212,6 +232,7 @@ public final class CrateInteractionListener implements Listener {
         switch (reward.getType()) {
             case COINS: icon = new ItemStack(Material.GOLD_INGOT); break;
             case NETHERSTARS: icon = new ItemStack(Material.NETHER_STAR); break;
+            case VOUCHER: icon = new ItemStack(Material.PAPER); break;
             case ITEM:
             default: icon = new ItemStack(reward.getMaterial(), 1, reward.getData()); break;
         }
@@ -226,6 +247,7 @@ public final class CrateInteractionListener implements Listener {
             case COINS: return reward.getAmount() + " Coins";
             case NETHERSTARS: return reward.getAmount() + " Nethersterne";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
+            case VOUCHER: return "Gutschein: " + reward.getVoucherDisplay();
             default: return reward.getId();
         }
     }
