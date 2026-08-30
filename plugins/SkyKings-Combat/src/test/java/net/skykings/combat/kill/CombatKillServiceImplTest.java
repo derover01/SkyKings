@@ -19,10 +19,12 @@ import java.util.logging.Logger;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -79,7 +81,7 @@ public class CombatKillServiceImplTest {
     @Test
     public void nonPvpDeathGrantsNoReward() {
         service.handleDeath(victim, null);
-        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
+        verify(rewardDelivery, never()).give(any(Player.class), anyLong());
         verify(lootProtectionService, never()).protectDeathDrops(any(), any());
     }
 
@@ -108,7 +110,7 @@ public class CombatKillServiceImplTest {
     public void selfKillIsNeverTreatedAsLegitimateKill() {
         service.handleDeath(killer, killer);
 
-        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
+        verify(rewardDelivery, never()).give(any(Player.class), anyLong());
         assertEquals(0, killstreakService.getStreak(killerUuid));
     }
 
@@ -117,7 +119,7 @@ public class CombatKillServiceImplTest {
         for (int i = 0; i < 5; i++) service.handleDeath(victim, killer);
         service.handleDeath(victim, killer);
 
-        verify(rewardDelivery).give(killer, 1L);
+        verify(rewardDelivery, times(5)).give(killer, 1L);
         assertEquals(6, killstreakService.getStreak(killerUuid));
     }
 
@@ -128,7 +130,7 @@ public class CombatKillServiceImplTest {
 
         service.handleDeath(victim, killer);
 
-        verify(rewardDelivery, never()).give(any(Player.class), any(Long.class));
+        verify(rewardDelivery, never()).give(any(Player.class), anyLong());
         assertEquals("Der Kill zählt statistisch trotzdem für die Killstreak",
                 7, killstreakService.getStreak(killerUuid));
     }
@@ -142,6 +144,6 @@ public class CombatKillServiceImplTest {
             service.handleDeath(freshVictim, killer);
         }
 
-        verify(rewardDelivery, org.mockito.Mockito.times(10)).give(eq(killer), any(Long.class));
+        verify(rewardDelivery, times(10)).give(eq(killer), anyLong());
     }
 }
