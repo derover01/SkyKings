@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +42,8 @@ import java.util.logging.Level;
  * damit die finale Map ohne Codeänderung eingerichtet werden kann.
  */
 public final class MapGameplayService implements Listener, CommandExecutor {
+
+    private static final long SUPPLY_LIFETIME_TICKS = 20L * 60L * 10L;
 
     private static final class LootChestData {
         final MapLootTier tier;
@@ -172,8 +173,8 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         Block block = event.getClickedBlock();
         LootChestData data;
         synchronized (lootChests) { data = lootChests.get(key(block.getLocation())); }
-        if (data == null) return;
-        if (block.getType() != Material.CHEST) return;
+        if (data == null || block.getType() != Material.CHEST) return;
+        if (data.tier == MapLootTier.SUPPLY) return;
 
         long now = System.currentTimeMillis();
         if (now >= data.nextRefillAt) {
@@ -213,6 +214,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         synchronized (lootChests) {
             for (Map.Entry<String, LootChestData> entry : lootChests.entrySet()) {
                 LootChestData data = entry.getValue();
+                if (data.tier == MapLootTier.SUPPLY) continue;
                 if (data.nextRefillAt <= 0L || now < data.nextRefillAt) continue;
                 Location location = parseLocation(entry.getKey());
                 if (location == null || location.getWorld() == null || !location.getChunk().isLoaded()) continue;
@@ -228,6 +230,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
     private void refillAll() {
         synchronized (lootChests) {
             for (Map.Entry<String, LootChestData> entry : lootChests.entrySet()) {
+                if (entry.getValue().tier == MapLootTier.SUPPLY) continue;
                 Location location = parseLocation(entry.getKey());
                 if (location == null || location.getWorld() == null) continue;
                 refill(location, entry.getValue().tier, true);
@@ -259,19 +262,33 @@ public final class MapGameplayService implements Listener, CommandExecutor {
             if (supplyPoints.isEmpty()) return false;
             raw = supplyPoints.get(random.nextInt(supplyPoints.size()));
         }
-        Location location = parseLocation(raw);
+        final Location location = parseLocation(raw);
         if (location == null || location.getWorld() == null) return false;
         Block block = location.getBlock();
         if (block.getType() != Material.AIR && block.getType() != Material.CHEST) return false;
         block.setType(Material.CHEST);
         refill(location, MapLootTier.SUPPLY, true);
+        final String locationKey = key(location);
         synchronized (lootChests) {
-            lootChests.put(key(location), new LootChestData(MapLootTier.SUPPLY,
-                    System.currentTimeMillis() + MapLootTier.SUPPLY.getCooldownMillis()));
+            lootChests.put(locationKey, new LootChestData(MapLootTier.SUPPLY, Long.MAX_VALUE));
         }
         saveAsync();
         Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SUPPLY DROP " + ChatColor.GRAY
                 + "• Eine seltene Loot-Chest ist auf der SkyPvP-Map erschienen!");
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            boolean remove;
+            synchronized (lootChests) {
+                LootChestData current = lootChests.get(locationKey);
+                remove = current != null && current.tier == MapLootTier.SUPPLY;
+                if (remove) lootChests.remove(locationKey);
+            }
+            if (remove && location.getWorld() != null && location.getBlock().getType() == Material.CHEST) {
+                location.getBlock().setType(Material.AIR);
+                saveAsync();
+                Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "Der Supply Drop ist verschwunden.");
+            }
+        }, SUPPLY_LIFETIME_TICKS);
         return true;
     }
 
@@ -315,7 +332,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
                 String location = yaml.getString("loot-chests." + id + ".location");
                 long next = yaml.getLong("loot-chests." + id + ".next-refill-at", 0L);
                 MapLootTier tier = MapLootTier.parse(tierName);
-                if (tier != null && location != null) lootChests.put(location, new LootChestData(tier, next));
+                if (tier != null && tier != MapLootTier.SUPPLY && location != null) lootChests.put(location, new LootChestData(tier, next));
             }
         }
         supplyPoints.addAll(yaml.getStringList("supply-points"));
@@ -333,6 +350,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         YamlConfiguration yaml = new YamlConfiguration();
         int index = 0;
         for (Map.Entry<String, LootChestData> entry : chests.entrySet()) {
+            if (entry.getValue().tier == MapLootTier.SUPPLY) continue;
             String path = "loot-chests.c" + index++;
             yaml.set(path + ".location", entry.getKey());
             yaml.set(path + ".tier", entry.getValue().tier.name());
