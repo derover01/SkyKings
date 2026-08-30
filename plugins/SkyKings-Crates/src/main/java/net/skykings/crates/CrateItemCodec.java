@@ -22,6 +22,7 @@ public final class CrateItemCodec {
         List<String> lore = new ArrayList<String>();
         lore.add(ChatColor.GRAY + "Linksklick: " + ChatColor.WHITE + "Rewards ansehen");
         lore.add(ChatColor.GRAY + "Rechtsklick: " + ChatColor.GREEN + "Crate oeffnen");
+        lore.add(ChatColor.GRAY + "Shift + Rechtsklick: " + ChatColor.GOLD + "Alle oeffnen " + ChatColor.DARK_GRAY + "(Exile+)");
         lore.add(encode(crate.getId(), UUID.randomUUID()));
         meta.setLore(lore);
         item.setItemMeta(meta);
