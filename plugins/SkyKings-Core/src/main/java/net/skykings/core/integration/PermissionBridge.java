@@ -13,4 +13,7 @@ public interface PermissionBridge {
 
     /** Gibt einem konfigurierten Server-Owner die Owner-Gruppe und Vollzugriff. */
     void grantOwner(UUID uuid);
+
+    /** Vergibt eine einzelne, von SkyKings freigegebene Permission-Node. */
+    void grantPermission(UUID uuid, String permission);
 }
