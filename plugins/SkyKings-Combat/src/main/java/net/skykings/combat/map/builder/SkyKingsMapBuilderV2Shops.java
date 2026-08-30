@@ -52,24 +52,17 @@ public final class SkyKingsMapBuilderV2Shops {
     }
 
     private void buildSpawnMarket() {
-        // Diagonale Shop-Fluegel lassen die vier grossen Absprung-Balkone frei.
-        shop(-24, SPAWN_Y + 1, -15, "PVP SHOP", Material.IRON_BLOCK, Material.STONE_BRICK);
+        shop(-24, SPAWN_Y + 1, -15, "PVP SHOP", Material.IRON_BLOCK, Material.SMOOTH_BRICK);
         shop(24, SPAWN_Y + 1, -15, "POTION SHOP", Material.BREWING_STAND, Material.QUARTZ_BLOCK);
         shop(-24, SPAWN_Y + 1, 15, "PEARL SHOP", Material.ENDER_STONE, Material.OBSIDIAN);
         shop(24, SPAWN_Y + 1, 15, "NETHERSTAR", Material.GOLD_BLOCK, Material.QUARTZ_BLOCK);
-
-        // Crates / Rewards als eigener kleiner Bereich hinter dem zentralen Spawnpunkt.
         crateArea(0, SPAWN_Y + 1, 25);
-
-        // Platzhalter fuer Rank/BattlePass/Top-NPCs auf der gegenueberliegenden Seite.
         infoArea(0, SPAWN_Y + 1, -25);
     }
 
     private void shop(int cx, int y, int cz, String title, Material accent, Material frame) {
-        // 13x9 offener Stand mit Rueckwand und Dach; NPC/Villager kommt spaeter in die Mitte.
-        fill(cx - 6, y, cz - 4, cx + 6, y, cz + 4, Material.STONE_BRICK);
+        fill(cx - 6, y, cz - 4, cx + 6, y, cz + 4, Material.SMOOTH_BRICK);
         fill(cx - 6, y + 1, cz + 4, cx + 6, y + 6, cz + 4, frame);
-
         for (int dy = 1; dy <= 6; dy++) {
             set(cx - 6, y + dy, cz - 4, frame);
             set(cx + 6, y + dy, cz - 4, frame);
@@ -78,14 +71,10 @@ public final class SkyKingsMapBuilderV2Shops {
         }
         fill(cx - 6, y + 7, cz - 4, cx + 6, y + 7, cz + 4, frame);
         fill(cx - 5, y + 7, cz - 3, cx + 5, y + 7, cz + 3, Material.WOOD);
-
-        // Verkaufstheke.
         fill(cx - 4, y + 1, cz, cx + 4, y + 2, cz, Material.WOOD);
         set(cx, y + 2, cz + 1, accent);
         set(cx - 3, y + 2, cz + 1, Material.GLOWSTONE);
         set(cx + 3, y + 2, cz + 1, Material.GLOWSTONE);
-
-        // Schild an der Front.
         setSign(cx, y + 3, cz - 4, title, "", "SkyKings", "");
     }
 
@@ -99,7 +88,7 @@ public final class SkyKingsMapBuilderV2Shops {
     }
 
     private void infoArea(int cx, int y, int cz) {
-        fill(cx - 10, y, cz - 4, cx + 10, y, cz + 4, Material.STONE_BRICK);
+        fill(cx - 10, y, cz - 4, cx + 10, y, cz + 4, Material.SMOOTH_BRICK);
         for (int x = cx - 8; x <= cx + 8; x += 4) {
             for (int dy = 1; dy <= 4; dy++) set(x, y + dy, cz + 3, Material.QUARTZ_BLOCK);
             set(x, y + 5, cz + 3, Material.GLOWSTONE);
@@ -124,11 +113,9 @@ public final class SkyKingsMapBuilderV2Shops {
         int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
         int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
         int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
+        for (int x = minX; x <= maxX; x++)
+            for (int y = minY; y <= maxY; y++)
                 for (int z = minZ; z <= maxZ; z++) set(x, y, z, material);
-            }
-        }
     }
 
     private void set(int x, int y, int z, Material material) {
