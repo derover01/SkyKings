@@ -48,7 +48,7 @@ public final class SkyKingsScoreboardService {
         line(objective, ChatColor.GRAY + "Online: " + ChatColor.GREEN + Bukkit.getOnlinePlayers().size(), 5);
         line(objective, ChatColor.GRAY + "Spieler: " + ChatColor.WHITE + shorten(player.getName(), 15), 4);
         line(objective, ChatColor.DARK_GRAY + " ", 3);
-        line(objective, ChatColor.YELLOW + "play.skykings.de", 2);
+        line(objective, ChatColor.YELLOW + "OP SkyPvP", 2);
         line(objective, ChatColor.DARK_GRAY + "─────────────", 1);
 
         player.setScoreboard(board);
