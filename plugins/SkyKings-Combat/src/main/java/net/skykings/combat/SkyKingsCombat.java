@@ -19,6 +19,7 @@ import net.skykings.combat.killstreak.KillstreakServiceImpl;
 import net.skykings.combat.loot.LootPickupListener;
 import net.skykings.combat.loot.LootProtectionService;
 import net.skykings.combat.loot.LootProtectionServiceImpl;
+import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.newbie.NewbieProtectionService;
 import net.skykings.combat.newbie.NewbieProtectionServiceImpl;
 import net.skykings.combat.pearl.EnderpearlCooldownListener;
@@ -52,6 +53,7 @@ public final class SkyKingsCombat extends JavaPlugin {
 
     private PvpStatsService pvpStatsService;
     private KillCosmeticService killCosmeticService;
+    private MapGameplayService mapGameplayService;
 
     @Override
     public void onEnable() {
@@ -77,6 +79,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         BountyService bountyService = new BountyService(coreApi.getEconomyService(), rewardDelivery);
         this.killCosmeticService = new KillCosmeticService(this);
         KillMessageService killMessageService = new KillMessageService();
+        this.mapGameplayService = new MapGameplayService(this);
 
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
@@ -101,12 +104,15 @@ public final class SkyKingsCombat extends JavaPlugin {
                         killMessageService, killCosmeticService, getLogger()), this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
+        getServer().getPluginManager().registerEvents(mapGameplayService, this);
 
         PluginCommand statsCommand = getCommand("stats");
         PluginCommand topCommand = getCommand("top");
         PluginCommand killEffectCommand = getCommand("killeffect");
-        if (statsCommand == null || topCommand == null || killEffectCommand == null) {
-            getLogger().severe("/stats, /top oder /killeffect fehlt in plugin.yml - SkyKings-Combat wird deaktiviert.");
+        PluginCommand mapLootCommand = getCommand("maploot");
+        PluginCommand supplyDropCommand = getCommand("supplydrop");
+        if (statsCommand == null || topCommand == null || killEffectCommand == null || mapLootCommand == null || supplyDropCommand == null) {
+            getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -115,13 +121,16 @@ public final class SkyKingsCombat extends JavaPlugin {
         topCommand.setExecutor(topExecutor);
         getServer().getPluginManager().registerEvents(topExecutor, this);
         killEffectCommand.setExecutor(new KillEffectCommand(new KillEffectGui(coreApi.getGuiManager(), killCosmeticService)));
+        mapLootCommand.setExecutor(mapGameplayService);
+        supplyDropCommand.setExecutor(mapGameplayService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (PvP-Stats + /top + Bounty + Kill-Messages + Kill-Effects) aktiviert.");
+        getLogger().info("SkyKings-Combat (PvP + Bounty + Kill-Effects + Map-Loot + Supply-Drops) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (mapGameplayService != null) mapGameplayService.shutdown();
         if (killCosmeticService != null) killCosmeticService.shutdown();
         if (pvpStatsService != null) pvpStatsService.shutdown();
         getServer().getServicesManager().unregisterAll(this);
