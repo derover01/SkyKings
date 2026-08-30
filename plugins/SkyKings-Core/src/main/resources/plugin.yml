@@ -39,3 +39,6 @@ permissions:
   skykings.admin.commands:
     description: Zeigt den Admin-Bereich im /commands-Menue.
     default: op
+  skykings.admin.freesign:
+    description: Darf persistente SkyKings-Free-Signs erstellen und entfernen.
+    default: op
