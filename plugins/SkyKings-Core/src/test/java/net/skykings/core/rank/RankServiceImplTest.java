@@ -1,5 +1,6 @@
 package net.skykings.core.rank;
 
+import net.skykings.core.integration.RecordingPermissionBridge;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.logging.LoggingServiceImpl;
 import net.skykings.core.logging.RecordingAuditSink;
@@ -20,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 public class RankServiceImplTest {
 
     private RecordingAuditSink auditSink;
+    private RecordingPermissionBridge permissionBridge;
     private RankServiceImpl rankService;
     private UUID uuid;
 
@@ -27,8 +29,9 @@ public class RankServiceImplTest {
     public void setUp() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         auditSink = new RecordingAuditSink();
+        permissionBridge = new RecordingPermissionBridge();
         LoggingServiceImpl loggingService = new LoggingServiceImpl(Collections.singletonList(auditSink), Logger.getLogger("test"));
-        rankService = new RankServiceImpl(profileService, loggingService);
+        rankService = new RankServiceImpl(profileService, loggingService, permissionBridge);
 
         uuid = UUID.randomUUID();
         profileService.put(new PlayerProfile(uuid, "Tester", Rank.SPIELER, 0L, 0L, 0L, 0L));
@@ -43,9 +46,18 @@ public class RankServiceImplTest {
     }
 
     @Test
-    public void settingSameRankDoesNotLogAgain() {
+    public void setRankSynchronizesPermissionBridge() {
+        rankService.setRank(uuid, Rank.KNIGHT, "ADMIN");
+        assertEquals(1, permissionBridge.getCalls().size());
+        assertEquals(uuid, permissionBridge.getCalls().get(0).uuid);
+        assertEquals(Rank.KNIGHT, permissionBridge.getCalls().get(0).rank);
+    }
+
+    @Test
+    public void settingSameRankDoesNotLogOrSyncAgain() {
         rankService.setRank(uuid, Rank.SPIELER, "ADMIN");
         assertTrue(auditSink.getEvents().isEmpty());
+        assertTrue(permissionBridge.getCalls().isEmpty());
     }
 
     @Test

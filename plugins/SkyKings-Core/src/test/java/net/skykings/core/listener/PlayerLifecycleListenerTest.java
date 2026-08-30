@@ -1,6 +1,9 @@
 package net.skykings.core.listener;
 
 import net.skykings.core.cooldown.CooldownService;
+import net.skykings.core.integration.NoOpPermissionBridge;
+import net.skykings.core.integration.PermissionBridge;
+import net.skykings.core.integration.RecordingPermissionBridge;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.model.Rank;
 import net.skykings.core.profile.FakePlayerProfileService;
@@ -36,13 +39,63 @@ public class PlayerLifecycleListenerTest {
     public void preLoginIsAllowedWhenProfileLoadsSuccessfully() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         CooldownService cooldownService = new NoOpCooldownService();
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, cooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
 
         listener.onAsyncPreLogin(event);
 
+        assertEquals(AsyncPlayerPreLoginEvent.Result.ALLOWED, event.getLoginResult());
+        assertNotNull(profileService.getCached(uuid));
+    }
+
+    @Test
+    public void preLoginSynchronizesPermissionBridgeWithLoadedRank() {
+        FakePlayerProfileService profileService = new FakePlayerProfileService();
+        CooldownService cooldownService = new NoOpCooldownService();
+        RecordingPermissionBridge permissionBridge = new RecordingPermissionBridge();
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, permissionBridge, Logger.getLogger("test"));
+
+        UUID uuid = UUID.randomUUID();
+        profileService.put(new PlayerProfile(uuid, "Tester", Rank.GOLD, 0L, 0L, 0L, 0L));
+        AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
+
+        listener.onAsyncPreLogin(event);
+
+        assertEquals(AsyncPlayerPreLoginEvent.Result.ALLOWED, event.getLoginResult());
+        assertEquals(1, permissionBridge.getCalls().size());
+        assertEquals(uuid, permissionBridge.getCalls().get(0).uuid);
+        assertEquals(Rank.GOLD, permissionBridge.getCalls().get(0).rank);
+    }
+
+    @Test
+    public void preLoginStillSucceedsWhenPermissionBridgeSyncThrows() {
+        FakePlayerProfileService profileService = new FakePlayerProfileService();
+        CooldownService cooldownService = new NoOpCooldownService();
+        PermissionBridge failingBridge = new PermissionBridge() {
+            @Override
+            public boolean isAvailable() {
+                return true;
+            }
+
+            @Override
+            public void syncRank(UUID uuid, Rank rank) {
+                throw new RuntimeException("LuckPerms voruebergehend nicht erreichbar");
+            }
+        };
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, failingBridge, Logger.getLogger("test"));
+
+        UUID uuid = UUID.randomUUID();
+        AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
+
+        listener.onAsyncPreLogin(event);
+
+        // Ein LuckPerms-Sync-Fehler ist kein Grund, den Login abzulehnen (LuckPerms ist nur der
+        // Permission-/Prefix-/Group-Layer, nicht die Source of Truth fuer den Rang).
         assertEquals(AsyncPlayerPreLoginEvent.Result.ALLOWED, event.getLoginResult());
         assertNotNull(profileService.getCached(uuid));
     }
@@ -56,7 +109,8 @@ public class PlayerLifecycleListenerTest {
             }
         };
         CooldownService cooldownService = new NoOpCooldownService();
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(failingProfileService, cooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                failingProfileService, cooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
@@ -79,7 +133,8 @@ public class PlayerLifecycleListenerTest {
                 throw new RuntimeException("cooldown DB down - enthaelt sensible interne Details");
             }
         };
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, failingCooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, failingCooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
@@ -97,7 +152,8 @@ public class PlayerLifecycleListenerTest {
     public void preLoginDoesNotOverrideAnAlreadyDisallowedResult() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         CooldownService cooldownService = new NoOpCooldownService();
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, cooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
@@ -115,7 +171,8 @@ public class PlayerLifecycleListenerTest {
     public void joinKicksPlayerDefensivelyWhenNoProfileWasLoaded() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         CooldownService cooldownService = new NoOpCooldownService();
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, cooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         Player player = mock(Player.class);
@@ -132,7 +189,8 @@ public class PlayerLifecycleListenerTest {
     public void joinUpdatesPresenceWhenProfileWasLoaded() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
         CooldownService cooldownService = new NoOpCooldownService();
-        PlayerLifecycleListener listener = new PlayerLifecycleListener(profileService, cooldownService, Logger.getLogger("test"));
+        PlayerLifecycleListener listener = new PlayerLifecycleListener(
+                profileService, cooldownService, new NoOpPermissionBridge(), Logger.getLogger("test"));
 
         UUID uuid = UUID.randomUUID();
         profileService.put(new PlayerProfile(uuid, "OldName", Rank.SPIELER, 0L, 0L, 0L, 0L));

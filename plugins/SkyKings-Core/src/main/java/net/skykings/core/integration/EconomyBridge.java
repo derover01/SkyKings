@@ -1,13 +1,17 @@
 package net.skykings.core.integration;
 
 /**
- * Erweiterungspunkt fuer eine externe Economy-Bridge (z. B. Vault, damit Fremdplugins
- * SkyKings-Coins ueber die Vault-API lesen/aendern koennen).
+ * Erweiterungspunkt fuer die Registrierung von SkyKings-Coins als Vault/VaultUnlocked-
+ * Economy-Provider. SkyKings-Coins ({@code EconomyService}) bleiben dabei die einzige
+ * Source of Truth - diese Bridge macht sie nur zusaetzlich ueber die klassische
+ * {@code net.milkbowl.vault.economy.Economy}-API fuer Fremdplugins nutzbar.
  *
- * <p>Phase 1A bindet bewusst KEINE konkrete Vault-Version ein (siehe Abschlussbericht,
- * "offene Punkte"). {@link NoOpEconomyBridge} sorgt dafuer, dass Core auch ohne Vault startet.
+ * <p>{@link NoOpEconomyBridge} sorgt dafuer, dass Core auch ohne Vault/VaultUnlocked startet.
  */
 public interface EconomyBridge {
 
     boolean isAvailable();
+
+    /** Ob SkyKings-Coins erfolgreich als Vault-Economy-Provider registriert wurden. */
+    boolean isRegistered();
 }

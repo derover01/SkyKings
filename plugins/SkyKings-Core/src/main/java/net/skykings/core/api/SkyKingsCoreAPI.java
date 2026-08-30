@@ -2,6 +2,8 @@ package net.skykings.core.api;
 
 import net.skykings.core.cooldown.CooldownService;
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.gui.GuiManager;
+import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.logging.LoggingService;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.rank.RankService;
@@ -26,4 +28,8 @@ public interface SkyKingsCoreAPI {
     CooldownService getCooldownService();
 
     LoggingService getLoggingService();
+
+    KitRegistry getKitRegistry();
+
+    GuiManager getGuiManager();
 }

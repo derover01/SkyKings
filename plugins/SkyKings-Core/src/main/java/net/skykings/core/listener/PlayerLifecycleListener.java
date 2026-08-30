@@ -1,6 +1,8 @@
 package net.skykings.core.listener;
 
 import net.skykings.core.cooldown.CooldownService;
+import net.skykings.core.integration.PermissionBridge;
+import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,11 +24,14 @@ public final class PlayerLifecycleListener implements Listener {
 
     private final PlayerProfileService profileService;
     private final CooldownService cooldownService;
+    private final PermissionBridge permissionBridge;
     private final Logger logger;
 
-    public PlayerLifecycleListener(PlayerProfileService profileService, CooldownService cooldownService, Logger logger) {
+    public PlayerLifecycleListener(PlayerProfileService profileService, CooldownService cooldownService,
+                                    PermissionBridge permissionBridge, Logger logger) {
         this.profileService = profileService;
         this.cooldownService = cooldownService;
+        this.permissionBridge = permissionBridge;
         this.logger = logger;
     }
 
@@ -40,13 +45,26 @@ public final class PlayerLifecycleListener implements Listener {
 
         UUID uuid = event.getUniqueId();
         String name = event.getName();
+        PlayerProfile profile;
         try {
-            profileService.loadOrCreate(uuid, name);
+            profile = profileService.loadOrCreate(uuid, name);
             cooldownService.loadForPlayer(uuid);
         } catch (Exception e) {
             logger.log(Level.SEVERE, "Konnte PlayerProfile/Cooldowns fuer " + name + " (" + uuid
                     + ") nicht laden - Login wird abgelehnt.", e);
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, LOAD_FAILURE_MESSAGE);
+            return;
+        }
+
+        // Start-Synchronisation SkyKings -> LuckPerms (siehe PermissionBridge-Javadoc: einseitig,
+        // niemals umgekehrt). Ein Fehler hier darf den Login NICHT verhindern: die interne
+        // SkyKings-Datenbank bleibt die Source of Truth fuer den Rang, LuckPerms ist nur der
+        // Permission-/Prefix-/Group-Layer.
+        try {
+            permissionBridge.syncRank(uuid, profile.getRank());
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Konnte LuckPerms-Rang-Synchronisation fuer " + name + " (" + uuid
+                    + ") nicht anstossen - Login wird trotzdem fortgesetzt.", e);
         }
     }
 

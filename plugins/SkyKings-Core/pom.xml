@@ -21,10 +21,41 @@
     Phase 0: nur Plugin-Grundgeruest, keine Features implementiert.
   </description>
 
+  <repositories>
+    <repository>
+      <!-- Wird ausschliesslich fuer die VaultUnlockedAPI-Compile-Abhaengigkeit benoetigt
+           (siehe Phase-1B-Abschlussbericht). Nicht auf Maven Central verfuegbar. -->
+      <id>codemc-creatorfromhell</id>
+      <url>https://repo.codemc.io/repository/creatorfromhell/</url>
+    </repository>
+  </repositories>
+
   <dependencies>
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <!-- Nur zum Kompilieren gegen die LuckPerms-API (Interfaces, keine Implementierung).
+           Version 5.4 passt zur eingesetzten Legacy-Java-8-Plugin-Version LuckPerms-Bukkit
+           5.4.145 (LuckPerms versioniert die API-Artefakte nach Minor-Version). Wird NICHT
+           in das Plugin-JAR eingebunden - zur Laufzeit stellt das echte LuckPerms-Plugin die
+           Implementierung bereit; ist es nicht installiert, wird die Bridge-Klasse gar nicht
+           erst geladen (siehe LuckPermsPermissionBridge). -->
+      <groupId>net.luckperms</groupId>
+      <artifactId>api</artifactId>
+      <version>5.4</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <!-- Nur zum Kompilieren gegen die klassische net.milkbowl.vault.economy-API (von
+           VaultUnlocked beibehalten). Version 2.20 passt zur eingesetzten Legacy-Java-8-
+           Plugin-Version VaultUnlockedJava8-2.20.2 (VaultUnlockedAPI versioniert nach
+           Major.Minor). Wird NICHT in das Plugin-JAR eingebunden. -->
+      <groupId>net.milkbowl.vault</groupId>
+      <artifactId>VaultUnlockedAPI</artifactId>
+      <version>2.20</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -47,12 +78,13 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <!-- Test-only: einziger Zweck ist ein leichtgewichtiges Interface-Mock fuer
-           org.bukkit.entity.Player (kein volles MockBukkit/Server-Mock noetig), um den
-           defensiven Kick-Pfad in PlayerLifecycleListener#onJoin zu testen. Letzte
-           Java-8-kompatible Mockito-4.x-Version. -->
+      <!-- Test-only: mockt Bukkit-API-Typen wie Player/Inventory/InventoryClickEvent, ohne ein
+           volles MockBukkit/Server-Mock zu benoetigen. "inline" statt "core" ist noetig, weil
+           mehrere Bukkit-Event-Getter final sind (z. B. PlayerEvent#getPlayer(),
+           InventoryCloseEvent#getPlayer()) - der Standard-Mockmaker kann finale Methoden nicht
+           abfangen. Letzte Java-8-kompatible Mockito-4.x-Version. -->
       <groupId>org.mockito</groupId>
-      <artifactId>mockito-core</artifactId>
+      <artifactId>mockito-inline</artifactId>
       <version>4.11.0</version>
       <scope>test</scope>
     </dependency>

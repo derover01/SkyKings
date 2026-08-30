@@ -1,5 +1,6 @@
 package net.skykings.core.rank;
 
+import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.logging.LoggingService;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.model.Rank;
@@ -12,10 +13,13 @@ public final class RankServiceImpl implements RankService {
 
     private final PlayerProfileService profileService;
     private final LoggingService loggingService;
+    private final PermissionBridge permissionBridge;
 
-    public RankServiceImpl(PlayerProfileService profileService, LoggingService loggingService) {
+    public RankServiceImpl(PlayerProfileService profileService, LoggingService loggingService,
+                            PermissionBridge permissionBridge) {
         this.profileService = profileService;
         this.loggingService = loggingService;
+        this.permissionBridge = permissionBridge;
     }
 
     @Override
@@ -42,6 +46,7 @@ public final class RankServiceImpl implements RankService {
         }
         profileService.save(uuid);
         loggingService.logRankChange(uuid, old, rank, actor);
+        permissionBridge.syncRank(uuid, rank);
     }
 
     @Override
