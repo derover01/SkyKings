@@ -12,7 +12,14 @@ commands:
   craterewards:
     description: Oeffnet die Paid-Rank-Crate-Rewards.
     usage: /craterewards
+  gutscheine:
+    description: Oeffnet das Admin-GUI zur Gutschein-Erzeugung.
+    usage: /gutscheine
+    aliases: [voucher, vouchers]
 permissions:
   skykings.admin.crate:
     description: Darf Crates administrativ ausgeben.
+    default: op
+  skykings.admin.vouchers:
+    description: Darf Gutscheine administrativ erzeugen.
     default: op
