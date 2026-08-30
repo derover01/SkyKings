@@ -12,10 +12,24 @@ commands:
   rechte:
     description: Vergibt ein freigegebenes Gutschein-Recht.
     usage: /rechte <Spieler> <Recht>
+  announcement:
+    description: Sendet eine formatierte SkyKings-Ankündigung.
+    usage: /announcement <Nachricht>
+    aliases: [announce]
+  clearchat:
+    description: Leert den Chat für alle Online-Spieler.
+    usage: /clearchat
+    aliases: [cc]
 permissions:
   skykings.admin.rang:
     description: Darf /rang verwenden.
     default: false
   skykings.admin.rechte:
     description: Darf /rechte verwenden.
+    default: false
+  skykings.staff.announcement:
+    description: Darf Server-Ankündigungen senden.
+    default: false
+  skykings.staff.clearchat:
+    description: Darf den Serverchat leeren.
     default: false
