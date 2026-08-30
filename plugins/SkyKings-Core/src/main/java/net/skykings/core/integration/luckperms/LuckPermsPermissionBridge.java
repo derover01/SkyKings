@@ -96,6 +96,38 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
                 });
     }
 
+    @Override
+    public void grantPermission(UUID uuid, String permission) {
+        Objects.requireNonNull(uuid, "uuid");
+        Objects.requireNonNull(permission, "permission");
+        UserManager userManager = luckPerms.getUserManager();
+        User loaded = userManager.getUser(uuid);
+        if (loaded != null) {
+            savePermissionChange(userManager, loaded, uuid, permission);
+            return;
+        }
+        userManager.loadUser(uuid, null)
+                .thenAccept(user -> savePermissionChange(userManager, user, uuid, permission))
+                .exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht setzen", ex);
+                    return null;
+                });
+    }
+
+    private void savePermissionChange(UserManager userManager, User user, UUID uuid, String permission) {
+        try {
+            Node node = Node.builder(permission).value(true).build();
+            if (user.data().add(node) == DataMutateResult.SUCCESS) {
+                userManager.saveUser(user).exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht speichern", ex);
+                    return null;
+                });
+            }
+        } catch (RuntimeException ex) {
+            logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' fuer " + uuid + " nicht anwenden", ex);
+        }
+    }
+
     private void saveOwnerChanges(UserManager userManager, User user, UUID uuid) {
         try {
             if (applyOwner(user)) {
@@ -118,14 +150,11 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             changed = true;
         }
 
-        // Primaere Gruppe zuerst setzen. So bleibt der Owner-Status selbst dann korrekt,
-        // wenn eine optionale Permission-Node spaeter unerwartet fehlschlaegt.
         if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
                 && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
             changed = true;
         }
 
-        // Allgemeine Node-API ist auf LuckPerms 5.4/Java 8 robuster als der spezialisierte Builder.
         Node wildcard = Node.builder("*").value(true).build();
         if (data.add(wildcard) == DataMutateResult.SUCCESS) {
             changed = true;
@@ -133,7 +162,6 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
         return changed;
     }
 
-    /** Erstellt alle SkyKings-Ranggruppen plus Owner asynchron, falls sie noch fehlen. */
     private void ensureServerGroups() {
         for (String groupName : RankGroupMapping.managedGroupNames()) {
             ensureGroup(groupName, false);
