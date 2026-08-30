@@ -37,9 +37,10 @@ public final class CommandsGui {
 
     private void openPlayer(Player player) {
         GuiSession gui = page(player, "Spieler Commands");
-        action(gui, 11, Material.BOOK, "/commands", "Öffnet dieses Befehlsmenü.", "commands");
-        action(gui, 13, Material.CHEST, "/kit", "Öffnet deine verfügbaren Rang-Kits.", "kit");
-        action(gui, 15, Material.EMERALD, "/ränge", "Zeigt alle Ränge und deinen Fortschritt.", "raenge");
+        action(gui, 10, Material.BOOK, "/commands", "Öffnet dieses Befehlsmenü.", "commands");
+        action(gui, 12, Material.DIAMOND_SWORD, "/stats", "Zeigt deine PvP-Stats, Streak und Beststreak.", "stats");
+        action(gui, 14, Material.CHEST, "/kit", "Öffnet deine verfügbaren Rang-Kits.", "kit");
+        action(gui, 16, Material.EMERALD, "/ränge", "Zeigt alle Ränge und deinen Fortschritt.", "raenge");
         back(gui);
         guiManager.open(gui);
     }
