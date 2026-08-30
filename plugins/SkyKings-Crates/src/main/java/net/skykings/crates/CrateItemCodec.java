@@ -11,13 +11,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Erstellt/liest echte Head-Crate-Items mit interner Crate-ID und eindeutiger Seriennummer. */
 public final class CrateItemCodec {
-
     private static final String MARKER_PREFIX = ChatColor.BLACK + "skykings:crate:";
 
-    public ItemStack create(CrateRegistry.CrateDefinition crate, int amount) {
-        ItemStack item = new ItemStack(Material.SKULL_ITEM, Math.max(1, amount), (short) 3);
+    public ItemStack create(CrateRegistry.CrateDefinition crate) {
+        ItemStack item = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
         meta.setOwner(crate.getHeadOwner());
         meta.setDisplayName(color(crate.getDisplayName()));
@@ -36,8 +34,7 @@ public final class CrateItemCodec {
         if (meta == null || !meta.hasLore()) return null;
         for (String line : meta.getLore()) {
             if (line == null || !line.startsWith(MARKER_PREFIX)) continue;
-            String raw = line.substring(MARKER_PREFIX.length());
-            String[] parts = raw.split(":", 2);
+            String[] parts = line.substring(MARKER_PREFIX.length()).split(":", 2);
             if (parts.length != 2) return null;
             try {
                 return new DecodedCrate(parts[0].toLowerCase(Locale.ROOT), UUID.fromString(parts[1]));
