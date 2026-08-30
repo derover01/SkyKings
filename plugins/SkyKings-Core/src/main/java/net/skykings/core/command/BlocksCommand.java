@@ -27,7 +27,7 @@ public final class BlocksCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!rankService.hasAtLeast(player.getUniqueId(), Rank.PHOENIX)) {
+        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.PHOENIX)) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Phoenix fuer /bloecke.");
             return true;
         }
