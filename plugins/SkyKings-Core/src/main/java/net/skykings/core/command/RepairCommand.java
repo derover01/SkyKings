@@ -17,25 +17,23 @@ public final class RepairCommand implements CommandExecutor {
 
     private final RankService rankService;
 
-    public RepairCommand(RankService rankService) {
-        this.rankService = rankService;
-    }
+    public RepairCommand(RankService rankService) { this.rankService = rankService; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur fuer Spieler verfuegbar.");
+            sender.sendMessage("Dieser Befehl ist nur für Spieler verfügbar.");
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !player.hasPermission(PERMISSION)
+        if (!player.hasPermission(PERMISSION)
                 && !rankService.hasAtLeast(player.getUniqueId(), Rank.EXILE)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Exile oder das Repair-Recht.");
+            player.sendMessage(ChatColor.RED + "Du benötigst mindestens Exile oder das Repair-Recht.");
             return true;
         }
         ItemStack item = player.getItemInHand();
         if (item == null || item.getType() == Material.AIR) {
-            player.sendMessage(ChatColor.RED + "Halte das Item, das du reparieren moechtest, in der Hand.");
+            player.sendMessage(ChatColor.RED + "Halte das Item, das du reparieren möchtest, in der Hand.");
             return true;
         }
         if (item.getType().getMaxDurability() <= 0) {
@@ -43,7 +41,7 @@ public final class RepairCommand implements CommandExecutor {
             return true;
         }
         if (item.getDurability() == 0) {
-            player.sendMessage(ChatColor.YELLOW + "Dieses Item ist bereits vollstaendig repariert.");
+            player.sendMessage(ChatColor.YELLOW + "Dieses Item ist bereits vollständig repariert.");
             return true;
         }
         item.setDurability((short) 0);
