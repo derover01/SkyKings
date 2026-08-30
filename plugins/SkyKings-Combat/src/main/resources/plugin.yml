@@ -3,8 +3,8 @@ version: ${project.version}
 main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
-  Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, Pearl-Cooldown, physische Nethersterne,
-  Anti-Killfarm, Lootschutz, persistente PvP-Stats und Map-Gameplay.
+  Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, physische Nethersterne,
+  PvP-Stats, Map-Gameplay, Map-Generator und globalen Spawn.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -27,6 +27,17 @@ commands:
     description: Verwaltet Supply-Drop-Punkte und Drops.
     usage: /supplydrop <addpoint|points|trigger>
     permission: skykings.admin.map
+  skymap:
+    description: Generiert die SkyKings-SkyPvP-Map in einer neuen Void-Welt.
+    usage: /skymap generate [Weltname]
+    permission: skykings.admin.map
+  spawn:
+    description: Teleportiert dich nach 3 Sekunden zum globalen SkyKings-Spawn.
+    usage: /spawn
+  setspawn:
+    description: Setzt globalen SkyKings-Spawn und Worldspawn.
+    usage: /setspawn
+    permission: skykings.admin.map
 permissions:
   skykings.killeffect.lightning:
     description: Schaltet den Blitz-Kill-Effect frei.
@@ -41,5 +52,5 @@ permissions:
     description: Schaltet den Ender-Kill-Effect frei.
     default: false
   skykings.admin.map:
-    description: Darf Map-Loot und Supply-Drops einrichten.
+    description: Darf Map-Gameplay, Spawn und Map-Generator einrichten.
     default: false
