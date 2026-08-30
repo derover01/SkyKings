@@ -20,6 +20,7 @@ import net.skykings.combat.starterkit.DeathStarterKit;
 import net.skykings.combat.starterkit.DeathStarterKitService;
 import net.skykings.combat.starterkit.DeathStarterKits;
 import net.skykings.combat.starterkit.StarterKitRespawnListener;
+import net.skykings.combat.tag.CombatFlyCommandListener;
 import net.skykings.combat.tag.CombatTagService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.combat.tag.LastAttackerService;
@@ -34,17 +35,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;
 
-/**
- * SkyKings-Combat - Phase 2 (siehe docs/ROADMAP.md).
- *
- * <p>Verantwortungsbereich laut docs/ARCHITECTURE.md (Phase-2-Teilmenge): kein Fallschaden,
- * Death-Starter-Kit, Combat Tag, Enderperlen-Cooldown, Kill-/Death-Verarbeitung, Nethersterne,
- * Killstreaks, Anti-Killfarm, Lootschutz, Newbie Protection. Hot Zones, King Zone, Crates,
- * Shops, Events und Seasons folgen erst in spaeteren Phasen.
- *
- * <p>Greift ausschliesslich ueber {@link SkyKingsCoreAPI} auf Core-Services zu - keine zweite
- * Economy-/Rang-/Profil-Datenhaltung in diesem Modul.
- */
+/** SkyKings-Combat: zentrale SkyPvP-Regeln und Combat-Schutzsysteme. */
 public final class SkyKingsCombat extends JavaPlugin {
 
     @Override
@@ -86,6 +77,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new PvpDamageListener(combatTagService, lastAttackerService, newbieProtectionService, newbieFeedbackCooldown),
                 this);
+        getServer().getPluginManager().registerEvents(new CombatFlyCommandListener(combatTagService), this);
         getServer().getPluginManager().registerEvents(
                 new EnderpearlCooldownListener(cooldownService, config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown),
                 this);
@@ -95,7 +87,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 2) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 2 + Fly-Combat-Lock) aktiviert.");
     }
 
     @Override
@@ -109,7 +101,7 @@ public final class SkyKingsCombat extends JavaPlugin {
                     getServer().getServicesManager().getRegistration(SkyKingsCoreAPI.class);
             return registration != null ? registration.getProvider() : null;
         } catch (Throwable t) {
-            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht auflösen.", t);
+            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht aufloesen.", t);
             return null;
         }
     }
