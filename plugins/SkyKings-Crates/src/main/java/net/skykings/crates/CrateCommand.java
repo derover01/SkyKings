@@ -14,7 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** Admin-Test-/Ausgabecommand fuer echte Crate-Items. */
+/** Admin-Ausgabecommand fuer echte stackbare Crate-Batches. */
 public final class CrateCommand implements CommandExecutor, TabCompleter {
 
     private final CrateRegistry registry;
@@ -27,8 +27,8 @@ public final class CrateCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.isOp() && !sender.hasPermission("skykings.admin.crate")) {
-            sender.sendMessage(ChatColor.RED + "Dafuer hast du keine Rechte.");
+        if (!sender.hasPermission("skykings.admin.crate")) {
+            sender.sendMessage(ChatColor.RED + "Dafür hast du keine Rechte.");
             return true;
         }
         if (args.length < 3 || !args[0].equalsIgnoreCase("give")) {
@@ -47,9 +47,8 @@ public final class CrateCommand implements CommandExecutor, TabCompleter {
         }
         int amount = 1;
         if (args.length >= 4) {
-            try {
-                amount = Integer.parseInt(args[3]);
-            } catch (NumberFormatException ex) {
+            try { amount = Integer.parseInt(args[3]); }
+            catch (NumberFormatException ex) {
                 sender.sendMessage(ChatColor.RED + "Anzahl muss eine Zahl sein.");
                 return true;
             }
@@ -59,11 +58,10 @@ public final class CrateCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        for (int i = 0; i < amount; i++) {
-            ItemStack item = codec.create(crate);
-            if (!target.getInventory().addItem(item).isEmpty()) {
-                target.getWorld().dropItemNaturally(target.getLocation(), item);
-            }
+        ItemStack stack = codec.create(crate, amount);
+        if (!target.getInventory().addItem(stack).isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "Der Spieler braucht einen freien Inventarplatz.");
+            return true;
         }
         sender.sendMessage(ChatColor.GREEN + target.getName() + " hat " + amount + "x "
                 + ChatColor.translateAlternateColorCodes('&', crate.getDisplayName()) + ChatColor.GREEN + " erhalten.");
