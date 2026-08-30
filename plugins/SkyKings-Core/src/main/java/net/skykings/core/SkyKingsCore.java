@@ -2,6 +2,7 @@ package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.command.KitCommand;
+import net.skykings.core.command.RankupCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
@@ -35,6 +36,8 @@ import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.netherstar.NetherstarServiceImpl;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
+import net.skykings.core.rank.RankProgressionConfig;
+import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.storage.DataStore;
@@ -61,6 +64,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private LoggingService loggingService;
     private PlayerProfileService playerProfileService;
     private RankService rankService;
+    private RankProgressionService rankProgressionService;
     private EconomyService economyService;
     private NetherstarService netherstarService;
     private CooldownService cooldownService;
@@ -98,6 +102,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.permissionBridge = createPermissionBridge();
         this.rankService = new RankServiceImpl(playerProfileService, loggingService, permissionBridge);
         this.economyService = new EconomyServiceImpl(playerProfileService, loggingService);
+        this.rankProgressionService = new RankProgressionService(rankService, economyService, new RankProgressionConfig(this));
         this.netherstarService = new NetherstarServiceImpl(playerProfileService, loggingService);
         this.cooldownService = new CooldownServiceImpl(dataStore, dbExecutor, getLogger());
         this.kitRegistry = new KitRegistryImpl();
@@ -130,10 +135,18 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         kitCommand.setExecutor(kitExecutor);
         kitCommand.setTabCompleter(kitExecutor);
 
+        PluginCommand rankupCommand = getCommand("rankup");
+        if (rankupCommand == null) {
+            getLogger().severe("/rankup fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
+
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display + Free-Rankup) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
