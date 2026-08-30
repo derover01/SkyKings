@@ -1,0 +1,86 @@
+package net.skykings.core.perk;
+
+import net.skykings.core.item.ItemBuilder;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.Iterator;
+
+/** Hält kostenlose /blöcke-Items auch nach Platzieren/Abbauen von der Economy getrennt. */
+public final class BuildBlockWorldListener implements Listener {
+
+    private final BuildBlockStore store;
+
+    public BuildBlockWorldListener(BuildBlockStore store) {
+        this.store = store;
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlace(BlockPlaceEvent event) {
+        ItemStack hand = event.getItemInHand();
+        if (!BuildBlocksGui.isNoSellBuildBlock(hand)) return;
+        Block block = event.getBlockPlaced();
+        store.put(block.getLocation(), block.getType(), block.getData());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        BuildBlockStore.Entry entry = store.get(event.getBlock().getLocation());
+        if (entry == null) return;
+        event.setCancelled(true);
+        event.getBlock().setType(Material.AIR);
+        store.remove(event.getBlock().getLocation());
+        ItemStack item = new ItemBuilder(entry.getMaterial(), 1)
+                .durability(entry.getData())
+                .lore(BuildBlocksGui.NO_SELL_LORE)
+                .build();
+        Player player = event.getPlayer();
+        if (!player.getInventory().addItem(item).isEmpty()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), item);
+        }
+        player.sendMessage(ChatColor.GRAY + "Kostenloser Baublock bleibt als SkyKings-Baublöcke markiert.");
+    }
+
+    @EventHandler
+    public void onEntityExplode(EntityExplodeEvent event) {
+        protect(event.blockList().iterator());
+    }
+
+    @EventHandler
+    public void onBlockExplode(BlockExplodeEvent event) {
+        protect(event.blockList().iterator());
+    }
+
+    private void protect(Iterator<Block> blocks) {
+        while (blocks.hasNext()) {
+            if (store.contains(blocks.next().getLocation())) blocks.remove();
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        for (Block block : event.getBlocks()) {
+            if (store.contains(block.getLocation())) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        Block moved = event.getRetractLocation().getBlock();
+        if (store.contains(moved.getLocation())) event.setCancelled(true);
+    }
+}
