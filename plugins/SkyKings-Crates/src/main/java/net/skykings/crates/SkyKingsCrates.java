@@ -14,6 +14,7 @@ public class SkyKingsCrates extends JavaPlugin {
     private CrateRegistry crateRegistry;
     private CrateItemCodec crateItemCodec;
     private CrateRedemptionStore redemptionStore;
+    private VoucherRedemptionStore voucherStore;
 
     @Override
     public void onEnable() {
@@ -27,15 +28,20 @@ public class SkyKingsCrates extends JavaPlugin {
         this.crateRegistry = new CrateRegistry(this);
         this.crateItemCodec = new CrateItemCodec();
         this.redemptionStore = new CrateRedemptionStore(new File(getDataFolder(), "redeemed-crates.txt"), getLogger());
+        this.voucherStore = new VoucherRedemptionStore(new File(getDataFolder(), "redeemed-vouchers.txt"), getLogger());
         redemptionStore.initialize().thenRun(() -> getLogger().info("Crate Anti-Dupe Store bereit."));
+        voucherStore.initialize().thenRun(() -> getLogger().info("Voucher Anti-Dupe Store bereit."));
 
         getServer().getPluginManager().registerEvents(
                 new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core), this);
 
+        VoucherItemCodec voucherCodec = new VoucherItemCodec();
+        getServer().getPluginManager().registerEvents(
+                new VoucherRedeemListener(this, voucherCodec, voucherStore, core), this);
+
         PluginCommand crateCommand = getCommand("crate");
         if (crateCommand == null) {
-            getLogger().severe("/crate fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
-            getServer().getPluginManager().disablePlugin(this);
+            disableMissing("/crate");
             return;
         }
         CrateCommand crateExecutor = new CrateCommand(crateRegistry, crateItemCodec);
@@ -44,19 +50,32 @@ public class SkyKingsCrates extends JavaPlugin {
 
         PluginCommand rewardsCommand = getCommand("craterewards");
         if (rewardsCommand == null) {
-            getLogger().severe("/craterewards fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
-            getServer().getPluginManager().disablePlugin(this);
+            disableMissing("/craterewards");
             return;
         }
         CrateRewardsGui rewardsGui = new CrateRewardsGui(core.getGuiManager(), core, crateRegistry, crateItemCodec);
         rewardsCommand.setExecutor(new CrateRewardsCommand(rewardsGui));
 
-        getLogger().info("SkyKings-Crates (Phase 4 Head-Crates + Preview/Open + Reward Tables + EV + Anti-Dupe + Open-All + CrateRewards) aktiviert.");
+        PluginCommand vouchersCommand = getCommand("gutscheine");
+        if (vouchersCommand == null) {
+            disableMissing("/gutscheine");
+            return;
+        }
+        VoucherAdminGui voucherGui = new VoucherAdminGui(core.getGuiManager(), core, voucherCodec);
+        vouchersCommand.setExecutor(new VouchersCommand(voucherGui));
+
+        getLogger().info("SkyKings-Crates (Phase 4 Crates + Anti-Dupe + Open-All + CrateRewards + Voucher-System) aktiviert.");
+    }
+
+    private void disableMissing(String command) {
+        getLogger().severe(command + " fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
+        getServer().getPluginManager().disablePlugin(this);
     }
 
     @Override
     public void onDisable() {
         if (redemptionStore != null) redemptionStore.shutdown();
+        if (voucherStore != null) voucherStore.shutdown();
         getLogger().info("SkyKings-Crates deaktiviert.");
     }
 
