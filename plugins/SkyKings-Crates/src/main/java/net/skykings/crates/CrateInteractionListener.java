@@ -8,6 +8,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -18,6 +20,8 @@ import java.util.List;
 
 /** Linksklick = Preview, Rechtsklick = eine Crate oeffnen. */
 public final class CrateInteractionListener implements Listener {
+
+    private static final String PREVIEW_TITLE = ChatColor.DARK_GRAY + "Crate Preview";
 
     private final CrateRegistry registry;
     private final CrateItemCodec codec;
@@ -54,10 +58,23 @@ public final class CrateInteractionListener implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPreviewClick(InventoryClickEvent event) {
+        if (event.getView() != null && PREVIEW_TITLE.equals(event.getView().getTitle())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler
+    public void onPreviewDrag(InventoryDragEvent event) {
+        if (event.getView() != null && PREVIEW_TITLE.equals(event.getView().getTitle())) {
+            event.setCancelled(true);
+        }
+    }
+
     private void openPreview(Player player, CrateRegistry.CrateDefinition crate) {
         int rows = Math.max(1, Math.min(6, (crate.getRewards().size() + 8) / 9));
-        Inventory inventory = Bukkit.createInventory(null, rows * 9,
-                ChatColor.DARK_GRAY + "Crate Preview");
+        Inventory inventory = Bukkit.createInventory(null, rows * 9, PREVIEW_TITLE);
         int totalWeight = 0;
         for (CrateRegistry.RewardDefinition reward : crate.getRewards()) totalWeight += reward.getWeight();
 
@@ -118,13 +135,20 @@ public final class CrateInteractionListener implements Listener {
             case ITEM:
                 if (reward.getAmount() > 64L) return false;
                 ItemStack item = new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData());
-                if (!player.getInventory().addItem(item).isEmpty()) {
-                    return false;
-                }
-                return true;
+                if (!canFit(player, item)) return false;
+                return player.getInventory().addItem(item).isEmpty();
             default:
                 return false;
         }
+    }
+
+    private boolean canFit(Player player, ItemStack item) {
+        Inventory simulation = Bukkit.createInventory(null, 36);
+        for (int slot = 0; slot < 36; slot++) {
+            ItemStack current = player.getInventory().getItem(slot);
+            if (current != null) simulation.setItem(slot, current.clone());
+        }
+        return simulation.addItem(item.clone()).isEmpty();
     }
 
     private ItemStack rewardIcon(CrateRegistry.RewardDefinition reward) {
