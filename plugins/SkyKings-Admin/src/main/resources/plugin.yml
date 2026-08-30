@@ -1,0 +1,9 @@
+name: SkyKings-Admin
+version: ${project.version}
+main: net.skykings.admin.SkyKingsAdmin
+api-version: 1.8
+depend: [SkyKings-Core]
+description: >
+  Admin-Modul (/gutscheine, /verlosung, Audit, Staff-Commands, Discord-Logging-Bridge).
+  Phase 0: Grundgeruest ohne Features.
+authors: [SkyKings Team]

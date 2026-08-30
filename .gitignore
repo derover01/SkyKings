@@ -1,0 +1,43 @@
+# === Build-Output ===
+target/
+*.class
+
+# === IDE ===
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+out/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === Lokaler Testserver ===
+# Niemals Server-JARs, fremde Plugin-JARs oder Map-/World-Daten committen.
+server/plugins/*
+!server/plugins/README.md
+server/maps/*
+!server/maps/README.md
+server/*.jar
+server/logs/
+server/cache/
+server/world/
+server/world_nether/
+server/world_the_end/
+server/eula.txt
+
+# === Lokale Dev-Tools (z.B. BuildTools.jar) ===
+tools/*
+!tools/README.md
+
+# === Secrets ===
+# Siehe CLAUDE.md Punkt 5: keine Secrets/Tokens/Passwoerter/Webhook-URLs committen.
+*.env
+.env
+.env.*
+*.token
+*credentials*
+*secret*

@@ -1,0 +1,9 @@
+name: SkyKings-Combat
+version: ${project.version}
+main: net.skykings.combat.SkyKingsCombat
+api-version: 1.8
+depend: [SkyKings-Core]
+description: >
+  Combat-Modul (kein Fallschaden, Combat Tag, Pearl-Cooldown, Nethersterne, Killstreaks,
+  Anti-Killfarm, Lootschutz, Hot/King Zones). Phase 0: Grundgeruest ohne Features.
+authors: [SkyKings Team]
