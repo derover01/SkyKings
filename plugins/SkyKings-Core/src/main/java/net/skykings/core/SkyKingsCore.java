@@ -2,6 +2,7 @@ package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.command.KitCommand;
+import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
@@ -40,6 +41,7 @@ import net.skykings.core.rank.RankProgressionConfig;
 import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
+import net.skykings.core.rank.RanksGui;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
@@ -102,7 +104,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.permissionBridge = createPermissionBridge();
         this.rankService = new RankServiceImpl(playerProfileService, loggingService, permissionBridge);
         this.economyService = new EconomyServiceImpl(playerProfileService, loggingService);
-        this.rankProgressionService = new RankProgressionService(rankService, economyService, new RankProgressionConfig(this));
+        RankProgressionConfig rankProgressionConfig = new RankProgressionConfig(this);
+        this.rankProgressionService = new RankProgressionService(rankService, economyService, rankProgressionConfig);
         this.netherstarService = new NetherstarServiceImpl(playerProfileService, loggingService);
         this.cooldownService = new CooldownServiceImpl(dataStore, dbExecutor, getLogger());
         this.kitRegistry = new KitRegistryImpl();
@@ -112,6 +115,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
+        RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService,
+                rankProgressionConfig, economyService);
 
         this.economyBridge = createEconomyBridge();
 
@@ -143,10 +148,18 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         }
         rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
 
+        PluginCommand ranksCommand = getCommand("raenge");
+        if (ranksCommand == null) {
+            getLogger().severe("/raenge fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        ranksCommand.setExecutor(new RanksCommand(ranksGui));
+
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display + Free-Rankup) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 Rank-Kits + Rank-Display + Free-Rankup + Raenge-GUI) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
