@@ -1,28 +1,55 @@
 package net.skykings.crates;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/**
- * SkyKings-Crates - Phase 0 Grundgeruest.
- *
- * <p>Verantwortungsbereich laut docs/ARCHITECTURE.md: Crates als Custom-Heads im
- * Inventar, Linksklick Preview / Rechtsklick Oeffnen, Open-All ab Exile, /craterewards,
- * rankabhaengige Claim-Cooldowns, Rank-/Kit-/Permission-/Prefix-Gutscheine, Unique
- * Voucher IDs, Anti-Dupe, Reward- und Crate-Logs.
- *
- * <p>In Phase 0 (siehe docs/ROADMAP.md) wird hier bewusst noch KEINE Business-Logik
- * implementiert - nur ein kompilierbares Plugin-Grundgeruest. Fachlich gehoeren Crates
- * laut Roadmap zu Phase 4.
- */
+import java.util.logging.Level;
+
+/** SkyKings-Crates - Phase 4 Crate-/Voucher-System. */
 public class SkyKingsCrates extends JavaPlugin {
+
+    private CrateRegistry crateRegistry;
+    private CrateItemCodec crateItemCodec;
 
     @Override
     public void onEnable() {
-        getLogger().info("SkyKings-Crates (Phase 0 Grundgeruest) aktiviert.");
+        SkyKingsCoreAPI core = resolveCoreApi();
+        if (core == null) {
+            getLogger().severe("SkyKingsCoreAPI wurde nicht gefunden - SkyKings-Crates wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        this.crateRegistry = new CrateRegistry(this);
+        this.crateItemCodec = new CrateItemCodec();
+        getServer().getPluginManager().registerEvents(
+                new CrateInteractionListener(crateRegistry, crateItemCodec, core), this);
+
+        getLogger().info("SkyKings-Crates (Phase 4 Head-Crates + Preview/Open + Reward Tables + EV) aktiviert.");
     }
 
     @Override
     public void onDisable() {
         getLogger().info("SkyKings-Crates deaktiviert.");
+    }
+
+    private SkyKingsCoreAPI resolveCoreApi() {
+        try {
+            RegisteredServiceProvider<SkyKingsCoreAPI> registration =
+                    getServer().getServicesManager().getRegistration(SkyKingsCoreAPI.class);
+            return registration == null ? null : registration.getProvider();
+        } catch (Throwable t) {
+            getLogger().log(Level.SEVERE, "Konnte SkyKingsCoreAPI nicht aufloesen.", t);
+            return null;
+        }
+    }
+
+    public CrateRegistry getCrateRegistry() {
+        return crateRegistry;
+    }
+
+    public CrateItemCodec getCrateItemCodec() {
+        return crateItemCodec;
     }
 }
