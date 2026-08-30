@@ -26,7 +26,7 @@ public final class RepairCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!rankService.hasAtLeast(player.getUniqueId(), Rank.EXILE)) {
+        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.EXILE)) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Exile fuer /repair.");
             return true;
         }
