@@ -35,17 +35,18 @@ public final class SkyMapCommand implements CommandExecutor {
         }
         if (args.length == 0 || !args[0].equalsIgnoreCase("generate")) {
             player.sendMessage(ChatColor.YELLOW + "/skymap generate [Weltname]");
+            player.sendMessage(ChatColor.GRAY + "Standard: SkyKingsArenaV2");
             return true;
         }
 
-        String worldName = args.length >= 2 ? sanitize(args[1]) : "SkyKingsArena";
-        if (worldName.length() < 1) worldName = "SkyKingsArena";
+        String worldName = args.length >= 2 ? sanitize(args[1]) : "SkyKingsArenaV2";
+        if (worldName.length() < 1) worldName = "SkyKingsArenaV2";
         if (Bukkit.getWorld(worldName) != null || new java.io.File(Bukkit.getWorldContainer(), worldName).exists()) {
             player.sendMessage(ChatColor.RED + "Die Welt '" + worldName + "' existiert bereits. Aus Sicherheitsgruenden wird sie nicht ueberschrieben.");
             return true;
         }
 
-        player.sendMessage(ChatColor.GOLD + "Erstelle Void-Welt " + ChatColor.WHITE + worldName + ChatColor.GRAY + " ...");
+        player.sendMessage(ChatColor.GOLD + "Erstelle SkyKings Map V2 in Void-Welt " + ChatColor.WHITE + worldName + ChatColor.GRAY + " ...");
         WorldCreator creator = new WorldCreator(worldName);
         creator.environment(World.Environment.NORMAL);
         creator.generator(new VoidChunkGenerator());
@@ -55,8 +56,9 @@ public final class SkyMapCommand implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "Die Welt konnte nicht erstellt werden.");
             return true;
         }
+
         world.setKeepSpawnInMemory(true);
-        new SkyKingsMapBuilder(plugin, world, spawnService, player).start();
+        new SkyKingsMapBuilderV2Shops(plugin, world, spawnService, player).start();
         return true;
     }
 
