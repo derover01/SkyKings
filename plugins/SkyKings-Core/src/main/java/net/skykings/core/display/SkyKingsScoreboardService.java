@@ -2,10 +2,12 @@ package net.skykings.core.display;
 
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
+import net.skykings.core.pvp.PvpStatsProvider;
+import net.skykings.core.pvp.PvpStatsSnapshot;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
@@ -14,7 +16,7 @@ import org.bukkit.scoreboard.ScoreboardManager;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-/** Ästhetisches 1.8.8-PvP-Sidebar-Scoreboard mit persistenten Spielerstatistiken. */
+/** Ästhetisches 1.8.8-PvP-Sidebar-Scoreboard mit persistenten SkyKings-Stats. */
 public final class SkyKingsScoreboardService {
 
     private final PlayerProfileService profileService;
@@ -41,18 +43,18 @@ public final class SkyKingsScoreboardService {
         String rank = displayConfig.getRankPrefix(profile.getRank());
         if (displayConfig.isConfiguredOwner(player.getName())) rank = displayConfig.getOwnerPrefix();
 
-        int kills = safeStatistic(player, Statistic.PLAYER_KILLS);
-        int deaths = safeStatistic(player, Statistic.DEATHS);
-        String kd = deaths <= 0 ? String.format(Locale.US, "%.2f", (double) kills)
-                : String.format(Locale.US, "%.2f", (double) kills / (double) deaths);
+        PvpStatsSnapshot stats = stats(player);
+        String kd = String.format(Locale.US, "%.2f", stats.getKd());
 
-        line(objective, ChatColor.DARK_GRAY + "──────────────", 12);
-        line(objective, ChatColor.GRAY + "Rang  " + rank, 11);
-        line(objective, ChatColor.GRAY + "Coins  " + ChatColor.GOLD + numbers.format(profile.getCoins()), 10);
-        line(objective, ChatColor.BLACK.toString(), 9);
-        line(objective, ChatColor.RED + "⚔ " + ChatColor.GRAY + "Kills  " + ChatColor.WHITE + kills, 8);
-        line(objective, ChatColor.DARK_RED + "☠ " + ChatColor.GRAY + "Tode   " + ChatColor.WHITE + deaths, 7);
-        line(objective, ChatColor.YELLOW + "K/D   " + ChatColor.WHITE + kd, 6);
+        line(objective, ChatColor.DARK_GRAY + "──────────────", 14);
+        line(objective, ChatColor.GRAY + "Rang  " + rank, 13);
+        line(objective, ChatColor.GRAY + "Coins  " + ChatColor.GOLD + numbers.format(profile.getCoins()), 12);
+        line(objective, ChatColor.BLACK.toString(), 11);
+        line(objective, ChatColor.RED + "⚔ " + ChatColor.GRAY + "Kills  " + ChatColor.WHITE + stats.getKills(), 10);
+        line(objective, ChatColor.DARK_RED + "☠ " + ChatColor.GRAY + "Tode   " + ChatColor.WHITE + stats.getDeaths(), 9);
+        line(objective, ChatColor.YELLOW + "K/D   " + ChatColor.WHITE + kd, 8);
+        line(objective, ChatColor.GOLD + "🔥 " + ChatColor.GRAY + "Streak " + ChatColor.WHITE + stats.getCurrentStreak(), 7);
+        line(objective, ChatColor.YELLOW + "★ " + ChatColor.GRAY + "Best   " + ChatColor.WHITE + stats.getBestStreak(), 6);
         line(objective, ChatColor.DARK_GRAY.toString(), 5);
         line(objective, ChatColor.GREEN + "● " + ChatColor.GRAY + "Online " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size(), 4);
         line(objective, ChatColor.GRAY + "Du bist " + ChatColor.WHITE + shorten(player.getName(), 16), 3);
@@ -62,9 +64,13 @@ public final class SkyKingsScoreboardService {
         player.setScoreboard(board);
     }
 
-    private int safeStatistic(Player player, Statistic statistic) {
-        try { return Math.max(0, player.getStatistic(statistic)); }
-        catch (RuntimeException ignored) { return 0; }
+    private PvpStatsSnapshot stats(Player player) {
+        RegisteredServiceProvider<PvpStatsProvider> registration =
+                Bukkit.getServicesManager().getRegistration(PvpStatsProvider.class);
+        if (registration == null || registration.getProvider() == null) {
+            return new PvpStatsSnapshot(0L, 0L, 0, 0);
+        }
+        return registration.getProvider().getStats(player.getUniqueId());
     }
 
     private void line(Objective objective, String text, int score) {
