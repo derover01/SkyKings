@@ -14,3 +14,7 @@ commands:
     description: Kauft den naechsten Free-Rang mit Coins.
     usage: /rankup
     aliases: [rangup]
+  raenge:
+    description: Oeffnet die Rang-Uebersicht.
+    usage: /raenge
+    aliases: [ränge, ranks, rang]
