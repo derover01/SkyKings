@@ -1,6 +1,5 @@
 package net.skykings.combat.stats;
 
-import net.skykings.core.pvp.PvpStatsProvider;
 import net.skykings.core.pvp.PvpStatsSnapshot;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -16,7 +15,7 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
 /** Persistente PvP-Stats: Kills, Tode, aktuelle Streak und Beststreak. */
-public final class PvpStatsService implements PvpStatsProvider {
+public final class PvpStatsService implements PvpStatsTracker {
 
     private static final class MutableStats {
         long kills;
@@ -50,6 +49,7 @@ public final class PvpStatsService implements PvpStatsProvider {
         }
     }
 
+    @Override
     public void recordDeath(UUID victimUuid) {
         MutableStats value = stats.computeIfAbsent(victimUuid, ignored -> new MutableStats());
         synchronized (value) {
@@ -59,6 +59,7 @@ public final class PvpStatsService implements PvpStatsProvider {
         saveAsync();
     }
 
+    @Override
     public void recordKill(UUID killerUuid, int newStreak) {
         MutableStats value = stats.computeIfAbsent(killerUuid, ignored -> new MutableStats());
         synchronized (value) {
@@ -69,9 +70,7 @@ public final class PvpStatsService implements PvpStatsProvider {
         saveAsync();
     }
 
-    public void shutdown() {
-        writer.shutdown();
-    }
+    public void shutdown() { writer.shutdown(); }
 
     private void load() {
         if (!file.exists()) return;
