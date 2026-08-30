@@ -15,25 +15,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
-/** /rechte <Spieler> <Recht> vergibt ausschliesslich whitelisted Voucher-Rechte. */
+/** /rechte <Spieler> <Recht> vergibt ausschließlich freigegebene Voucher-Rechte. */
 public final class RightsAdminCommand implements CommandExecutor, TabCompleter {
 
     public static final String ADMIN_PERMISSION = "skykings.admin.rechte";
     private final VoucherPermissionService permissionService;
 
-    public RightsAdminCommand(VoucherPermissionService permissionService) {
-        this.permissionService = permissionService;
-    }
+    public RightsAdminCommand(VoucherPermissionService permissionService) { this.permissionService = permissionService; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.isOp() && !sender.hasPermission(ADMIN_PERMISSION)) {
-            sender.sendMessage(ChatColor.RED + "Dafuer hast du keine Berechtigung.");
+        if (!sender.hasPermission(ADMIN_PERMISSION)) {
+            sender.sendMessage(ChatColor.RED + "Dafür hast du keine Berechtigung.");
             return true;
         }
         if (args.length != 2) {
             sender.sendMessage(ChatColor.RED + "Verwendung: /rechte <Spieler> <Recht>");
-            sender.sendMessage(ChatColor.GRAY + "Verfuegbar: " + available());
+            sender.sendMessage(ChatColor.GRAY + "Verfügbar: " + available());
             return true;
         }
         Player target = Bukkit.getPlayerExact(args[0]);
@@ -43,22 +41,20 @@ public final class RightsAdminCommand implements CommandExecutor, TabCompleter {
         }
         VoucherPermission permission = permissionService.find(args[1]);
         if (permission == null) {
-            sender.sendMessage(ChatColor.RED + "Dieses Recht ist nicht fuer Gutscheine freigegeben.");
-            sender.sendMessage(ChatColor.GRAY + "Verfuegbar: " + available());
+            sender.sendMessage(ChatColor.RED + "Dieses Recht ist nicht für Gutscheine freigegeben.");
+            sender.sendMessage(ChatColor.GRAY + "Verfügbar: " + available());
             return true;
         }
 
-        VoucherPermissionService.GrantStatus status =
-                permissionService.grant(target.getUniqueId(), permission.getId(), sender.getName());
+        VoucherPermissionService.GrantStatus status = permissionService.grant(target.getUniqueId(), permission.getId(), sender.getName());
         if (status == VoucherPermissionService.GrantStatus.BRIDGE_UNAVAILABLE) {
-            sender.sendMessage(ChatColor.RED + "LuckPerms ist aktuell nicht verfuegbar.");
+            sender.sendMessage(ChatColor.RED + "LuckPerms ist aktuell nicht verfügbar.");
             return true;
         }
         if (status != VoucherPermissionService.GrantStatus.GRANTED) {
             sender.sendMessage(ChatColor.RED + "Das Recht konnte nicht vergeben werden.");
             return true;
         }
-
         sender.sendMessage(ChatColor.GREEN + target.getName() + " hat jetzt dauerhaft das Recht "
                 + permission.getDisplayName() + ChatColor.GREEN + ".");
         target.sendMessage(ChatColor.GOLD + "Du hast das dauerhafte Recht " + permission.getDisplayName()
@@ -68,21 +64,17 @@ public final class RightsAdminCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.isOp() && !sender.hasPermission(ADMIN_PERMISSION)) return Collections.emptyList();
+        if (!sender.hasPermission(ADMIN_PERMISSION)) return Collections.emptyList();
         if (args.length == 1) {
             List<String> names = new ArrayList<String>();
             String prefix = args[0].toLowerCase(Locale.ROOT);
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) names.add(player.getName());
-            }
+            for (Player player : Bukkit.getOnlinePlayers()) if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) names.add(player.getName());
             return names;
         }
         if (args.length == 2) {
             List<String> rights = new ArrayList<String>();
             String prefix = args[1].toLowerCase(Locale.ROOT);
-            for (VoucherPermission permission : permissionService.getAll()) {
-                if (permission.getId().startsWith(prefix)) rights.add(permission.getId());
-            }
+            for (VoucherPermission permission : permissionService.getAll()) if (permission.getId().startsWith(prefix)) rights.add(permission.getId());
             return rights;
         }
         return Collections.emptyList();
