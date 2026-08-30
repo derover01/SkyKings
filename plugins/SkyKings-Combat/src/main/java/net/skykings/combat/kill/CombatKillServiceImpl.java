@@ -5,7 +5,7 @@ import net.skykings.combat.event.SkyKingsPlayerKillEvent;
 import net.skykings.combat.killstreak.KillstreakResult;
 import net.skykings.combat.killstreak.KillstreakService;
 import net.skykings.combat.loot.LootProtectionService;
-import net.skykings.combat.stats.PvpStatsService;
+import net.skykings.combat.stats.PvpStatsTracker;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -19,12 +19,12 @@ public final class CombatKillServiceImpl implements CombatKillService {
     private final AntiFarmService antiFarmService;
     private final NetherstarRewardDelivery rewardDelivery;
     private final LootProtectionService lootProtectionService;
-    private final PvpStatsService statsService;
+    private final PvpStatsTracker statsService;
     private final Logger logger;
 
     public CombatKillServiceImpl(KillstreakService killstreakService, AntiFarmService antiFarmService,
                                   NetherstarRewardDelivery rewardDelivery, LootProtectionService lootProtectionService,
-                                  PvpStatsService statsService, Logger logger) {
+                                  PvpStatsTracker statsService, Logger logger) {
         this.killstreakService = killstreakService;
         this.antiFarmService = antiFarmService;
         this.rewardDelivery = rewardDelivery;
