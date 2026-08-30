@@ -1,5 +1,7 @@
 package net.skykings.admin;
 
+import net.skykings.admin.command.AnnouncementCommand;
+import net.skykings.admin.command.ClearChatCommand;
 import net.skykings.admin.command.RankAdminCommand;
 import net.skykings.admin.command.RightsAdminCommand;
 import net.skykings.core.api.SkyKingsCoreAPI;
@@ -23,8 +25,10 @@ public class SkyKingsAdmin extends JavaPlugin {
 
         PluginCommand rankCommand = getCommand("rang");
         PluginCommand rightsCommand = getCommand("rechte");
-        if (rankCommand == null || rightsCommand == null) {
-            getLogger().severe("/rang oder /rechte fehlt in plugin.yml - SkyKings-Admin wird deaktiviert.");
+        PluginCommand announcementCommand = getCommand("announcement");
+        PluginCommand clearChatCommand = getCommand("clearchat");
+        if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null) {
+            getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -37,7 +41,10 @@ public class SkyKingsAdmin extends JavaPlugin {
         rightsCommand.setExecutor(rightsExecutor);
         rightsCommand.setTabCompleter(rightsExecutor);
 
-        getLogger().info("SkyKings-Admin mit /rang und /rechte aktiviert.");
+        announcementCommand.setExecutor(new AnnouncementCommand());
+        clearChatCommand.setExecutor(new ClearChatCommand());
+
+        getLogger().info("SkyKings-Admin mit Rang-, Rechte-, Announcement- und Chat-Tools aktiviert.");
     }
 
     @Override
