@@ -9,7 +9,6 @@ import net.luckperms.api.model.user.UserManager;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.InheritanceNode;
-import net.luckperms.api.node.types.PermissionNode;
 import net.skykings.core.integration.NoOpPermissionBridge;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.model.Rank;
@@ -77,7 +76,6 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
 
     @Override
     public void grantOwner(UUID uuid) {
-        // Die Gruppe wird unabhaengig davon sichergestellt. Das blockiert den Bukkit-Main-Thread nicht.
         ensureGroup(OWNER_GROUP, true).exceptionally(ex -> {
             logger.log(Level.SEVERE, "Konnte Owner-Gruppe nicht sicherstellen", ex);
             return null;
@@ -120,13 +118,16 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             changed = true;
         }
 
-        PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
-        if (data.add(wildcard) == DataMutateResult.SUCCESS) {
+        // Primaere Gruppe zuerst setzen. So bleibt der Owner-Status selbst dann korrekt,
+        // wenn eine optionale Permission-Node spaeter unerwartet fehlschlaegt.
+        if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
+                && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
             changed = true;
         }
 
-        if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
-                && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
+        // Allgemeine Node-API ist auf LuckPerms 5.4/Java 8 robuster als der spezialisierte Builder.
+        Node wildcard = Node.builder("*").value(true).build();
+        if (data.add(wildcard) == DataMutateResult.SUCCESS) {
             changed = true;
         }
         return changed;
@@ -144,7 +145,7 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
         Group existing = luckPerms.getGroupManager().getGroup(groupName);
         if (existing != null) {
             if (owner) {
-                existing.data().add(PermissionNode.builder("*").value(true).build());
+                existing.data().add(Node.builder("*").value(true).build());
                 return luckPerms.getGroupManager().saveGroup(existing);
             }
             return CompletableFuture.completedFuture(null);
@@ -152,7 +153,7 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
 
         return luckPerms.getGroupManager().createAndLoadGroup(groupName).thenCompose(group -> {
             if (owner) {
-                group.data().add(PermissionNode.builder("*").value(true).build());
+                group.data().add(Node.builder("*").value(true).build());
             }
             logger.info("LuckPerms-Gruppe automatisch angelegt: " + groupName);
             return luckPerms.getGroupManager().saveGroup(group);
