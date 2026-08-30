@@ -4,7 +4,7 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, Pearl-Cooldown, physische Nethersterne,
-  Anti-Killfarm, Lootschutz und persistente PvP-Stats.
+  Anti-Killfarm, Lootschutz, persistente PvP-Stats und Map-Gameplay.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -19,6 +19,14 @@ commands:
     description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
     usage: /killeffect
     aliases: [killeffects, killeffekt]
+  maploot:
+    description: Richtet persistente Map-Loot-Chests ein.
+    usage: /maploot <set|remove|refill>
+    permission: skykings.admin.map
+  supplydrop:
+    description: Verwaltet Supply-Drop-Punkte und Drops.
+    usage: /supplydrop <addpoint|points|trigger>
+    permission: skykings.admin.map
 permissions:
   skykings.killeffect.lightning:
     description: Schaltet den Blitz-Kill-Effect frei.
@@ -31,4 +39,7 @@ permissions:
     default: false
   skykings.killeffect.ender:
     description: Schaltet den Ender-Kill-Effect frei.
+    default: false
+  skykings.admin.map:
+    description: Darf Map-Loot und Supply-Drops einrichten.
     default: false
