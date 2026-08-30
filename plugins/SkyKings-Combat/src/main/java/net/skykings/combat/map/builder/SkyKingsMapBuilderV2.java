@@ -15,13 +15,8 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * SkyKings Map V2.
- *
- * Klassisches OP-SkyPvP-Prinzip:
- * - sicherer Spawn weit ueber der Kampfmap
- * - Spieler springen direkt nach unten ins PvP
- * - grosse zentrale Hauptinsel statt Hub-/Bruecken-Netz
- * - thematische Nebeninseln als Hotspots und Pearl-Ziele
+ * SkyKings Map V2: klassisches OP-SkyPvP mit High-Spawn und Drop-Down.
+ * Ausschliesslich Material-Namen aus Spigot 1.8.8 verwenden.
  */
 public final class SkyKingsMapBuilderV2 {
 
@@ -30,9 +25,7 @@ public final class SkyKingsMapBuilderV2 {
     private static final int PVP_Y = 74;
 
     private static final class Placement {
-        final int x;
-        final int y;
-        final int z;
+        final int x, y, z;
         final Material material;
 
         Placement(int x, int y, int z, Material material) {
@@ -69,19 +62,17 @@ public final class SkyKingsMapBuilderV2 {
             public void run() {
                 int end = Math.min(total, index + BLOCKS_PER_TICK);
                 while (index < end) {
-                    Placement placement = blocks.get(index++);
-                    world.getBlockAt(placement.x, placement.y, placement.z).setType(placement.material, false);
+                    Placement p = blocks.get(index++);
+                    world.getBlockAt(p.x, p.y, p.z).setType(p.material, false);
                 }
-
                 if (index >= total) {
                     cancel();
                     finish();
                     return;
                 }
-
                 if (index % (BLOCKS_PER_TICK * 20) < BLOCKS_PER_TICK) {
-                    int percent = (int) ((index * 100L) / Math.max(1, total));
-                    initiator.sendMessage(ChatColor.GRAY + "Map V2: " + ChatColor.YELLOW + percent + "%");
+                    initiator.sendMessage(ChatColor.GRAY + "Map V2: " + ChatColor.YELLOW
+                            + (int) ((index * 100L) / Math.max(1, total)) + "%");
                 }
             }
         }.runTaskTimer(plugin, 1L, 1L);
@@ -89,234 +80,174 @@ public final class SkyKingsMapBuilderV2 {
 
     private void plan() {
         buildHighSpawn();
-        buildMainPvpIsland();
-        buildCentralRuins();
+        buildMainPvp();
+        buildRuins();
         buildKingZone();
         buildEndIsland();
-        buildBlacksmithIsland();
+        buildBlacksmith();
         buildGoldIsland();
         buildMerchantIsland();
         buildEnchantIsland();
-        buildOuterSatellites();
-        buildPearlPads();
+        buildSatellites();
     }
 
-    /** Spawn schwebt weit ueber der PvP-Map. Von allen Seiten kann direkt heruntergesprungen werden. */
     private void buildHighSpawn() {
-        floatingIsland(0, SPAWN_Y - 5, 0, 39, 35, 13,
-                Material.QUARTZ_BLOCK, Material.STONE, Material.COBBLESTONE, 11);
+        island(0, SPAWN_Y - 5, 0, 46, 40, 15, Material.QUARTZ_BLOCK, Material.STONE, 11);
+        disc(0, SPAWN_Y, 0, 28, Material.QUARTZ_BLOCK);
+        ring(0, SPAWN_Y + 1, 0, 29, Material.GLOWSTONE);
+        disc(0, SPAWN_Y + 1, 0, 7, Material.GOLD_BLOCK);
 
-        // zentrale Spawnplattform
-        disc(0, SPAWN_Y, 0, 24, Material.QUARTZ_BLOCK);
-        ring(0, SPAWN_Y + 1, 0, 25, Material.GLOWSTONE);
-        disc(0, SPAWN_Y + 1, 0, 8, Material.GOLD_BLOCK);
-
-        // grosser offener Pavillon statt geschlossener Spawnbox
-        int[][] pillars = {{18,18},{18,-18},{-18,18},{-18,-18}};
+        int[][] pillars = {{19,19},{19,-19},{-19,19},{-19,-19}};
         for (int[] p : pillars) {
-            column(p[0], SPAWN_Y + 1, p[1], 10, Material.QUARTZ_BLOCK);
-            set(p[0], SPAWN_Y + 11, p[1], Material.GLOWSTONE);
+            column(p[0], SPAWN_Y + 1, p[1], 11, Material.QUARTZ_BLOCK);
+            set(p[0], SPAWN_Y + 12, p[1], Material.GLOWSTONE);
         }
-        ring(0, SPAWN_Y + 11, 0, 20, Material.QUARTZ_BLOCK);
+        ring(0, SPAWN_Y + 12, 0, 22, Material.QUARTZ_BLOCK);
 
-        // Vier breite Absprung-Balkone. Danach kommt bewusst nur Luft.
-        jumpBalcony(0, SPAWN_Y + 1, -38, true);
-        jumpBalcony(0, SPAWN_Y + 1, 38, true);
-        jumpBalcony(-42, SPAWN_Y + 1, 0, false);
-        jumpBalcony(42, SPAWN_Y + 1, 0, false);
+        // Vier breite Sprungausgaenge. Danach ist bewusst Luft bis zur PvP-Map.
+        balcony(0, -43, true);
+        balcony(0, 43, true);
+        balcony(-47, 0, false);
+        balcony(47, 0, false);
 
-        // Kleine Aussichtspunkte, damit man die Map unter sich sieht.
-        platform(-27, SPAWN_Y + 3, -27, 5, Material.STONE_BRICK);
-        platform(27, SPAWN_Y + 3, -27, 5, Material.STONE_BRICK);
-        platform(-27, SPAWN_Y + 3, 27, 5, Material.STONE_BRICK);
-        platform(27, SPAWN_Y + 3, 27, 5, Material.STONE_BRICK);
+        platform(-30, SPAWN_Y + 3, -30, 5, Material.SMOOTH_BRICK);
+        platform(30, SPAWN_Y + 3, -30, 5, Material.SMOOTH_BRICK);
+        platform(-30, SPAWN_Y + 3, 30, 5, Material.SMOOTH_BRICK);
+        platform(30, SPAWN_Y + 3, 30, 5, Material.SMOOTH_BRICK);
     }
 
-    private void jumpBalcony(int cx, int y, int cz, boolean eastWest) {
-        if (eastWest) {
-            for (int x = -9; x <= 9; x++) {
-                for (int z = cz - 6; z <= cz + 6; z++) set(x, y, z, Material.STONE_BRICK);
-            }
+    private void balcony(int cx, int cz, boolean xWide) {
+        if (xWide) {
+            fill(-10, SPAWN_Y + 1, cz - 7, 10, SPAWN_Y + 1, cz + 7, Material.SMOOTH_BRICK);
         } else {
-            for (int x = cx - 6; x <= cx + 6; x++) {
-                for (int z = -9; z <= 9; z++) set(x, y, z, Material.STONE_BRICK);
-            }
+            fill(cx - 7, SPAWN_Y + 1, -10, cx + 7, SPAWN_Y + 1, 10, Material.SMOOTH_BRICK);
         }
-        set(cx, y + 1, cz, Material.GLOWSTONE);
+        set(cx, SPAWN_Y + 2, cz, Material.GLOWSTONE);
     }
 
-    /**
-     * Die Haupt-PvP-Fläche liegt direkt unter dem Spawn und ist absichtlich deutlich groesser
-     * als alle anderen Inseln zusammen. Hier soll der Dauerfight stattfinden.
-     */
-    private void buildMainPvpIsland() {
-        floatingIsland(0, PVP_Y, 0, 108, 96, 31,
-                Material.GRASS, Material.DIRT, Material.STONE, 101);
+    private void buildMainPvp() {
+        // Mehrere ueberlappende Inselkoerper erzeugen eine grosse, unregelmaessige Hauptflaeche.
+        island(0, PVP_Y, 0, 110, 97, 34, Material.GRASS, Material.DIRT, 101);
+        island(-38, PVP_Y - 1, 22, 70, 58, 26, Material.GRASS, Material.DIRT, 102);
+        island(48, PVP_Y, -27, 66, 55, 25, Material.GRASS, Material.DIRT, 103);
 
-        // zweite ueberlappende Form macht die Kontur weniger kreisrund
-        floatingIsland(-32, PVP_Y - 1, 18, 67, 57, 24,
-                Material.GRASS, Material.DIRT, Material.STONE, 102);
-        floatingIsland(44, PVP_Y, -24, 61, 52, 23,
-                Material.GRASS, Material.DIRT, Material.STONE, 103);
+        landing(0, -58);
+        landing(0, 58);
+        landing(-65, 0);
+        landing(65, 0);
 
-        // vier gut lesbare Landing Areas unter den Spawn-Ausgaengen
-        landingZone(0, PVP_Y + 3, -55);
-        landingZone(0, PVP_Y + 3, 55);
-        landingZone(-61, PVP_Y + 3, 0);
-        landingZone(61, PVP_Y + 3, 0);
-
-        // unregelmaessige Bodenhindernisse fuer echtes 1.8-Melee statt flacher Platte
-        for (int i = 0; i < 28; i++) {
-            int x = random.nextInt(151) - 75;
-            int z = random.nextInt(137) - 68;
-            int radius = 2 + random.nextInt(5);
-            int h = 1 + random.nextInt(3);
-            for (int dy = 0; dy < h; dy++) disc(x, PVP_Y + 2 + dy, z, Math.max(1, radius - dy),
-                    i % 3 == 0 ? Material.COBBLESTONE : Material.STONE);
+        for (int i = 0; i < 30; i++) {
+            int x = random.nextInt(159) - 79;
+            int z = random.nextInt(145) - 72;
+            int r = 2 + random.nextInt(5);
+            disc(x, PVP_Y + 3, z, r, i % 3 == 0 ? Material.COBBLESTONE : Material.STONE);
         }
     }
 
-    private void landingZone(int cx, int y, int cz) {
-        disc(cx, y, cz, 11, Material.STONE_BRICK);
-        ring(cx, y + 1, cz, 12, Material.GLOWSTONE);
-        disc(cx, y + 1, cz, 4, Material.GRASS);
+    private void landing(int x, int z) {
+        disc(x, PVP_Y + 3, z, 11, Material.SMOOTH_BRICK);
+        ring(x, PVP_Y + 4, z, 12, Material.GLOWSTONE);
+        disc(x, PVP_Y + 4, z, 4, Material.GRASS);
     }
 
-    /** Zentraler Wiedererkennungsort: Burgruine mit mehreren Ebenen, Durchgaengen und Dachkampf. */
-    private void buildCentralRuins() {
+    private void buildRuins() {
         int y = PVP_Y + 3;
-        // Innenhof
-        rectangle(-25, y, -22, 25, y, 22, Material.STONE_BRICK);
-        rectangle(-20, y + 1, -17, 20, y + 1, 17, Material.GRASS);
+        fill(-27, y, -24, 27, y, 24, Material.SMOOTH_BRICK);
+        fill(-21, y + 1, -18, 21, y + 1, 18, Material.GRASS);
 
-        // kaputte Aussenmauern
-        wall(-28, y + 1, -26, 28, y + 8, -26, Material.STONE_BRICK);
-        wall(-28, y + 1, 26, 5, y + 7, 26, Material.COBBLESTONE);
-        wall(15, y + 1, 26, 28, y + 5, 26, Material.COBBLESTONE);
-        wall(-28, y + 1, -26, -28, y + 7, 7, Material.STONE_BRICK);
-        wall(-28, y + 1, 17, -28, y + 4, 26, Material.COBBLESTONE);
-        wall(28, y + 1, -26, 28, y + 8, 26, Material.STONE_BRICK);
+        wall(-30, y + 1, -28, 30, y + 8, -28, Material.SMOOTH_BRICK);
+        wall(-30, y + 1, 28, 8, y + 7, 28, Material.COBBLESTONE);
+        wall(17, y + 1, 28, 30, y + 5, 28, Material.COBBLESTONE);
+        wall(-30, y + 1, -28, -30, y + 7, 9, Material.SMOOTH_BRICK);
+        wall(30, y + 1, -28, 30, y + 8, 28, Material.SMOOTH_BRICK);
 
-        // zwei unterschiedliche Tuerme
-        tower(-22, y + 1, -20, 7, 17, Material.STONE_BRICK);
-        tower(22, y + 1, 18, 6, 13, Material.COBBLESTONE);
+        tower(-23, y + 1, -21, 7, 18, Material.SMOOTH_BRICK);
+        tower(23, y + 1, 19, 6, 14, Material.COBBLESTONE);
 
-        // zentraler gebrochener Obelisk als sichtbarer Orientierungspunkt
-        column(0, y + 1, 0, 15, Material.OBSIDIAN);
-        column(1, y + 1, 0, 11, Material.OBSIDIAN);
-        column(0, y + 1, 1, 9, Material.OBSIDIAN);
-        set(0, y + 16, 0, Material.GLOWSTONE);
-
-        // Seitliche Treppen-/Podestkaempfe
-        stairs(-42, y, -8, 12, true, Material.STONE_BRICK);
-        stairs(38, y, 15, 11, false, Material.COBBLESTONE);
+        column(0, y + 1, 0, 16, Material.OBSIDIAN);
+        column(1, y + 1, 0, 12, Material.OBSIDIAN);
+        set(0, y + 17, 0, Material.GLOWSTONE);
     }
 
-    /** King Zone liegt als erhoehter Hotspot am Rand der Hauptinsel statt weit weg im Nichts. */
     private void buildKingZone() {
-        int cx = -80;
-        int cz = -56;
-        int y = PVP_Y + 9;
-
-        disc(cx, y, cz, 19, Material.STONE_BRICK);
-        ring(cx, y + 1, cz, 20, Material.GOLD_BLOCK);
-        disc(cx, y + 1, cz, 7, Material.GOLD_BLOCK);
-        column(cx, y + 2, cz, 8, Material.QUARTZ_BLOCK);
-        set(cx, y + 10, cz, Material.GLOWSTONE);
-
-        // zwei Rampen statt nur einem campbaren Zugang
-        stairs(cx + 21, PVP_Y + 3, cz, 7, true, Material.STONE_BRICK);
-        stairs(cx, PVP_Y + 3, cz + 21, 7, false, Material.STONE_BRICK);
+        int x = -82, z = -58, y = PVP_Y + 10;
+        disc(x, y, z, 20, Material.SMOOTH_BRICK);
+        ring(x, y + 1, z, 21, Material.GOLD_BLOCK);
+        disc(x, y + 1, z, 7, Material.GOLD_BLOCK);
+        column(x, y + 2, z, 9, Material.QUARTZ_BLOCK);
+        set(x, y + 11, z, Material.GLOWSTONE);
+        bridge(-72, PVP_Y + 4, -45, -70, y, -50, 5, Material.SMOOTH_BRICK);
+        bridge(-60, PVP_Y + 4, -62, -68, y, -58, 5, Material.SMOOTH_BRICK);
     }
 
     private void buildEndIsland() {
-        int cx = 136, cz = -62, y = PVP_Y + 7;
-        floatingIsland(cx, y, cz, 34, 29, 24,
-                Material.ENDER_STONE, Material.OBSIDIAN, Material.STONE, 201);
-        ring(cx, y + 2, cz, 15, Material.OBSIDIAN);
-        tower(cx + 13, y + 2, cz - 7, 5, 16, Material.OBSIDIAN);
-        tower(cx - 14, y + 2, cz + 10, 4, 11, Material.ENDER_STONE);
-        platform(cx, y + 3, cz, 8, Material.ENDER_STONE);
-
-        // kurzer, breiter Zugang von der Hauptmap; Rest der Insel bleibt pearl-freundlich offen
-        bridge(95, PVP_Y + 3, -43, 108, y + 1, -50, 5, Material.OBSIDIAN);
+        int x = 140, z = -66, y = PVP_Y + 8;
+        island(x, y, z, 35, 30, 25, Material.ENDER_STONE, Material.OBSIDIAN, 201);
+        ring(x, y + 2, z, 16, Material.OBSIDIAN);
+        tower(x + 14, y + 2, z - 8, 5, 17, Material.OBSIDIAN);
+        tower(x - 14, y + 2, z + 10, 4, 12, Material.ENDER_STONE);
+        bridge(97, PVP_Y + 4, -45, 111, y + 1, -53, 5, Material.OBSIDIAN);
     }
 
-    private void buildBlacksmithIsland() {
-        int cx = 124, cz = 73, y = PVP_Y + 4;
-        floatingIsland(cx, y, cz, 31, 27, 22,
-                Material.COBBLESTONE, Material.STONE, Material.STONE, 301);
-        rectangle(cx - 16, y + 2, cz - 12, cx + 16, y + 2, cz + 12, Material.STONE_BRICK);
-        wall(cx - 16, y + 3, cz - 12, cx + 16, y + 9, cz - 12, Material.COBBLESTONE);
-        wall(cx - 16, y + 3, cz + 12, cx + 16, y + 7, cz + 12, Material.COBBLESTONE);
-        chimney(cx + 11, y + 3, cz + 7);
-        for (int x = cx - 8; x <= cx + 8; x += 4) set(x, y + 3, cz, Material.ANVIL);
-        bridge(92, PVP_Y + 3, 48, 101, y + 1, 61, 4, Material.COBBLESTONE);
+    private void buildBlacksmith() {
+        int x = 128, z = 77, y = PVP_Y + 5;
+        island(x, y, z, 32, 28, 23, Material.COBBLESTONE, Material.STONE, 301);
+        fill(x - 17, y + 2, z - 13, x + 17, y + 2, z + 13, Material.SMOOTH_BRICK);
+        wall(x - 17, y + 3, z - 13, x + 17, y + 9, z - 13, Material.COBBLESTONE);
+        wall(x - 17, y + 3, z + 13, x + 17, y + 7, z + 13, Material.COBBLESTONE);
+        for (int xx = x - 8; xx <= x + 8; xx += 4) set(xx, y + 3, z, Material.ANVIL);
+        column(x + 12, y + 3, z + 8, 12, Material.BRICK);
+        set(x + 12, y + 15, z + 8, Material.NETHERRACK);
+        set(x + 12, y + 16, z + 8, Material.FIRE);
+        bridge(94, PVP_Y + 4, 50, 104, y + 1, 64, 5, Material.COBBLESTONE);
     }
 
     private void buildGoldIsland() {
-        int cx = -132, cz = 58, y = PVP_Y + 5;
-        floatingIsland(cx, y, cz, 29, 25, 21,
-                Material.SANDSTONE, Material.SANDSTONE, Material.STONE, 401);
-        pyramid(cx, y + 2, cz, 15, Material.SANDSTONE);
-        ring(cx, y + 3, cz, 9, Material.GOLD_BLOCK);
-        bridge(-96, PVP_Y + 3, 39, -108, y + 1, 48, 4, Material.SANDSTONE);
+        int x = -136, z = 62, y = PVP_Y + 6;
+        island(x, y, z, 30, 26, 22, Material.SANDSTONE, Material.SANDSTONE, 401);
+        for (int level = 0; level < 7; level++) {
+            int r = 15 - level * 2;
+            if (r < 2) break;
+            fill(x - r, y + 2 + level, z - r, x + r, y + 2 + level, z + r, Material.SANDSTONE);
+        }
+        ring(x, y + 3, z, 10, Material.GOLD_BLOCK);
+        bridge(-99, PVP_Y + 4, 41, -112, y + 1, 51, 4, Material.SANDSTONE);
     }
 
     private void buildMerchantIsland() {
-        int cx = 36, cz = 133, y = PVP_Y + 8;
-        floatingIsland(cx, y, cz, 37, 31, 24,
-                Material.GRASS, Material.DIRT, Material.STONE, 501);
-        // Marktstrasse mit mehreren offenen Staenden
-        rectangle(cx - 24, y + 2, cz - 5, cx + 24, y + 2, cz + 5, Material.WOOD);
-        for (int x = cx - 20; x <= cx + 20; x += 10) {
-            marketStall(x, y + 3, cz - 13);
-            marketStall(x, y + 3, cz + 13);
+        int x = 38, z = 138, y = PVP_Y + 9;
+        island(x, y, z, 38, 32, 25, Material.GRASS, Material.DIRT, 501);
+        fill(x - 25, y + 2, z - 5, x + 25, y + 2, z + 5, Material.WOOD);
+        for (int xx = x - 20; xx <= x + 20; xx += 10) {
+            stall(xx, y + 3, z - 14);
+            stall(xx, y + 3, z + 14);
         }
-        bridge(28, PVP_Y + 3, 92, 32, y + 1, 102, 5, Material.WOOD);
+        bridge(30, PVP_Y + 4, 95, 34, y + 1, 106, 5, Material.WOOD);
     }
 
     private void buildEnchantIsland() {
-        int cx = -64, cz = 132, y = PVP_Y + 10;
-        floatingIsland(cx, y, cz, 30, 27, 23,
-                Material.GRASS, Material.DIRT, Material.STONE, 601);
-        disc(cx, y + 2, cz, 12, Material.STONE_BRICK);
-        column(cx, y + 3, cz, 6, Material.OBSIDIAN);
-        set(cx, y + 9, cz, Material.ENCHANTMENT_TABLE);
+        int x = -68, z = 137, y = PVP_Y + 11;
+        island(x, y, z, 31, 28, 24, Material.GRASS, Material.DIRT, 601);
+        disc(x, y + 2, z, 13, Material.SMOOTH_BRICK);
+        column(x, y + 3, z, 6, Material.OBSIDIAN);
+        set(x, y + 9, z, Material.ENCHANTMENT_TABLE);
         for (int i = -8; i <= 8; i += 4) {
-            set(cx + i, y + 3, cz + 8, Material.BOOKSHELF);
-            set(cx + i, y + 3, cz - 8, Material.BOOKSHELF);
+            set(x + i, y + 3, z + 8, Material.BOOKSHELF);
+            set(x + i, y + 3, z - 8, Material.BOOKSHELF);
         }
-        bridge(-47, PVP_Y + 3, 92, -56, y + 1, 104, 4, Material.STONE_BRICK);
+        bridge(-49, PVP_Y + 4, 95, -59, y + 1, 108, 4, Material.SMOOTH_BRICK);
     }
 
-    private void buildOuterSatellites() {
-        floatingIsland(188, PVP_Y + 18, 25, 18, 15, 18,
-                Material.GRASS, Material.DIRT, Material.STONE, 701);
-        tower(188, PVP_Y + 20, 25, 5, 18, Material.STONE_BRICK);
-
-        floatingIsland(-183, PVP_Y + 12, -8, 19, 16, 19,
-                Material.STONE, Material.COBBLESTONE, Material.STONE, 702);
-        platform(-183, PVP_Y + 15, -8, 7, Material.MOSSY_COBBLESTONE);
-
-        floatingIsland(88, PVP_Y + 25, -159, 17, 14, 18,
-                Material.GRASS, Material.DIRT, Material.STONE, 703);
-        floatingIsland(-70, PVP_Y + 22, -164, 16, 13, 17,
-                Material.GRASS, Material.DIRT, Material.STONE, 704);
-
-        floatingIsland(156, PVP_Y + 16, 139, 15, 13, 17,
-                Material.GRASS, Material.DIRT, Material.STONE, 705);
-        floatingIsland(-150, PVP_Y + 20, 139, 17, 15, 19,
-                Material.GRASS, Material.DIRT, Material.STONE, 706);
-    }
-
-    private void buildPearlPads() {
-        platform(108, PVP_Y + 18, -120, 6, Material.OBSIDIAN);
-        platform(-120, PVP_Y + 17, -119, 6, Material.STONE_BRICK);
-        platform(174, PVP_Y + 24, 83, 5, Material.QUARTZ_BLOCK);
-        platform(-172, PVP_Y + 24, 80, 5, Material.SANDSTONE);
-        platform(4, PVP_Y + 30, 176, 5, Material.WOOD);
-        platform(13, PVP_Y + 28, -177, 5, Material.STONE_BRICK);
+    private void buildSatellites() {
+        island(191, PVP_Y + 18, 26, 18, 15, 18, Material.GRASS, Material.DIRT, 701);
+        tower(191, PVP_Y + 20, 26, 5, 18, Material.SMOOTH_BRICK);
+        island(-186, PVP_Y + 12, -9, 19, 16, 19, Material.STONE, Material.COBBLESTONE, 702);
+        platform(-186, PVP_Y + 15, -9, 7, Material.MOSSY_COBBLESTONE);
+        island(90, PVP_Y + 25, -162, 17, 14, 18, Material.GRASS, Material.DIRT, 703);
+        island(-72, PVP_Y + 22, -167, 16, 13, 17, Material.GRASS, Material.DIRT, 704);
+        platform(110, PVP_Y + 18, -123, 6, Material.OBSIDIAN);
+        platform(-123, PVP_Y + 17, -122, 6, Material.SMOOTH_BRICK);
+        platform(15, PVP_Y + 28, -180, 5, Material.SMOOTH_BRICK);
     }
 
     private void finish() {
@@ -327,15 +258,13 @@ public final class SkyKingsMapBuilderV2 {
         world.setThundering(false);
         world.setGameRuleValue("doMobSpawning", "false");
         spawnService.setSpawn(spawn);
-
         Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS MAP V2 "
-                + ChatColor.GREEN + "• High-Spawn SkyPvP Arena wurde fertig gebaut.");
+                + ChatColor.GREEN + "• High-Spawn Arena fertig gebaut.");
         initiator.teleport(spawn);
-        initiator.sendMessage(ChatColor.YELLOW + "Spring vom Spawn nach unten. Die grosse Hauptinsel ist die PvP-Zone.");
     }
 
-    private void floatingIsland(int cx, int topY, int cz, int rx, int rz, int depth,
-                                Material top, Material middle, Material core, int seed) {
+    private void island(int cx, int topY, int cz, int rx, int rz, int depth,
+                        Material top, Material middle, int seed) {
         Random r = new Random(seed);
         for (int dx = -rx - 3; dx <= rx + 3; dx++) {
             for (int dz = -rz - 3; dz <= rz + 3; dz++) {
@@ -346,16 +275,14 @@ public final class SkyKingsMapBuilderV2 {
                         + Math.cos((dz - seed) * 0.29D) * 0.05D
                         + (r.nextDouble() - 0.5D) * 0.045D;
                 if (dist > 1.0D + noise) continue;
-
                 int surface = topY + (int) Math.round(Math.sin(dx * 0.10D) * 1.6D + Math.cos(dz * 0.12D) * 1.4D);
                 double body = Math.max(0.0D, 1.0D - Math.pow(Math.min(1.0D, dist), 1.45D));
                 int thickness = Math.max(4, (int) Math.round(4 + depth * body + r.nextDouble() * 3));
-
                 for (int y = surface; y >= surface - thickness; y--) {
                     int below = surface - y;
-                    Material material = below == 0 ? top : (below <= 3 ? middle : core);
-                    if (below > 4 && r.nextInt(9) == 0) material = Material.COBBLESTONE;
-                    set(cx + dx, y, cz + dz, material);
+                    Material m = below == 0 ? top : (below <= 3 ? middle : Material.STONE);
+                    if (below > 4 && r.nextInt(9) == 0) m = Material.COBBLESTONE;
+                    set(cx + dx, y, cz + dz, m);
                 }
             }
         }
@@ -363,11 +290,10 @@ public final class SkyKingsMapBuilderV2 {
 
     private void tower(int cx, int y, int cz, int radius, int height, Material material) {
         for (int dy = 0; dy < height; dy++) {
-            int rr = radius;
-            for (int x = -rr; x <= rr; x++) {
-                for (int z = -rr; z <= rr; z++) {
+            for (int x = -radius; x <= radius; x++) {
+                for (int z = -radius; z <= radius; z++) {
                     double d = Math.sqrt(x * x + z * z);
-                    if (d >= rr - 1.2 && d <= rr + 0.4) set(cx + x, y + dy, cz + z, material);
+                    if (d >= radius - 1.2D && d <= radius + 0.4D) set(cx + x, y + dy, cz + z, material);
                 }
             }
         }
@@ -375,75 +301,42 @@ public final class SkyKingsMapBuilderV2 {
         ring(cx, y + height, cz, radius + 1, material);
     }
 
-    private void chimney(int x, int y, int z) {
-        column(x, y, z, 12, Material.BRICK);
-        set(x, y + 12, z, Material.NETHERRACK);
-        set(x, y + 13, z, Material.FIRE);
-    }
-
-    private void pyramid(int cx, int y, int cz, int radius, Material material) {
-        for (int level = 0; level < radius / 2; level++) {
-            int r = radius - level * 2;
-            if (r < 2) break;
-            rectangle(cx - r, y + level, cz - r, cx + r, y + level, cz + r, material);
-        }
-    }
-
-    private void marketStall(int cx, int y, int cz) {
-        rectangle(cx - 3, y, cz - 2, cx + 3, y, cz + 2, Material.WOOD);
+    private void stall(int cx, int y, int cz) {
+        fill(cx - 3, y, cz - 2, cx + 3, y, cz + 2, Material.WOOD);
         column(cx - 3, y + 1, cz - 2, 4, Material.FENCE);
         column(cx + 3, y + 1, cz - 2, 4, Material.FENCE);
         column(cx - 3, y + 1, cz + 2, 4, Material.FENCE);
         column(cx + 3, y + 1, cz + 2, 4, Material.FENCE);
-        rectangle(cx - 4, y + 5, cz - 3, cx + 4, y + 5, cz + 3, Material.WOOD);
-    }
-
-    private void stairs(int x, int y, int z, int length, boolean xAxis, Material material) {
-        for (int i = 0; i < length; i++) {
-            int xx = xAxis ? x + i * 2 : x;
-            int zz = xAxis ? z : z + i * 2;
-            rectangle(xx - 2, y + i, zz - 2, xx + 2, y + i, zz + 2, material);
-        }
+        fill(cx - 4, y + 5, cz - 3, cx + 4, y + 5, cz + 3, Material.WOOD);
     }
 
     private void bridge(int x1, int y1, int z1, int x2, int y2, int z2, int width, Material material) {
         int steps = Math.max(Math.abs(x2 - x1), Math.abs(z2 - z1));
         for (int i = 0; i <= steps; i++) {
-            double t = steps == 0 ? 0 : i / (double) steps;
+            double t = steps == 0 ? 0.0D : i / (double) steps;
             int x = (int) Math.round(x1 + (x2 - x1) * t);
             int y = (int) Math.round(y1 + (y2 - y1) * t);
             int z = (int) Math.round(z1 + (z2 - z1) * t);
-            for (int dx = -width / 2; dx <= width / 2; dx++) {
+            for (int dx = -width / 2; dx <= width / 2; dx++)
                 for (int dz = -width / 2; dz <= width / 2; dz++) set(x + dx, y, z + dz, material);
-            }
         }
     }
 
     private void wall(int x1, int y1, int z1, int x2, int y2, int z2, Material material) {
-        int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-        int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-        int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        for (int x = minX; x <= maxX; x++)
-            for (int y = minY; y <= maxY; y++)
-                for (int z = minZ; z <= maxZ; z++) set(x, y, z, material);
+        fill(x1, y1, z1, x2, y2, z2, material);
     }
 
-    private void rectangle(int x1, int y1, int z1, int x2, int y2, int z2, Material material) {
-        int minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-        int minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-        int minZ = Math.min(z1, z2), maxZ = Math.max(z1, z2);
-        for (int x = minX; x <= maxX; x++)
-            for (int y = minY; y <= maxY; y++)
-                for (int z = minZ; z <= maxZ; z++) set(x, y, z, material);
+    private void fill(int x1, int y1, int z1, int x2, int y2, int z2, Material material) {
+        for (int x = Math.min(x1, x2); x <= Math.max(x1, x2); x++)
+            for (int y = Math.min(y1, y2); y <= Math.max(y1, y2); y++)
+                for (int z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) set(x, y, z, material);
     }
 
     private void disc(int cx, int y, int cz, int radius, Material material) {
         int r2 = radius * radius;
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
+        for (int x = -radius; x <= radius; x++)
+            for (int z = -radius; z <= radius; z++)
                 if (x * x + z * z <= r2) set(cx + x, y, cz + z, material);
-            }
-        }
     }
 
     private void platform(int cx, int y, int cz, int radius, Material material) {
