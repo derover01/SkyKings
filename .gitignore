@@ -29,6 +29,19 @@ server/world_nether/
 server/world_the_end/
 server/eula.txt
 
+# Von Spigot beim ersten Start automatisch generierte Runtime-/Config-Dateien
+server/server.properties
+server/bukkit.yml
+server/spigot.yml
+server/commands.yml
+server/help.yml
+server/permissions.yml
+server/ops.json
+server/whitelist.json
+server/banned-players.json
+server/banned-ips.json
+server/usercache.json
+
 # === Lokale Dev-Tools (z.B. BuildTools.jar) ===
 tools/*
 !tools/README.md
