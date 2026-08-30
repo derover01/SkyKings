@@ -5,7 +5,7 @@ import net.skykings.core.profile.PlayerProfileService;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
-/** Baut die sichtbare Kombination aus kosmetischem Prefix und Gameplay-/Team-Rang. */
+/** Baut Chat-Prefixe und die bewusst reduzierte Tab-Anzeige. */
 public final class PlayerDisplayService {
 
     private static final Prefix[] PREFIXES = new Prefix[] {
@@ -25,22 +25,24 @@ public final class PlayerDisplayService {
         this.displayConfig = displayConfig;
     }
 
+    /** Chat darf kosmetische Prefixe anzeigen. */
     public String prefixFor(Player player) {
-        String rankPrefix;
-        if (displayConfig.isConfiguredOwner(player.getName())) {
-            rankPrefix = displayConfig.getOwnerPrefix();
-        } else {
-            PlayerProfile profile = profileService.getCached(player.getUniqueId());
-            rankPrefix = profile == null ? ChatColor.GRAY + "Spieler" : displayConfig.getRankPrefix(profile.getRank());
-        }
+        String rankPrefix = rankPrefixFor(player);
         String cosmetic = cosmeticPrefix(player);
         return cosmetic == null ? rankPrefix : ChatColor.DARK_GRAY + "[" + cosmetic + ChatColor.DARK_GRAY + "] " + rankPrefix;
     }
 
+    /** Tab bleibt absichtlich clean: nur Rang + Spielername, keine kosmetischen Prefixe. */
     public void refreshTab(Player player) {
-        String listName = prefixFor(player) + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + player.getName();
+        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + player.getName();
         if (listName.length() > 32) listName = listName.substring(0, 32);
         player.setPlayerListName(listName);
+    }
+
+    private String rankPrefixFor(Player player) {
+        if (displayConfig.isConfiguredOwner(player.getName())) return displayConfig.getOwnerPrefix();
+        PlayerProfile profile = profileService.getCached(player.getUniqueId());
+        return profile == null ? ChatColor.GRAY + "Spieler" : displayConfig.getRankPrefix(profile.getRank());
     }
 
     private String cosmeticPrefix(Player player) {
