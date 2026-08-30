@@ -20,6 +20,7 @@ public final class RecordingPermissionBridge implements PermissionBridge {
     }
 
     private final List<SyncCall> calls = new ArrayList<>();
+    private final List<UUID> ownerGrants = new ArrayList<>();
 
     @Override
     public boolean isAvailable() {
@@ -31,7 +32,16 @@ public final class RecordingPermissionBridge implements PermissionBridge {
         calls.add(new SyncCall(uuid, rank));
     }
 
+    @Override
+    public void grantOwner(UUID uuid) {
+        ownerGrants.add(uuid);
+    }
+
     public List<SyncCall> getCalls() {
         return calls;
+    }
+
+    public List<UUID> getOwnerGrants() {
+        return ownerGrants;
     }
 }
