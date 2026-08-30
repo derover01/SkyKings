@@ -9,8 +9,10 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /bloecke fuer Phoenix+; oeffnet die unbegrenzte No-Sell-Buildblock-Auswahl. */
+/** /bloecke fuer Phoenix+ oder Spieler mit einem Block-Gutscheinrecht. */
 public final class BlocksCommand implements CommandExecutor {
+
+    public static final String PERMISSION = "skykings.perk.blocks";
 
     private final RankService rankService;
     private final BuildBlocksGui gui;
@@ -27,8 +29,9 @@ public final class BlocksCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.PHOENIX)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Phoenix fuer /bloecke.");
+        if (!player.isOp() && !player.hasPermission(PERMISSION)
+                && !rankService.hasAtLeast(player.getUniqueId(), Rank.PHOENIX)) {
+            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Phoenix oder das Blöcke-Recht.");
             return true;
         }
         gui.open(player);
