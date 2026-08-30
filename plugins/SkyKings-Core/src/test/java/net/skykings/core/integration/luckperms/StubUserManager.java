@@ -87,26 +87,25 @@ final class StubUserManager implements UserManager {
 
     @Override
     public User getUser(UUID uniqueId) {
-        throw new UnsupportedOperationException();
+        return expectedUuid.equals(uniqueId) ? userToReturn : null;
     }
 
     @Override
     public User getUser(String username) {
-        throw new UnsupportedOperationException();
+        return userToReturn;
     }
 
     @Override
     public Set<User> getLoadedUsers() {
-        throw new UnsupportedOperationException();
+        return java.util.Collections.singleton(userToReturn);
     }
 
     @Override
     public boolean isLoaded(UUID uniqueId) {
-        throw new UnsupportedOperationException();
+        return expectedUuid.equals(uniqueId);
     }
 
     @Override
     public void cleanupUser(User user) {
-        throw new UnsupportedOperationException();
     }
 }
