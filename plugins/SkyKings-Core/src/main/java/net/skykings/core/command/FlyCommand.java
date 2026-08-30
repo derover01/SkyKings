@@ -22,20 +22,18 @@ public final class FlyCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur fuer Spieler verfuegbar.");
+            sender.sendMessage("Dieser Befehl ist nur für Spieler verfügbar.");
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !player.hasPermission(PERMISSION)
+        if (!player.hasPermission(PERMISSION)
                 && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Knight oder das Fly-Recht.");
+            player.sendMessage(ChatColor.RED + "Du benötigst mindestens Knight oder das Fly-Recht.");
             return true;
         }
         boolean enable = !player.getAllowFlight();
         player.setAllowFlight(enable);
-        if (!enable && player.isFlying()) {
-            player.setFlying(false);
-        }
+        if (!enable && player.isFlying()) player.setFlying(false);
         player.sendMessage(enable
                 ? ChatColor.GREEN + "Flugmodus aktiviert. Im PvP wird er automatisch deaktiviert."
                 : ChatColor.YELLOW + "Flugmodus deaktiviert.");
