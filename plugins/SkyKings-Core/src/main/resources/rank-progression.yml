@@ -1,0 +1,7 @@
+# Phase-3-Balancing-Draft. Werte spaeter anhand echter Economy-Daten feinjustieren.
+# Preis ist jeweils nur fuer den direkten Aufstieg zum genannten Zielrang.
+free-rank-costs:
+  iron: 150000
+  gold: 750000
+  epic: 2500000
+  diamond: 7500000
