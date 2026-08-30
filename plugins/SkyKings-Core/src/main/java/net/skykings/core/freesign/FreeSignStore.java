@@ -20,14 +20,17 @@ public final class FreeSignStore {
     public static final class FreeItem {
         private final Material material;
         private final short data;
+        private final int amount;
 
-        public FreeItem(Material material, short data) {
+        public FreeItem(Material material, short data, int amount) {
             this.material = material;
             this.data = data;
+            this.amount = amount;
         }
 
         public Material getMaterial() { return material; }
         public short getData() { return data; }
+        public int getAmount() { return amount; }
     }
 
     private final JavaPlugin plugin;
@@ -83,7 +86,8 @@ public final class FreeSignStore {
             if (section == null) continue;
             Material material = Material.matchMaterial(section.getString("material", ""));
             if (material == null || material == Material.AIR) continue;
-            signs.put(decodeKey(encodedKey), new FreeItem(material, (short) section.getInt("data", 0)));
+            int amount = Math.max(1, Math.min(material.getMaxStackSize(), section.getInt("amount", 1)));
+            signs.put(decodeKey(encodedKey), new FreeItem(material, (short) section.getInt("data", 0), amount));
         }
         plugin.getLogger().info("Free Signs geladen: " + signs.size());
     }
@@ -102,6 +106,7 @@ public final class FreeSignStore {
             String path = "signs." + encodeKey(entry.getKey());
             yaml.set(path + ".material", entry.getValue().getMaterial().name());
             yaml.set(path + ".data", entry.getValue().getData());
+            yaml.set(path + ".amount", entry.getValue().getAmount());
         }
         try {
             File parent = file.getParentFile();
