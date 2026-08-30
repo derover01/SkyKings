@@ -8,8 +8,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.Potion;
+import org.bukkit.potion.PotionType;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -66,19 +66,16 @@ public final class RankKitLoader {
         spec.opApples = nonNegative(section.getInt("consumables.op-apples", 0), "op-apples");
         spec.enderPearls = nonNegative(section.getInt("consumables.enderpearls", 0), "enderpearls");
         spec.arrows = nonNegative(section.getInt("consumables.arrows", 32), "arrows");
+        spec.strengthPotions = nonNegative(section.getInt("consumables.strength-potions", 1), "strength-potions");
+        spec.speedPotions = nonNegative(section.getInt("consumables.speed-potions", 1), "speed-potions");
 
         long cooldownMinutes = Math.max(0L, section.getLong("cooldown-minutes", 0L));
-        int strengthTicks = effectTicks(section.getLong("effects.strength-seconds", 0L));
-        int speedTicks = effectTicks(section.getLong("effects.speed-seconds", 0L));
-
-        KitDefinition.Builder builder = KitDefinition.builder(id)
+        return KitDefinition.builder(id)
                 .displayName(section.getString("display-name", rank.name()))
                 .requiredRank(rank)
                 .cooldownMillis(TimeUnit.MINUTES.toMillis(cooldownMinutes))
-                .itemFactory(() -> createItems(spec));
-        if (strengthTicks > 0) builder.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, strengthTicks, 1));
-        if (speedTicks > 0) builder.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, speedTicks, 1));
-        return builder.build();
+                .itemFactory(() -> createItems(spec))
+                .build();
     }
 
     private List<ItemStack> createItems(KitSpec spec) {
@@ -105,7 +102,17 @@ public final class RankKitLoader {
         addStacked(items, Material.GOLDEN_APPLE, spec.goldenApples, (short) 0);
         addStacked(items, Material.GOLDEN_APPLE, spec.opApples, (short) 1);
         addStacked(items, Material.ENDER_PEARL, spec.enderPearls, (short) 0);
+        addPotions(items, PotionType.STRENGTH, spec.strengthPotions);
+        addPotions(items, PotionType.SPEED, spec.speedPotions);
         return items;
+    }
+
+    private void addPotions(List<ItemStack> items, PotionType type, int count) {
+        for (int i = 0; i < count; i++) {
+            Potion potion = new Potion(type, 2);
+            potion.setSplash(false);
+            items.add(potion.toItemStack(1));
+        }
     }
 
     private ItemStack armor(String materialName, int protection, int unbreaking) {
@@ -132,11 +139,6 @@ public final class RankKitLoader {
         }
     }
 
-    private int effectTicks(long seconds) {
-        if (seconds <= 0L) return 0;
-        return (int) Math.min(Integer.MAX_VALUE, seconds * 20L);
-    }
-
     private int nonNegative(int value, String field) {
         if (value < 0) throw new IllegalArgumentException(field + " darf nicht negativ sein: " + value);
         return value;
@@ -156,5 +158,7 @@ public final class RankKitLoader {
         private int goldenApples;
         private int opApples;
         private int enderPearls;
+        private int strengthPotions;
+        private int speedPotions;
     }
 }
