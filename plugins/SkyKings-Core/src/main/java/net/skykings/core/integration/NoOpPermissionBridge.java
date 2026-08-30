@@ -21,4 +21,9 @@ public final class NoOpPermissionBridge implements PermissionBridge {
     public void grantOwner(UUID uuid) {
         // absichtlich kein Effekt - kein LuckPerms vorhanden.
     }
+
+    @Override
+    public void grantPermission(UUID uuid, String permission) {
+        // absichtlich kein Effekt - kein LuckPerms vorhanden.
+    }
 }
