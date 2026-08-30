@@ -28,7 +28,7 @@ public final class StackCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
+        if (!player.isOp() && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens den Rang Knight fuer /stack.");
             return true;
         }
@@ -37,9 +37,7 @@ public final class StackCommand implements CommandExecutor {
         List<ItemStack> compacted = new ArrayList<ItemStack>();
         int moved = 0;
         for (ItemStack original : contents) {
-            if (original == null || original.getAmount() <= 0) {
-                continue;
-            }
+            if (original == null || original.getAmount() <= 0) continue;
             ItemStack remaining = original.clone();
             for (ItemStack target : compacted) {
                 if (remaining.getAmount() <= 0) break;
@@ -65,7 +63,9 @@ public final class StackCommand implements CommandExecutor {
             player.getInventory().setItem(i, compacted.get(i));
         }
         player.updateInventory();
-        player.sendMessage(ChatColor.GREEN + "Inventar gestackt" + (moved > 0 ? ChatColor.GRAY + " (" + moved + " Items zusammengefuehrt)." : ChatColor.GRAY + "."));
+        player.sendMessage(ChatColor.GREEN + "Inventar gestackt" + (moved > 0
+                ? ChatColor.GRAY + " (" + moved + " Items zusammengefuehrt)."
+                : ChatColor.GRAY + "."));
         return true;
     }
 }
