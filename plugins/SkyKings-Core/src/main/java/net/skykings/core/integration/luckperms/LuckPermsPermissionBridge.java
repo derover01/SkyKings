@@ -3,18 +3,19 @@ package net.skykings.core.integration.luckperms;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.data.DataMutateResult;
 import net.luckperms.api.model.data.NodeMap;
+import net.luckperms.api.model.group.Group;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.model.user.UserManager;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.InheritanceNode;
+import net.luckperms.api.node.types.PermissionNode;
 import net.skykings.core.integration.NoOpPermissionBridge;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.model.Rank;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -24,24 +25,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-/**
- * Echte LuckPerms-Bridge (Phase 1B). Referenziert LuckPerms-API-Typen nur in dieser Klasse,
- * damit ein fehlendes LuckPerms nie zu einer harten {@code ClassNotFoundException}/
- * {@code NoClassDefFoundError} beim Laden von {@code SkyKingsCore} fuehrt - diese Klasse wird
- * erst geladen (und damit erst verlinkt), wenn {@link #createIfAvailable(Logger)} aufgerufen
- * wird, und das geschieht in {@code SkyKingsCore} innerhalb eines try/catch(Throwable).
- *
- * <p>Richtung ist bewusst einseitig SkyKings -&gt; LuckPerms (siehe {@link PermissionBridge}).
- * Es werden ausschliesslich die von SkyKings verwalteten Rang-Gruppen
- * ({@link RankGroupMapping#managedGroupNames()}) angefasst - andere Gruppen (z. B.
- * Team-/Custom-Gruppen eines Server-Betreibers) bleiben unangetastet. Es werden auch keine
- * Gruppen in LuckPerms angelegt; die 11 Rang-Gruppen muessen dort bereits existieren -
- * {@link #syncRank(UUID, Rank)} prueft das vor jeder Synchronisierung und tut bei einer
- * fehlenden Zielgruppe rein gar nichts (kein Node wird veraendert, keine Gruppe wird angelegt).
- */
+/** LuckPerms-Anbindung fuer SkyKings. Gameplay-Rang bleibt in SkyKings die Source of Truth. */
 public final class LuckPermsPermissionBridge implements PermissionBridge {
 
-    /** Liefert eine echte Bridge falls LuckPerms als Service registriert ist, sonst eine No-Op-Bridge. */
+    private static final String OWNER_GROUP = "owner";
+
     public static PermissionBridge createIfAvailable(Logger logger) {
         RegisteredServiceProvider<LuckPerms> registration =
                 Bukkit.getServicesManager().getRegistration(LuckPerms.class);
@@ -49,7 +37,7 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             return new NoOpPermissionBridge();
         }
         LuckPermsPermissionBridge bridge = new LuckPermsPermissionBridge(registration.getProvider(), logger);
-        bridge.warnAboutMissingGroups();
+        bridge.ensureServerGroups();
         return bridge;
     }
 
@@ -70,56 +58,81 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
     public void syncRank(UUID uuid, Rank rank) {
         String targetGroup = RankGroupMapping.groupNameFor(rank);
         if (targetGroup == null) {
-            logger.warning("Kein LuckPerms-Gruppen-Mapping fuer Rank " + rank + " definiert - Synchronisation uebersprungen.");
+            logger.warning("Kein LuckPerms-Gruppen-Mapping fuer Rank " + rank + " definiert.");
             return;
         }
 
-        if (!groupExists(targetGroup)) {
-            logger.warning("SkyKings-Rang konnte nicht synchronisiert werden, weil die LuckPerms-Gruppe fehlt. "
-                    + "Gruppe='" + targetGroup + "', Spieler=" + uuid + ", Rang=" + rank + ". SkyKings legt "
-                    + "Ranggruppen nicht automatisch an - bitte die Gruppe in LuckPerms anlegen.");
-            return;
-        }
-
-        UserManager userManager = luckPerms.getUserManager();
-        userManager.loadUser(uuid)
-                .thenCompose(user -> applyRankGroup(user, targetGroup)
-                        ? userManager.saveUser(user)
-                        : CompletableFuture.completedFuture(null))
-                .exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte LuckPerms-Gruppe fuer " + uuid + " nicht auf '"
-                            + targetGroup + "' synchronisieren", ex);
-                    return null;
-                });
+        ensureGroup(targetGroup, false).thenCompose(ignored -> {
+            UserManager userManager = luckPerms.getUserManager();
+            return userManager.loadUser(uuid)
+                    .thenCompose(user -> applyRankGroup(user, targetGroup)
+                            ? userManager.saveUser(user)
+                            : CompletableFuture.completedFuture(null));
+        }).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
+                    + targetGroup + "' synchronisieren", ex);
+            return null;
+        });
     }
 
-    private boolean groupExists(String groupName) {
-        return luckPerms.getGroupManager().getGroup(groupName) != null;
+    @Override
+    public void grantOwner(UUID uuid) {
+        ensureGroup(OWNER_GROUP, true).thenCompose(ignored -> {
+            UserManager userManager = luckPerms.getUserManager();
+            return userManager.loadUser(uuid).thenCompose(user -> {
+                boolean changed = false;
+                NodeMap data = user.data();
+
+                InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
+                if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
+                    changed = true;
+                }
+
+                PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
+                if (data.add(wildcard) == DataMutateResult.SUCCESS) {
+                    changed = true;
+                }
+
+                if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
+                        && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
+                    changed = true;
+                }
+
+                return changed ? userManager.saveUser(user) : CompletableFuture.completedFuture(null);
+            });
+        }).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht setzen", ex);
+            return null;
+        });
     }
 
-    /**
-     * Optionale Startpruefung (siehe Auftrag Phase-1B-Hardening): sammelt alle von SkyKings
-     * benoetigten Gruppen, die in LuckPerms fehlen, und loggt sie einmalig gesammelt als
-     * WARNING. Legt keine Gruppen an.
-     */
-    private void warnAboutMissingGroups() {
-        List<String> missing = new ArrayList<>();
+    /** Erstellt alle SkyKings-Ranggruppen plus Owner asynchron, falls sie noch fehlen. */
+    private void ensureServerGroups() {
         for (String groupName : RankGroupMapping.managedGroupNames()) {
-            if (!groupExists(groupName)) {
-                missing.add(groupName);
-            }
+            ensureGroup(groupName, false);
         }
-        if (!missing.isEmpty()) {
-            logger.warning("Folgende SkyKings-Ranggruppen fehlen in LuckPerms und muessen manuell angelegt "
-                    + "werden (SkyKings legt sie NICHT automatisch an): " + String.join(", ", missing));
-        }
+        ensureGroup(OWNER_GROUP, true);
     }
 
-    /**
-     * Entfernt alle anderen von SkyKings verwalteten Rang-Gruppen und stellt sicher, dass die
-     * Zielgruppe als Inheritance-Node + primaere Gruppe gesetzt ist. Liefert {@code true}, falls
-     * tatsaechlich etwas geaendert wurde (nur dann muss gespeichert werden).
-     */
+    private CompletableFuture<Void> ensureGroup(String groupName, boolean owner) {
+        Group existing = luckPerms.getGroupManager().getGroup(groupName);
+        if (existing != null) {
+            if (owner) {
+                existing.data().add(PermissionNode.builder("*").value(true).build());
+                return luckPerms.getGroupManager().saveGroup(existing);
+            }
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return luckPerms.getGroupManager().createAndLoadGroup(groupName).thenCompose(group -> {
+            if (owner) {
+                group.data().add(PermissionNode.builder("*").value(true).build());
+            }
+            logger.info("LuckPerms-Gruppe automatisch angelegt: " + groupName);
+            return luckPerms.getGroupManager().saveGroup(group);
+        });
+    }
+
     private boolean applyRankGroup(User user, String targetGroup) {
         NodeMap data = user.data();
         Collection<String> managedGroups = RankGroupMapping.managedGroupNames();
@@ -130,14 +143,20 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
 
         boolean changed = false;
         boolean hasTarget = false;
+        boolean isOwner = false;
+
         for (Node node : inheritanceNodes) {
             String groupName = NodeType.INHERITANCE.cast(node).getGroupName();
+            if (OWNER_GROUP.equalsIgnoreCase(groupName)) {
+                isOwner = true;
+                continue;
+            }
             if (groupName.equalsIgnoreCase(targetGroup)) {
                 hasTarget = true;
                 continue;
             }
-            boolean isManagedBySkyKings = managedGroups.stream().anyMatch(managed -> managed.equalsIgnoreCase(groupName));
-            if (isManagedBySkyKings) {
+            boolean managed = managedGroups.stream().anyMatch(name -> name.equalsIgnoreCase(groupName));
+            if (managed) {
                 data.remove(node);
                 changed = true;
             }
@@ -148,7 +167,8 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             changed = true;
         }
 
-        if (user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) {
+        // Owner bleibt primaere Team-Gruppe; der Gameplay-Rang existiert trotzdem parallel.
+        if (!isOwner && user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) {
             changed = true;
         }
 
