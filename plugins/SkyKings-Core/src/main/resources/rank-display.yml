@@ -1,0 +1,21 @@
+# SkyKings Rang-/Owner-Darstellung (Minecraft 1.8.8 Farbcodes mit &)
+# Format im Tab:  <PREFIX> | <Name>
+# Format im Chat: <PREFIX> | <Name> » <Nachricht>
+
+owner-names:
+  - Derover01
+
+owner-prefix: '&4&lOWNER'
+
+ranks:
+  SPIELER: '&7SPIELER'
+  IRON: '&f&lIRON'
+  GOLD: '&6&lGOLD'
+  EPIC: '&5&lEPIC'
+  DIAMOND: '&b&lDIAMOND'
+  KNIGHT: '&9&lKNIGHT'
+  PHOENIX: '&c&lPHOENIX'
+  ETERNAL: '&d&lETERNAL'
+  EXILE: '&3&lEXILE'
+  ENDLING: '&8&lENDLING'
+  KING: '&e&lKING'
