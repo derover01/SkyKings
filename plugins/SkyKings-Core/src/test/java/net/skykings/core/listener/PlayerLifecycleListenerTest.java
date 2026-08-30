@@ -85,6 +85,11 @@ public class PlayerLifecycleListenerTest {
             public void syncRank(UUID uuid, Rank rank) {
                 throw new RuntimeException("LuckPerms voruebergehend nicht erreichbar");
             }
+
+            @Override
+            public void grantOwner(UUID uuid) {
+                throw new RuntimeException("LuckPerms voruebergehend nicht erreichbar");
+            }
         };
         PlayerLifecycleListener listener = new PlayerLifecycleListener(
                 profileService, cooldownService, failingBridge, Logger.getLogger("test"));
@@ -94,8 +99,6 @@ public class PlayerLifecycleListenerTest {
 
         listener.onAsyncPreLogin(event);
 
-        // Ein LuckPerms-Sync-Fehler ist kein Grund, den Login abzulehnen (LuckPerms ist nur der
-        // Permission-/Prefix-/Group-Layer, nicht die Source of Truth fuer den Rang).
         assertEquals(AsyncPlayerPreLoginEvent.Result.ALLOWED, event.getLoginResult());
         assertNotNull(profileService.getCached(uuid));
     }
@@ -119,11 +122,9 @@ public class PlayerLifecycleListenerTest {
 
         assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, event.getLoginResult());
         assertEquals(PlayerLifecycleListener.LOAD_FAILURE_MESSAGE, event.getKickMessage());
-        // Die technische Fehlermeldung darf NICHT beim Spieler landen.
         org.junit.Assert.assertFalse(event.getKickMessage().contains("Datenbankfehler"));
     }
 
-    // --- Test B: Profil laedt erfolgreich, aber CooldownService.loadForPlayer() wirft - Login muss trotzdem abgelehnt werden ---
     @Test
     public void preLoginIsDisallowedWithGenericMessageWhenCooldownLoadingThrowsEvenIfProfileSucceeded() {
         FakePlayerProfileService profileService = new FakePlayerProfileService();
@@ -140,9 +141,7 @@ public class PlayerLifecycleListenerTest {
         AsyncPlayerPreLoginEvent event = new AsyncPlayerPreLoginEvent("Tester", loopback, uuid);
         listener.onAsyncPreLogin(event);
 
-        // Das Profil selbst wurde erfolgreich geladen/erstellt (loadOrCreate laeuft vor loadForPlayer).
         assertNotNull(profileService.getCached(uuid));
-        // Trotzdem muss der gesamte Login wegen der fehlgeschlagenen Cooldown-Persistenz abgelehnt werden.
         assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, event.getLoginResult());
         assertEquals(PlayerLifecycleListener.LOAD_FAILURE_MESSAGE, event.getKickMessage());
         org.junit.Assert.assertFalse(event.getKickMessage().contains("cooldown DB down"));
@@ -163,7 +162,6 @@ public class PlayerLifecycleListenerTest {
 
         assertEquals(AsyncPlayerPreLoginEvent.Result.KICK_BANNED, event.getLoginResult());
         assertEquals("Du bist gebannt.", event.getKickMessage());
-        // Profil wurde bewusst nicht geladen, da der Spieler ohnehin nicht joinen darf.
         assertNull(profileService.getCached(uuid));
     }
 
@@ -206,7 +204,6 @@ public class PlayerLifecycleListenerTest {
         assertEquals("NewName", profileService.getCached(uuid).getLastKnownName());
     }
 
-    /** Minimaler No-Op-Test-Double - vermeidet eine echte DataStore-Abhaengigkeit fuer diese Tests. */
     private static class NoOpCooldownService implements CooldownService {
         @Override
         public void loadForPlayer(UUID uuid) {
