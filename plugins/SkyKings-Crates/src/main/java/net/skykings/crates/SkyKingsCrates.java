@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -31,7 +32,26 @@ public class SkyKingsCrates extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core), this);
 
-        getLogger().info("SkyKings-Crates (Phase 4 Head-Crates + Preview/Open + Reward Tables + EV + Anti-Dupe + Open-All) aktiviert.");
+        PluginCommand crateCommand = getCommand("crate");
+        if (crateCommand == null) {
+            getLogger().severe("/crate fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        CrateCommand crateExecutor = new CrateCommand(crateRegistry, crateItemCodec);
+        crateCommand.setExecutor(crateExecutor);
+        crateCommand.setTabCompleter(crateExecutor);
+
+        PluginCommand rewardsCommand = getCommand("craterewards");
+        if (rewardsCommand == null) {
+            getLogger().severe("/craterewards fehlt in plugin.yml - SkyKings-Crates wird deaktiviert.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        CrateRewardsGui rewardsGui = new CrateRewardsGui(core.getGuiManager(), core, crateRegistry, crateItemCodec);
+        rewardsCommand.setExecutor(new CrateRewardsCommand(rewardsGui));
+
+        getLogger().info("SkyKings-Crates (Phase 4 Head-Crates + Preview/Open + Reward Tables + EV + Anti-Dupe + Open-All + CrateRewards) aktiviert.");
     }
 
     @Override
