@@ -30,25 +30,21 @@ public final class VoucherAdminGui {
 
     public void open(Player player) {
         GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Gutscheine", 27);
-        gui.setItem(10, icon(Material.DIAMOND, ChatColor.AQUA + "Rang-Gutscheine", "Free- und Paid-Raenge"),
-                (p,e,s) -> openRanks(p));
-        gui.setItem(12, icon(Material.CHEST, ChatColor.GREEN + "Kit-Gutscheine", "Einmalige Kit-Ausgabe"),
-                (p,e,s) -> openKits(p));
-        gui.setItem(14, icon(Material.PAPER, ChatColor.LIGHT_PURPLE + "Rechte-Gutscheine", "Freigegebene Perk-Rechte"),
-                (p,e,s) -> openPermissions(p));
-        gui.setItem(16, icon(Material.NAME_TAG, ChatColor.YELLOW + "Prefix-Gutscheine", "Kosmetische Prefix-Entitlements"),
-                (p,e,s) -> openPrefixes(p));
+        gui.setItem(10, icon(Material.DIAMOND, ChatColor.AQUA + "Ranggutscheine", "Free- und Paid-Ränge"), (p,e,s) -> openRanks(p));
+        gui.setItem(12, icon(Material.CHEST, ChatColor.GREEN + "Kitgutscheine", "Einmalige Kit-Ausgabe"), (p,e,s) -> openKits(p));
+        gui.setItem(14, icon(Material.PAPER, ChatColor.LIGHT_PURPLE + "Rechtegutscheine", "Freigegebene Feature-Rechte"), (p,e,s) -> openPermissions(p));
+        gui.setItem(16, icon(Material.NAME_TAG, ChatColor.YELLOW + "Prefixgutscheine", "Kosmetische Prefixe"), (p,e,s) -> openPrefixes(p));
         guiManager.open(gui);
     }
 
     private void openRanks(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Raenge", 27);
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Ränge", 27);
         int slot = 0;
         for (Rank rank : Rank.values()) {
             final Rank selected = rank;
             gui.setItem(slot++, icon(Material.DIAMOND, ChatColor.AQUA + display(rank), "Klicken: Gutschein erzeugen"),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.RANK,
-                            selected.name().toLowerCase(), "Rang " + display(selected)));
+                            selected.name().toLowerCase(), display(selected).toUpperCase()));
         }
         back(gui);
         guiManager.open(gui);
@@ -60,10 +56,10 @@ public final class VoucherAdminGui {
         for (KitDefinition kit : core.getKitRegistry().getAll()) {
             if (slot >= 18) break;
             final KitDefinition selected = kit;
-            gui.setItem(slot++, icon(Material.CHEST, ChatColor.GREEN + selected.getDisplayName(),
-                    "Klicken: einmaligen Kit-Gutschein erzeugen"),
+            String pretty = translate(selected.getDisplayName());
+            gui.setItem(slot++, icon(Material.CHEST, pretty, "Klicken: einmaligen Kitgutschein erzeugen"),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.KIT,
-                            selected.getId(), "Kit " + ChatColor.stripColor(selected.getDisplayName())));
+                            selected.getId(), ChatColor.stripColor(pretty)));
         }
         back(gui);
         guiManager.open(gui);
@@ -74,10 +70,9 @@ public final class VoucherAdminGui {
         int slot = 0;
         for (VoucherPermission permission : core.getVoucherPermissionService().getAll()) {
             final VoucherPermission selected = permission;
-            gui.setItem(slot++, icon(Material.PAPER, ChatColor.LIGHT_PURPLE + selected.getDisplayName(),
-                    "Klicken: Rechte-Gutschein erzeugen"),
+            gui.setItem(slot++, icon(Material.PAPER, selected.getDisplayName(), "Klicken: Rechtegutschein erzeugen"),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PERMISSION,
-                            selected.getId(), "Recht " + ChatColor.stripColor(selected.getDisplayName())));
+                            selected.getId(), ChatColor.stripColor(selected.getDisplayName())));
         }
         back(gui);
         guiManager.open(gui);
@@ -86,7 +81,7 @@ public final class VoucherAdminGui {
     private void openPrefixes(Player player) {
         GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Prefixe", 27);
         addPrefix(gui, 10, "fighter", "Fighter", ChatColor.RED);
-        addPrefix(gui, 11, "hunter", "Hunter", ChatColor.DARK_GREEN);
+        addPrefix(gui, 11, "hunter", "Hunter", ChatColor.DARK_AQUA);
         addPrefix(gui, 12, "lucky", "Lucky", ChatColor.GREEN);
         addPrefix(gui, 14, "royal", "Royal", ChatColor.LIGHT_PURPLE);
         addPrefix(gui, 15, "legend", "Legend", ChatColor.GOLD);
@@ -96,8 +91,8 @@ public final class VoucherAdminGui {
     }
 
     private void addPrefix(GuiSession gui, int slot, String id, String name, ChatColor color) {
-        gui.setItem(slot, icon(Material.NAME_TAG, color + name, "Klicken: Prefix-Gutschein erzeugen"),
-                (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PREFIX, id, "Prefix " + name));
+        gui.setItem(slot, icon(Material.NAME_TAG, color + name, "Klicken: Prefixgutschein erzeugen"),
+                (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PREFIX, id, name));
     }
 
     private void generate(Player player, VoucherItemCodec.VoucherType type, String target, String display) {
@@ -116,8 +111,7 @@ public final class VoucherAdminGui {
     }
 
     private void back(GuiSession gui) {
-        gui.setItem(22, icon(Material.ARROW, ChatColor.YELLOW + "Zurueck", "Zur Gutschein-Uebersicht"),
-                (p,e,s) -> open(p));
+        gui.setItem(22, icon(Material.ARROW, ChatColor.YELLOW + "Zurück", "Zur Gutschein-Übersicht"), (p,e,s) -> open(p));
     }
 
     private ItemStack icon(Material material, String name, String... lore) {
@@ -127,6 +121,10 @@ public final class VoucherAdminGui {
         meta.setLore(Arrays.asList(lore));
         item.setItemMeta(meta);
         return item;
+    }
+
+    private String translate(String raw) {
+        return ChatColor.translateAlternateColorCodes('&', raw == null ? "" : raw);
     }
 
     private String display(Rank rank) {
