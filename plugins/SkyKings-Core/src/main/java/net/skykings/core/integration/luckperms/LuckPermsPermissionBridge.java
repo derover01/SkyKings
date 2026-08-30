@@ -62,48 +62,56 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             return;
         }
 
-        ensureGroup(targetGroup, false).thenCompose(ignored -> {
-            UserManager userManager = luckPerms.getUserManager();
-            return userManager.loadUser(uuid)
-                    .thenCompose(user -> applyRankGroup(user, targetGroup)
-                            ? userManager.saveUser(user)
-                            : CompletableFuture.completedFuture(null));
-        }).exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
-                    + targetGroup + "' synchronisieren", ex);
-            return null;
-        });
+        ensureGroup(targetGroup, false).thenCompose(ignored -> loadOrGetUser(uuid))
+                .thenCompose(user -> applyRankGroup(user, targetGroup)
+                        ? luckPerms.getUserManager().saveUser(user)
+                        : CompletableFuture.completedFuture(null))
+                .exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte LuckPerms-Rang fuer " + uuid + " nicht auf '"
+                            + targetGroup + "' synchronisieren", ex);
+                    return null;
+                });
     }
 
     @Override
     public void grantOwner(UUID uuid) {
-        ensureGroup(OWNER_GROUP, true).thenCompose(ignored -> {
-            UserManager userManager = luckPerms.getUserManager();
-            return userManager.loadUser(uuid).thenCompose(user -> {
-                boolean changed = false;
-                NodeMap data = user.data();
+        ensureGroup(OWNER_GROUP, true)
+                .thenCompose(ignored -> loadOrGetUser(uuid))
+                .thenCompose(user -> {
+                    boolean changed = false;
+                    NodeMap data = user.data();
 
-                InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
-                if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
-                    changed = true;
-                }
+                    InheritanceNode ownerNode = InheritanceNode.builder(OWNER_GROUP).build();
+                    if (data.add(ownerNode) == DataMutateResult.SUCCESS) {
+                        changed = true;
+                    }
 
-                PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
-                if (data.add(wildcard) == DataMutateResult.SUCCESS) {
-                    changed = true;
-                }
+                    PermissionNode wildcard = PermissionNode.builder("*").value(true).build();
+                    if (data.add(wildcard) == DataMutateResult.SUCCESS) {
+                        changed = true;
+                    }
 
-                if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
-                        && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
-                    changed = true;
-                }
+                    if (!OWNER_GROUP.equalsIgnoreCase(user.getPrimaryGroup())
+                            && user.setPrimaryGroup(OWNER_GROUP) == DataMutateResult.SUCCESS) {
+                        changed = true;
+                    }
 
-                return changed ? userManager.saveUser(user) : CompletableFuture.completedFuture(null);
-            });
-        }).exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht setzen", ex);
-            return null;
-        });
+                    return changed ? luckPerms.getUserManager().saveUser(user)
+                            : CompletableFuture.completedFuture(null);
+                })
+                .exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte Owner-Rechte fuer " + uuid + " nicht setzen", ex);
+                    return null;
+                });
+    }
+
+    private CompletableFuture<User> loadOrGetUser(UUID uuid) {
+        UserManager userManager = luckPerms.getUserManager();
+        User loaded = userManager.getUser(uuid);
+        if (loaded != null) {
+            return CompletableFuture.completedFuture(loaded);
+        }
+        return userManager.loadUser(uuid, null);
     }
 
     /** Erstellt alle SkyKings-Ranggruppen plus Owner asynchron, falls sie noch fehlen. */
@@ -167,7 +175,6 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             changed = true;
         }
 
-        // Owner bleibt primaere Team-Gruppe; der Gameplay-Rang existiert trotzdem parallel.
         if (!isOwner && user.setPrimaryGroup(targetGroup) == DataMutateResult.SUCCESS) {
             changed = true;
         }
