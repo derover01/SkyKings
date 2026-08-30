@@ -7,18 +7,11 @@ import net.skykings.core.kit.KitGrantService;
 import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.logging.LoggingService;
 import net.skykings.core.netherstar.NetherstarService;
+import net.skykings.core.permission.VoucherPermissionService;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.rank.RankService;
 
-/**
- * Zugriffspunkt fuer andere SkyKings-Module (Combat, Crates, Admin).
- *
- * <p>Wird ueber Bukkits {@code ServicesManager} bereitgestellt (registriert von
- * {@code SkyKingsCore#onEnable}), analog zum etablierten Vault-Muster. Andere Module
- * benoetigen dafuer nur einen {@code depend: [SkyKings-Core]}-Eintrag in ihrer plugin.yml
- * und rufen {@code Bukkit.getServicesManager().getRegistration(SkyKingsCoreAPI.class)} auf -
- * es gibt keine statische Singleton-Zugriffsklasse.
- */
+/** Zugriffspunkt fuer andere SkyKings-Module (Combat, Crates, Admin). */
 public interface SkyKingsCoreAPI {
 
     PlayerProfileService getPlayerProfileService();
@@ -38,4 +31,6 @@ public interface SkyKingsCoreAPI {
     KitGrantService getKitGrantService();
 
     GuiManager getGuiManager();
+
+    VoucherPermissionService getVoucherPermissionService();
 }
