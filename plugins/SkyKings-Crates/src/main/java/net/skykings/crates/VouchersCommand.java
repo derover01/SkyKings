@@ -6,23 +6,22 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** Oeffnet das Owner/Admin-GUI zur Gutschein-Erzeugung. */
+/** Öffnet das Admin-GUI zur Gutschein-Erzeugung. */
 public final class VouchersCommand implements CommandExecutor {
+    public static final String PERMISSION = "skykings.admin.gutscheine";
     private final VoucherAdminGui gui;
 
-    public VouchersCommand(VoucherAdminGui gui) {
-        this.gui = gui;
-    }
+    public VouchersCommand(VoucherAdminGui gui) { this.gui = gui; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
+            sender.sendMessage("Dieser Befehl ist nur ingame verfügbar.");
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !player.hasPermission("skykings.admin.vouchers")) {
-            player.sendMessage(ChatColor.RED + "Dafuer hast du keine Rechte.");
+        if (!player.hasPermission(PERMISSION)) {
+            player.sendMessage(ChatColor.RED + "Dafür hast du keine Rechte.");
             return true;
         }
         gui.open(player);
