@@ -18,14 +18,16 @@ public final class VoucherItemCodec {
     private static final String MARKER = ChatColor.BLACK + "skykings:voucher:";
 
     public ItemStack create(VoucherType type, String target, String displayTarget) {
+        String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                displayTarget == null ? target : displayTarget));
         ItemStack item = new ItemStack(Material.PAPER);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(ChatColor.GOLD + "Gutschein" + ChatColor.DARK_GRAY + " | " + colorFor(type) + title(type));
+        meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type) + " " + cleanTarget);
         List<String> lore = new ArrayList<String>();
-        lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + displayTarget);
+        lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Rechtsklick zum Einloesen");
-        lore.add(ChatColor.DARK_GRAY + "Jeder Gutschein ist nur einmal gueltig.");
+        lore.add(ChatColor.YELLOW + "Rechtsklick zum Einlösen");
+        lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings Gutschein");
         lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + UUID.randomUUID());
         meta.setLore(lore);
         item.setItemMeta(meta);
@@ -54,13 +56,13 @@ public final class VoucherItemCodec {
         return target == null ? "" : target.trim().toLowerCase(Locale.ROOT).replace(":", "");
     }
 
-    private String title(VoucherType type) {
+    private String nameFor(VoucherType type) {
         switch (type) {
-            case RANK: return "Rang";
-            case KIT: return "Kit";
-            case PERMISSION: return "Recht";
-            case PREFIX: return "Prefix";
-            default: return type.name();
+            case RANK: return "Ranggutschein";
+            case KIT: return "Kitgutschein";
+            case PERMISSION: return "Rechtegutschein";
+            case PREFIX: return "Prefixgutschein";
+            default: return "Gutschein";
         }
     }
 
