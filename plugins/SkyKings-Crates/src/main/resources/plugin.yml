@@ -4,5 +4,12 @@ main: net.skykings.crates.SkyKingsCrates
 depend: [SkyKings-Core]
 description: >
   Crates-Modul (Head-Crates, Preview/Open-GUI, Open-All, Gutscheine, Anti-Dupe, Logs).
-  Phase 0: Grundgeruest ohne Features.
 authors: [SkyKings Team]
+commands:
+  crate:
+    description: Admin-Verwaltung und Ausgabe von Crates.
+    usage: /crate give <Spieler> <Typ> [Anzahl]
+permissions:
+  skykings.admin.crate:
+    description: Darf Crates administrativ ausgeben.
+    default: op
