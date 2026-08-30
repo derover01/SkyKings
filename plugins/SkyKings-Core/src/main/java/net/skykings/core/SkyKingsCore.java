@@ -17,6 +17,7 @@ import net.skykings.core.display.OwnerAccessListener;
 import net.skykings.core.display.PaidRankHologramListener;
 import net.skykings.core.display.PlayerDisplayListener;
 import net.skykings.core.display.PlayerDisplayService;
+import net.skykings.core.display.PlayerJoinMessageListener;
 import net.skykings.core.display.RankDisplayConfig;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.economy.EconomyServiceImpl;
@@ -135,6 +136,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
                 new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
         getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
         getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
+        getServer().getPluginManager().registerEvents(new PlayerJoinMessageListener(rankDisplayConfig, rankService), this);
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
 
@@ -166,7 +168,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
 
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3 Kits + Rankup + GUIs + Paid-Perks + Hologram-Bridge) aktiviert. Storage: "
+        getLogger().info("SkyKings-Core (Phase 3 Kits + Rankup + GUIs + Paid-Perks + Hologram-Bridge + Join-Display) aktiviert. Storage: "
                 + configService.getStorageType());
     }
 
