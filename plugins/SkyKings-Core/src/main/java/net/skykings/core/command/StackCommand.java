@@ -20,20 +20,18 @@ public final class StackCommand implements CommandExecutor {
 
     private final RankService rankService;
 
-    public StackCommand(RankService rankService) {
-        this.rankService = rankService;
-    }
+    public StackCommand(RankService rankService) { this.rankService = rankService; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur fuer Spieler verfuegbar.");
+            sender.sendMessage("Dieser Befehl ist nur für Spieler verfügbar.");
             return true;
         }
         Player player = (Player) sender;
-        if (!player.isOp() && !player.hasPermission(PERMISSION)
+        if (!player.hasPermission(PERMISSION)
                 && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
-            player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Knight oder das Stack-Recht.");
+            player.sendMessage(ChatColor.RED + "Du benötigst mindestens Knight oder das Stack-Recht.");
             return true;
         }
 
@@ -61,16 +59,11 @@ public final class StackCommand implements CommandExecutor {
                 remaining.setAmount(remaining.getAmount() - amount);
             }
         }
-
-        for (int slot = 0; slot < STORAGE_SLOTS; slot++) {
-            player.getInventory().setItem(slot, null);
-        }
-        for (int i = 0; i < compacted.size() && i < STORAGE_SLOTS; i++) {
-            player.getInventory().setItem(i, compacted.get(i));
-        }
+        for (int slot = 0; slot < STORAGE_SLOTS; slot++) player.getInventory().setItem(slot, null);
+        for (int i = 0; i < compacted.size() && i < STORAGE_SLOTS; i++) player.getInventory().setItem(i, compacted.get(i));
         player.updateInventory();
         player.sendMessage(ChatColor.GREEN + "Inventar gestackt" + (moved > 0
-                ? ChatColor.GRAY + " (" + moved + " Items zusammengefuehrt)."
+                ? ChatColor.GRAY + " (" + moved + " Items zusammengeführt)."
                 : ChatColor.GRAY + "."));
         return true;
     }
