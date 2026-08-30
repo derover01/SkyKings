@@ -10,6 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 
 /** Persistente Source of Truth fuer echte SkyKings-Free-Signs. */
@@ -31,10 +33,16 @@ public final class FreeSignStore {
     private final JavaPlugin plugin;
     private final File file;
     private final Map<String, FreeItem> signs = new HashMap<String, FreeItem>();
+    private final ExecutorService writer;
 
     public FreeSignStore(JavaPlugin plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "free-signs.yml");
+        this.writer = Executors.newSingleThreadExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "SkyKings-FreeSigns-Store");
+            thread.setDaemon(true);
+            return thread;
+        });
         load();
     }
 
@@ -61,6 +69,10 @@ public final class FreeSignStore {
         if (changed) saveAsync();
     }
 
+    public void shutdown() {
+        writer.shutdown();
+    }
+
     private void load() {
         if (!file.exists()) return;
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
@@ -81,7 +93,7 @@ public final class FreeSignStore {
         synchronized (this) {
             snapshot = new HashMap<String, FreeItem>(signs);
         }
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> save(snapshot));
+        writer.submit(() -> save(snapshot));
     }
 
     private void save(Map<String, FreeItem> snapshot) {
@@ -105,7 +117,6 @@ public final class FreeSignStore {
         return location.getWorld().getName() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
     }
 
-    // YAML-Pfade duerfen keine Punkte enthalten; Welt-/Koordinaten-Key daher simpel maskieren.
     private String encodeKey(String key) {
         return key.replace(".", "%2E");
     }
