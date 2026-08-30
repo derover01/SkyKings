@@ -3,6 +3,11 @@ version: ${project.version}
 main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
-  Combat-Modul (kein Fallschaden, Combat Tag, Pearl-Cooldown, Nethersterne, Killstreaks,
-  Anti-Killfarm, Lootschutz, Hot/King Zones). Phase 0: Grundgeruest ohne Features.
+  Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, Pearl-Cooldown, physische Nethersterne,
+  Anti-Killfarm, Lootschutz und persistente PvP-Stats.
 authors: [SkyKings Team]
+commands:
+  stats:
+    description: Zeigt deine oder die PvP-Stats eines Online-Spielers.
+    usage: /stats [Spieler]
+    aliases: [pvpstats]
