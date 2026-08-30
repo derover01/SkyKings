@@ -48,6 +48,7 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
             "skykings.admin.gutscheine",
             "skykings.admin.rang",
             "skykings.admin.rechte",
+            "skykings.admin.map",
             "skykings.staff.gamemode"
     );
 
