@@ -2,6 +2,7 @@ package net.skykings.core.integration.luckperms;
 
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.node.NodeType;
 import net.luckperms.api.node.types.InheritanceNode;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.model.Rank;
@@ -124,7 +125,10 @@ public class LuckPermsPermissionBridgeTest {
         assertEquals("owner", user.getPrimaryGroupValue());
         assertTrue(data.currentNodes().stream().anyMatch(n -> n instanceof InheritanceNode
                 && ((InheritanceNode) n).getGroupName().equals("owner")));
-        assertTrue(data.currentNodes().stream().anyMatch(n -> "*".equals(n.getKey()) && n.getValue()));
+        assertTrue(data.currentNodes().stream()
+                .filter(NodeType.PERMISSION::matches)
+                .map(NodeType.PERMISSION::cast)
+                .anyMatch(n -> "*".equals(n.getPermission()) && n.getValue()));
     }
 
     @Test
