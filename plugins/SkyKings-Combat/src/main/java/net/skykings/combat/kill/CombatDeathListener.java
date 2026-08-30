@@ -60,11 +60,13 @@ public final class CombatDeathListener implements Listener {
         UUID victimUuid = victim.getUniqueId();
 
         Player killer = resolveKiller(victim, victimUuid);
+
+        // Das Opfer ist tot und kann deshalb keinen aktiven Combat-Tag mehr sinnvoll behalten.
+        // Der Killer bleibt dagegen absichtlich getaggt: Sein letzter PvP-Hit liegt gerade erst
+        // zurueck. Wuerden wir seinen Tag hier loeschen, koennte er unmittelbar nach einem Kill
+        // ausloggen und das 15-Sekunden-Combat-Logging umgehen.
         combatTagService.clear(victimUuid);
         lastAttackerService.clear(victimUuid);
-        if (killer != null) {
-            combatTagService.clear(killer.getUniqueId());
-        }
 
         combatKillService.handleDeath(victim, killer);
     }

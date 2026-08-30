@@ -13,7 +13,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -25,6 +27,7 @@ public class LootProtectionServiceImplTest {
 
     private LootProtectionServiceImpl service;
     private Location deathLocation;
+    private World world;
     private UUID killerUuid;
 
     @Before
@@ -34,14 +37,13 @@ public class LootProtectionServiceImplTest {
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
         when(plugin.getServer()).thenReturn(server);
         when(server.getScheduler()).thenReturn(scheduler);
-        // Fuehrt den "naechsten Tick"-Task synchron sofort aus, damit der Test deterministisch ist.
         when(scheduler.runTask(any(Plugin.class), any(Runnable.class))).thenAnswer(invocation -> {
             Runnable task = invocation.getArgument(1);
             task.run();
             return null;
         });
 
-        World world = mock(World.class);
+        world = mock(World.class);
         deathLocation = mock(Location.class);
         when(deathLocation.getWorld()).thenReturn(world);
         killerUuid = UUID.randomUUID();
@@ -49,84 +51,102 @@ public class LootProtectionServiceImplTest {
         service = new LootProtectionServiceImpl(plugin, 150L);
     }
 
-    private Item mockDroppedItem(World world, Location location) {
+    private Item item() {
         Item item = mock(Item.class);
         when(item.getUniqueId()).thenReturn(UUID.randomUUID());
-        when(world.getNearbyEntities(location, 2.0, 2.0, 2.0)).thenReturn((java.util.Collection) Arrays.asList(item));
         return item;
+    }
+
+    /**
+     * Der erste Nearby-Scan passiert vor Abschluss des Death-Events, der zweite im geplanten
+     * Next-Tick-Task. So koennen Tests Alt-Items und neu entstandene Death-Drops unterscheiden.
+     */
+    private void nearbyBeforeAndAfter(java.util.Collection<? extends Entity> before,
+                                      java.util.Collection<? extends Entity> after) {
+        AtomicInteger calls = new AtomicInteger();
+        when(world.getNearbyEntities(deathLocation, 2.0, 2.0, 2.0)).thenAnswer(invocation ->
+                calls.getAndIncrement() == 0 ? (java.util.Collection) before : (java.util.Collection) after);
     }
 
     @Test
     public void killerCanPickUpProtectedDrop() {
-        Item item = mockDroppedItem(deathLocation.getWorld(), deathLocation);
+        Item drop = item();
+        nearbyBeforeAndAfter(Collections.emptyList(), Collections.singletonList(drop));
         service.protectDeathDrops(deathLocation, killerUuid);
 
         Player killer = mock(Player.class);
         when(killer.getUniqueId()).thenReturn(killerUuid);
-
-        assertTrue(service.canPickup(item, killer));
+        assertTrue(service.canPickup(drop, killer));
     }
 
     @Test
     public void strangerCannotPickUpBeforeExpiry() {
-        Item item = mockDroppedItem(deathLocation.getWorld(), deathLocation);
+        Item drop = item();
+        nearbyBeforeAndAfter(Collections.emptyList(), Collections.singletonList(drop));
         service.protectDeathDrops(deathLocation, killerUuid);
 
         Player stranger = mock(Player.class);
         when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
-
-        assertFalse(service.canPickup(item, stranger));
+        assertFalse(service.canPickup(drop, stranger));
     }
 
     @Test
     public void strangerCanPickUpAfterExpiry() throws InterruptedException {
-        Item item = mockDroppedItem(deathLocation.getWorld(), deathLocation);
+        Item drop = item();
+        nearbyBeforeAndAfter(Collections.emptyList(), Collections.singletonList(drop));
         service.protectDeathDrops(deathLocation, killerUuid);
         Thread.sleep(200L);
 
         Player stranger = mock(Player.class);
         when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
+        assertTrue(service.canPickup(drop, stranger));
+    }
 
-        assertTrue(service.canPickup(item, stranger));
+    @Test
+    public void preExistingGroundItemIsNeverClaimedAsDeathDrop() {
+        Item oldGroundItem = item();
+        Item newDeathDrop = item();
+        nearbyBeforeAndAfter(Collections.singletonList(oldGroundItem), Arrays.asList(oldGroundItem, newDeathDrop));
+
+        service.protectDeathDrops(deathLocation, killerUuid);
+
+        Player stranger = mock(Player.class);
+        when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
+        assertTrue("Schon vor dem Tod herumliegendes Item muss frei bleiben", service.canPickup(oldGroundItem, stranger));
+        assertFalse("Neu entstandener Death-Drop muss fuer den Killer geschuetzt sein", service.canPickup(newDeathDrop, stranger));
     }
 
     @Test
     public void unprotectedItemCanAlwaysBePickedUp() {
-        Item neverProtected = mock(Item.class);
-        when(neverProtected.getUniqueId()).thenReturn(UUID.randomUUID());
+        Item neverProtected = item();
         Player anyone = mock(Player.class);
         when(anyone.getUniqueId()).thenReturn(UUID.randomUUID());
-
         assertTrue(service.canPickup(neverProtected, anyone));
     }
 
     @Test
-    public void onlyItemEntitiesAreProtectedNotOtherNearbyEntities() {
-        World world = deathLocation.getWorld();
-        Item item = mock(Item.class);
-        when(item.getUniqueId()).thenReturn(UUID.randomUUID());
+    public void onlyNewItemEntitiesAreProtectedNotOtherNearbyEntities() {
+        Item drop = item();
         Entity zombie = mock(Zombie.class);
-        when(world.getNearbyEntities(deathLocation, 2.0, 2.0, 2.0))
-                .thenReturn((java.util.Collection) Arrays.asList(item, zombie));
+        nearbyBeforeAndAfter(Collections.emptyList(), Arrays.asList(drop, zombie));
 
         service.protectDeathDrops(deathLocation, killerUuid);
 
         Player stranger = mock(Player.class);
         when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
-        assertFalse("Das echte Drop-Item muss geschuetzt sein", service.canPickup(item, stranger));
-        // Der Zombie ist kein Item und wird schlicht nie ueber canPickup(Item,...) angefragt -
-        // dieser Test dokumentiert nur, dass das Filtern in protectDeathDrops nicht crasht.
+        assertFalse("Das echte neue Drop-Item muss geschuetzt sein", service.canPickup(drop, stranger));
     }
 
     @Test
     public void forgetRemovesTrackingSoItemBecomesFreelyPickupable() {
-        Item item = mockDroppedItem(deathLocation.getWorld(), deathLocation);
+        Item drop = item();
+        nearbyBeforeAndAfter(Collections.emptyList(), Collections.singletonList(drop));
         service.protectDeathDrops(deathLocation, killerUuid);
 
-        service.forget(item);
+        service.forget(drop);
 
         Player stranger = mock(Player.class);
         when(stranger.getUniqueId()).thenReturn(UUID.randomUUID());
-        assertTrue(service.canPickup(item, stranger));
+        assertTrue(service.canPickup(drop, stranger));
     }
 }
