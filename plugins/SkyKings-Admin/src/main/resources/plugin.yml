@@ -3,6 +3,19 @@ version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
 depend: [SkyKings-Core]
 description: >
-  Admin-Modul (/gutscheine, /verlosung, Audit, Staff-Commands, Discord-Logging-Bridge).
-  Phase 0: Grundgeruest ohne Features.
+  Admin-Modul fuer Staff-Commands, Gutscheine, Audit, Events und Discord-Logging.
 authors: [SkyKings Team]
+commands:
+  rang:
+    description: Setzt den SkyKings-Rang eines Online-Spielers.
+    usage: /rang <Spieler> <Rang>
+  rechte:
+    description: Vergibt ein freigegebenes Gutschein-Recht.
+    usage: /rechte <Spieler> <Recht>
+permissions:
+  skykings.admin.rang:
+    description: Darf /rang verwenden.
+    default: op
+  skykings.admin.rechte:
+    description: Darf /rechte verwenden.
+    default: op
