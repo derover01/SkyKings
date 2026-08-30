@@ -7,11 +7,11 @@ import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -62,7 +62,7 @@ public final class FreeSignListener implements Listener {
         event.setLine(0, ChatColor.GOLD.toString() + ChatColor.BOLD + "SkyKings");
         event.setLine(1, ChatColor.GREEN.toString() + ChatColor.BOLD + "[ FREE ]");
         event.setLine(2, ChatColor.WHITE + prettyName(parsed.material, parsed.data));
-        event.setLine(3, ChatColor.YELLOW + "x" + amount + " | Rechtsklick");
+        event.setLine(3, ChatColor.YELLOW + "x" + amount + " | KLICK");
         player.sendMessage(ChatColor.GREEN + "Free Sign erstellt: " + amount + "x " + prettyName(parsed.material, parsed.data));
     }
 
@@ -133,10 +133,9 @@ public final class FreeSignListener implements Listener {
             }
         }
 
-        Material material = null;
+        Material material;
         try {
-            int id = Integer.parseInt(materialPart);
-            material = Material.getMaterial(id);
+            material = Material.getMaterial(Integer.parseInt(materialPart));
         } catch (NumberFormatException ignored) {
             material = Material.matchMaterial(materialPart.toUpperCase(java.util.Locale.ROOT));
         }
