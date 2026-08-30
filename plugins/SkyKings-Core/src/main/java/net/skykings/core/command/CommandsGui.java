@@ -29,8 +29,7 @@ public final class CommandsGui {
             gui.setItem(20, icon(Material.BOOK_AND_QUILL, ChatColor.BLUE + "Team", "Team- und Moderationsbefehle"), (p,e,s) -> openTeam(p));
         }
         if (player.hasPermission("skykings.admin.commands")) {
-            gui.setItem(24, icon(Material.REDSTONE_TORCH_ON, ChatColor.RED + "Administration",
-                    "Nur für Admin-Berechtigte"), (p,e,s) -> openAdmin(p));
+            gui.setItem(24, icon(Material.REDSTONE_TORCH_ON, ChatColor.RED + "Administration", "Nur für Admin-Berechtigte"), (p,e,s) -> openAdmin(p));
         }
         guiManager.open(gui);
     }
@@ -40,6 +39,7 @@ public final class CommandsGui {
         action(gui, 9, Material.BOOK, "/commands", "Öffnet dieses Befehlsmenü.", "commands");
         action(gui, 10, Material.GOLD_INGOT, "/top", "Öffnet die PvP-Leaderboards für Kills, Beststreak und K/D.", "top");
         action(gui, 11, Material.DIAMOND_SWORD, "/stats", "Zeigt deine PvP-Stats, Streak und Beststreak.", "stats");
+        action(gui, 12, Material.BLAZE_POWDER, "/killeffect", "Wählt deinen freigeschalteten kosmetischen Kill-Effect.", "killeffect");
         action(gui, 13, Material.CHEST, "/kit", "Öffnet deine verfügbaren Rang-Kits.", "kit");
         action(gui, 15, Material.EMERALD, "/ränge", "Zeigt alle Ränge und deinen Fortschritt.", "raenge");
         action(gui, 17, Material.LAVA_BUCKET, "/trash / /müll", "Öffnet ein 6x9-Müllinventar. Inhalt wird beim Schließen gelöscht.", "trash");
@@ -58,12 +58,8 @@ public final class CommandsGui {
 
     private void openCrates(Player player) {
         GuiSession gui = page(player, "Crates");
-        gui.setItem(11, icon(Material.SKULL_ITEM, ChatColor.GOLD + "Crate-Item",
-                ChatColor.GRAY + "Linksklick: Rewards ansehen",
-                ChatColor.GRAY + "Rechtsklick: Öffnungsmenü",
-                ChatColor.GRAY + "Animation oder Sofortgewinn auswählbar"));
-        action(gui, 15, Material.NETHER_STAR, "/craterewards",
-                "Paid-Rank-Rewards mit eigenen Cooldowns.", "craterewards");
+        gui.setItem(11, icon(Material.SKULL_ITEM, ChatColor.GOLD + "Crate-Item", ChatColor.GRAY + "Linksklick: Rewards ansehen", ChatColor.GRAY + "Rechtsklick: Öffnungsmenü", ChatColor.GRAY + "Animation oder Sofortgewinn auswählbar"));
+        action(gui, 15, Material.NETHER_STAR, "/craterewards", "Paid-Rank-Rewards mit eigenen Cooldowns.", "craterewards");
         back(gui);
         guiManager.open(gui);
     }
@@ -81,15 +77,9 @@ public final class CommandsGui {
 
     private void openTeam(Player player) {
         GuiSession gui = page(player, "Team Commands");
-        if (player.hasPermission("skykings.staff.announcement")) {
-            gui.setItem(11, infoCommand(Material.PAPER, "/announcement <Nachricht>", "Sendet eine auffällige Server-Ankündigung."));
-        }
-        if (player.hasPermission("skykings.staff.clearchat")) {
-            action(gui, 13, Material.EMPTY_MAP, "/clearchat / /cc", "Leert den Chat für alle Spieler.", "clearchat");
-        }
-        if (player.hasPermission("skykings.staff.gamemode")) {
-            gui.setItem(15, infoCommand(Material.GRASS, "/gm <0|1|2|3> [Spieler]", "Ändert den Gamemode."));
-        }
+        if (player.hasPermission("skykings.staff.announcement")) gui.setItem(11, infoCommand(Material.PAPER, "/announcement <Nachricht>", "Sendet eine auffällige Server-Ankündigung."));
+        if (player.hasPermission("skykings.staff.clearchat")) action(gui, 13, Material.EMPTY_MAP, "/clearchat / /cc", "Leert den Chat für alle Spieler.", "clearchat");
+        if (player.hasPermission("skykings.staff.gamemode")) gui.setItem(15, infoCommand(Material.GRASS, "/gm <0|1|2|3> [Spieler]", "Ändert den Gamemode."));
         back(gui);
         guiManager.open(gui);
     }
@@ -101,11 +91,7 @@ public final class CommandsGui {
         gui.setItem(11, infoCommand(Material.CHEST, "/crate give <Spieler> <Typ> [Anzahl]", "Gibt stackbare Crate-Batches aus."));
         action(gui, 12, Material.EMERALD, "/gutscheine", "Öffnet die Gutschein-Erzeugung.", "gutscheine");
         gui.setItem(14, infoCommand(Material.GRASS, "/gm <0|1|2|3> [Spieler]", "Gamemode mit Staff-Recht."));
-        gui.setItem(16, icon(Material.SIGN, ChatColor.GREEN + "Free Sign erstellen",
-                ChatColor.GRAY + "Zeile 1: " + ChatColor.WHITE + "[FREE]",
-                ChatColor.GRAY + "Zeile 2: " + ChatColor.WHITE + "Item-ID, z. B. 276 oder 5:2",
-                ChatColor.GRAY + "Zeile 3: " + ChatColor.WHITE + "Menge",
-                ChatColor.DARK_GRAY + "XP-Flaschen: 384 • Lapis: 351:4"));
+        gui.setItem(16, icon(Material.SIGN, ChatColor.GREEN + "Free Sign erstellen", ChatColor.GRAY + "Zeile 1: " + ChatColor.WHITE + "[FREE]", ChatColor.GRAY + "Zeile 2: " + ChatColor.WHITE + "Item-ID, z. B. 276 oder 5:2", ChatColor.GRAY + "Zeile 3: " + ChatColor.WHITE + "Menge", ChatColor.DARK_GRAY + "XP-Flaschen: 384 • Lapis: 351:4"));
         back(gui);
         guiManager.open(gui);
     }
@@ -115,19 +101,10 @@ public final class CommandsGui {
     }
 
     private GuiSession page(Player player, String title) { return GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | " + title, 27); }
-    private void back(GuiSession gui) {
-        gui.setItem(22, icon(Material.ARROW, ChatColor.YELLOW + "Zurück", "Zur Hauptübersicht"), (p,e,s) -> open(p));
-    }
-    private void run(Player player, String command) {
-        player.closeInventory();
-        player.performCommand(command);
-    }
-    private ItemStack command(Material material, String command, String description) {
-        return icon(material, ChatColor.WHITE + command, ChatColor.GRAY + description, "", ChatColor.YELLOW + "Klicken zum Ausführen");
-    }
-    private ItemStack infoCommand(Material material, String command, String description) {
-        return icon(material, ChatColor.WHITE + command, ChatColor.GRAY + description, "", ChatColor.DARK_GRAY + "Befehl mit Argumenten");
-    }
+    private void back(GuiSession gui) { gui.setItem(22, icon(Material.ARROW, ChatColor.YELLOW + "Zurück", "Zur Hauptübersicht"), (p,e,s) -> open(p)); }
+    private void run(Player player, String command) { player.closeInventory(); player.performCommand(command); }
+    private ItemStack command(Material material, String command, String description) { return icon(material, ChatColor.WHITE + command, ChatColor.GRAY + description, "", ChatColor.YELLOW + "Klicken zum Ausführen"); }
+    private ItemStack infoCommand(Material material, String command, String description) { return icon(material, ChatColor.WHITE + command, ChatColor.GRAY + description, "", ChatColor.DARK_GRAY + "Befehl mit Argumenten"); }
     private ItemStack icon(Material material, String name, String... loreLines) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
