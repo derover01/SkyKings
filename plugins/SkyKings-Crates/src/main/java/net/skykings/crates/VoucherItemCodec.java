@@ -32,22 +32,22 @@ public final class VoucherItemCodec {
         if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitize(target))) {
             throw new IllegalStateException("Voucher-Serial konnte nicht sicher registriert werden");
         }
-        ItemStack item = new ItemStack(Material.PAPER);
+        ItemStack item = new ItemStack(materialFor(type), 1, dataFor(type));
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type) + " " + cleanTarget);
+        meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type));
         List<String> lore = new ArrayList<String>();
         if (type == VoucherType.COINS) {
             lore.add(ChatColor.GRAY + "Wert: " + ChatColor.GOLD + cleanTarget);
-            lore.add(ChatColor.DARK_GRAY + "Die Coins werden deinem Konto gutgeschrieben.");
+            lore.add(ChatColor.DARK_GRAY + "Nur fuer dich.");
         } else if (type == VoucherType.GIVEALL_COINS) {
-            lore.add(ChatColor.GRAY + "GiveAll: " + ChatColor.GOLD + cleanTarget + ChatColor.GRAY + " pro Spieler");
-            lore.add(ChatColor.YELLOW + "Alle aktuell Online-Spieler erhalten die Coins.");
+            lore.add(ChatColor.GRAY + "Pro Spieler: " + ChatColor.GOLD + cleanTarget);
+            lore.add(ChatColor.YELLOW + "Fuer alle aktuell Online-Spieler.");
         } else {
             lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
         }
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Rechtsklick zum Einloesen");
-        lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings Gutschein");
+        lore.add(ChatColor.YELLOW + "Rechtsklick: einloesen");
+        lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings");
         lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
         meta.setLore(lore);
         item.setItemMeta(meta);
@@ -55,7 +55,7 @@ public final class VoucherItemCodec {
     }
 
     public DecodedVoucher decode(ItemStack item) {
-        if (item == null || item.getType() != Material.PAPER || !item.hasItemMeta()) return null;
+        if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return null;
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
         for (String line : meta.getLore()) {
@@ -73,6 +73,28 @@ public final class VoucherItemCodec {
             }
         }
         return null;
+    }
+
+    private Material materialFor(VoucherType type) {
+        switch (type) {
+            case RANK:
+            case PERMISSION:
+                return Material.BOOK;
+            case KIT:
+                return Material.PAPER;
+            case PREFIX:
+                return Material.NAME_TAG;
+            case COINS:
+            case GIVEALL_COINS:
+                return Material.DOUBLE_PLANT;
+            default:
+                return Material.PAPER;
+        }
+    }
+
+    private short dataFor(VoucherType type) {
+        // DOUBLE_PLANT:0 ist in 1.8 das Sonnenblumen-Item.
+        return 0;
     }
 
     private String sanitize(String target) {
