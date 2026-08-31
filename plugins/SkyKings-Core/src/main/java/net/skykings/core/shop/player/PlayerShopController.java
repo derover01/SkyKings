@@ -4,6 +4,7 @@ import net.skykings.core.api.SkyKingsCoreAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -16,20 +17,29 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /** PlayerShops werden ausschliesslich ueber das SkyKings Haendler-Ei platziert. */
 public final class PlayerShopController implements Listener, CommandExecutor {
     private static final long EGG_PRICE = 2_500_000L;
+    private static final String OWNER_TITLE = ChatColor.DARK_GRAY + "SkyKings | Mein Shop";
     private final PlayerShopService service;
     private final PlayerShopStore store;
     private final PlayerShopEgg shopEgg = new PlayerShopEgg();
+    private final Map<UUID, UUID> openOwnerShops = new HashMap<UUID, UUID>();
 
     public PlayerShopController(PlayerShopService service) {
         this.service = service;
@@ -75,6 +85,10 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             return true;
         }
 
+        if ("menu".equals(sub) || "gui".equals(sub)) {
+            openOwnerMenu(player, shop);
+            return true;
+        }
         if ("set".equals(sub) && args.length >= 3) {
             try {
                 int amount = Integer.parseInt(args[1]); long price = Long.parseLong(args[2]);
@@ -107,28 +121,16 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             return true;
         }
         if ("claim".equals(sub)) {
-            long amount = service.claimRevenue(player, shop.getId());
-            player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + amount + " Coins Shop-Einnahmen abgeholt."
-                    : ChatColor.YELLOW + "Keine Einnahmen zum Abholen.");
-            if (amount > 0) player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.6F, 1.5F);
+            claimRevenue(player, shop);
             return true;
         }
         if ("info".equals(sub)) {
-            player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOP");
-            player.sendMessage(ChatColor.GRAY + "ID: " + ChatColor.WHITE + shop.getId().toString().substring(0, 8));
-            player.sendMessage(ChatColor.GRAY + "Item: " + ChatColor.WHITE + (shop.getMaterial() == null ? "noch nicht gesetzt" : shop.getMaterial().name()));
-            player.sendMessage(ChatColor.GRAY + "Menge/Kauf: " + ChatColor.WHITE + shop.getAmountPerSale());
-            player.sendMessage(ChatColor.GRAY + "Preis: " + ChatColor.WHITE + shop.getPriceCoins());
-            player.sendMessage(ChatColor.GRAY + "Stock: " + ChatColor.WHITE + shop.getStock());
-            player.sendMessage(ChatColor.GRAY + "Einnahmen: " + ChatColor.WHITE + shop.getPendingRevenue());
+            openOwnerMenu(player, shop);
             return true;
         }
         if ("remove".equals(sub)) {
-            if (shop.getStock() > 0 || shop.getPendingRevenue() > 0) {
-                player.sendMessage(ChatColor.RED + "Leere zuerst den Stock und hole Einnahmen ab."); return true;
-            }
-            removeVillager(shop.getVillagerUuid()); store.delete(shop.getId());
-            player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt."); player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 0.7F); return true;
+            removeOwnedShop(player, shop);
+            return true;
         }
         usage(player); return true;
     }
@@ -149,7 +151,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         villager.setCustomNameVisible(true);
         shop.setVillagerUuid(villager.getUniqueId()); store.save();
         consumeHand(player);
-        player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Jetzt Angebot und Stock konfigurieren.");
+        player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Rechtsklick auf den Haendler fuer die Verwaltung.");
         player.playSound(location, Sound.LEVEL_UP, 0.8F, 1.35F);
     }
 
@@ -162,8 +164,8 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist deaktiviert."); return;
         }
         if (player.getUniqueId().equals(shop.getOwner())) {
-            player.sendMessage(ChatColor.GOLD + "Dein Shop: " + ChatColor.GRAY + shop.getStock() + " Stock, " + shop.getPendingRevenue() + " Coins Einnahmen.");
-            player.playSound(player.getLocation(), Sound.CLICK, 0.5F, 1.3F); return;
+            openOwnerMenu(player, shop);
+            return;
         }
         PlayerShopService.Result result = service.purchase(player, shop.getId());
         if (result == PlayerShopService.Result.SUCCESS) {
@@ -175,9 +177,104 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         }
     }
 
+    @EventHandler
+    public void onOwnerMenuClick(InventoryClickEvent event) {
+        if (event.getView() == null || !OWNER_TITLE.equals(event.getView().getTitle())) return;
+        event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+        UUID shopId = openOwnerShops.get(player.getUniqueId());
+        PlayerShop shop = shopId == null ? null : store.get(shopId);
+        if (shop == null || !player.getUniqueId().equals(shop.getOwner())) {
+            player.closeInventory();
+            return;
+        }
+        int slot = event.getRawSlot();
+        if (slot == 11) {
+            player.closeInventory();
+            player.sendMessage(ChatColor.GOLD + "Angebot setzen: " + ChatColor.YELLOW + "/playershop set <Menge> <Coins>" + ChatColor.GRAY + " und dabei das Verkaufsitem in der Hand halten.");
+            player.playSound(player.getLocation(), Sound.CLICK, 0.5F, 1.15F);
+        } else if (slot == 13) {
+            player.closeInventory();
+            player.sendMessage(ChatColor.GOLD + "Lager: " + ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " bzw. /playershop withdraw <Menge>.");
+            player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.5F, 1.2F);
+        } else if (slot == 15) {
+            claimRevenue(player, shop);
+            openOwnerMenu(player, shop);
+        } else if (slot == 22) {
+            player.closeInventory();
+            removeOwnedShop(player, shop);
+        }
+    }
+
+    @EventHandler
+    public void onOwnerMenuDrag(InventoryDragEvent event) {
+        if (event.getView() != null && OWNER_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (event.getEntity() instanceof Villager && store.getByVillager(event.getEntity().getUniqueId()) != null) event.setCancelled(true);
+    }
+
+    private void openOwnerMenu(Player player, PlayerShop shop) {
+        Inventory inv = Bukkit.createInventory(null, 27, OWNER_TITLE);
+        ItemStack filler = item(Material.STAINED_GLASS_PANE, (short) 15, " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+        Material offerMaterial = shop.getMaterial() == null ? Material.BARRIER : shop.getMaterial();
+        inv.setItem(11, item(offerMaterial, (short) 0,
+                ChatColor.GOLD + "Angebot",
+                ChatColor.GRAY + "Item: " + ChatColor.WHITE + (shop.getMaterial() == null ? "noch nicht gesetzt" : shop.getMaterial().name()),
+                ChatColor.GRAY + "Menge: " + ChatColor.WHITE + shop.getAmountPerSale(),
+                ChatColor.GRAY + "Preis: " + ChatColor.YELLOW + format(shop.getPriceCoins()) + " Coins",
+                "",
+                ChatColor.YELLOW + "Klicken fuer Set-Anleitung"));
+        inv.setItem(13, item(Material.CHEST, (short) 0,
+                ChatColor.AQUA + "Lager",
+                ChatColor.GRAY + "Aktueller Stock: " + ChatColor.WHITE + shop.getStock(),
+                "",
+                ChatColor.YELLOW + "Klicken fuer Lager-Befehle"));
+        inv.setItem(15, item(Material.GOLD_INGOT, (short) 0,
+                ChatColor.GREEN + "Einnahmen",
+                ChatColor.GRAY + "Bereit: " + ChatColor.GOLD + format(shop.getPendingRevenue()) + " Coins",
+                "",
+                shop.getPendingRevenue() > 0 ? ChatColor.GREEN + "Klicken zum Abholen" : ChatColor.DARK_GRAY + "Noch keine Einnahmen"));
+        inv.setItem(22, item(Material.REDSTONE_BLOCK, (short) 0,
+                ChatColor.RED + "Shop entfernen",
+                ChatColor.GRAY + "Nur moeglich wenn Stock und",
+                ChatColor.GRAY + "Einnahmen leer sind."));
+        openOwnerShops.put(player.getUniqueId(), shop.getId());
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.VILLAGER_YES, 0.55F, 1.25F);
+    }
+
+    private void claimRevenue(Player player, PlayerShop shop) {
+        long amount = service.claimRevenue(player, shop.getId());
+        player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + format(amount) + " Coins Shop-Einnahmen abgeholt."
+                : ChatColor.YELLOW + "Keine Einnahmen zum Abholen.");
+        player.playSound(player.getLocation(), amount > 0 ? Sound.LEVEL_UP : Sound.NOTE_BASS, 0.6F, amount > 0 ? 1.5F : 0.8F);
+    }
+
+    private void removeOwnedShop(Player player, PlayerShop shop) {
+        if (shop.getStock() > 0 || shop.getPendingRevenue() > 0) {
+            player.sendMessage(ChatColor.RED + "Leere zuerst den Stock und hole Einnahmen ab.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
+            return;
+        }
+        removeVillager(shop.getVillagerUuid()); store.delete(shop.getId());
+        player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt.");
+        player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 0.7F);
+    }
+
+    private ItemStack item(Material material, short durability, String name, String... lore) {
+        ItemStack stack = new ItemStack(material, 1, durability);
+        ItemMeta meta = stack.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            if (lore != null && lore.length > 0) meta.setLore(Arrays.asList(lore));
+            stack.setItemMeta(meta);
+        }
+        return stack;
     }
 
     private void consumeHand(Player player) {
@@ -223,9 +320,10 @@ public final class PlayerShopController implements Listener, CommandExecutor {
     private void usage(Player player) {
         player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOPS");
         player.sendMessage(ChatColor.YELLOW + "/playershop kaufen" + ChatColor.GRAY + " - Haendler-Ei fuer " + format(EGG_PRICE) + " Coins");
+        player.sendMessage(ChatColor.YELLOW + "/playershop menu" + ChatColor.GRAY + " - Verwaltung des naechsten eigenen Shops");
         player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>");
         player.sendMessage(ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " - Item in Hand");
         player.sendMessage(ChatColor.YELLOW + "/playershop withdraw <Menge>");
-        player.sendMessage(ChatColor.YELLOW + "/playershop claim | info | remove");
+        player.sendMessage(ChatColor.YELLOW + "/playershop claim | remove");
     }
 }
