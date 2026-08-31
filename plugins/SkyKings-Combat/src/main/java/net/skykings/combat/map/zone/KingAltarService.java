@@ -77,8 +77,11 @@ public final class KingAltarService {
         }
 
         if (inside.size() != 1) {
-            if (inside.size() > 1 && capturing != null) {
-                for (Player player : inside) player.sendActionBar(ChatColor.RED + "King Altar umkämpft!");
+            if (inside.size() > 1 && capturing != null && progress > 0 && progress % 10 == 0) {
+                for (Player player : inside) {
+                    player.sendMessage(ChatColor.RED + "King Altar umkämpft - Capture pausiert!");
+                    player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.8F);
+                }
             }
             capturing = null;
             progress = 0;
@@ -95,7 +98,10 @@ public final class KingAltarService {
 
         progress++;
         int remaining = Math.max(0, CAPTURE_SECONDS - progress);
-        player.sendActionBar(ChatColor.GOLD + "King Altar: " + ChatColor.YELLOW + remaining + "s");
+        if (remaining == 30 || remaining == 15 || remaining <= 5) {
+            player.sendMessage(ChatColor.GOLD + "King Altar: " + ChatColor.YELLOW + remaining + " Sekunden verbleibend.");
+            player.playSound(player.getLocation(), Sound.CLICK, 0.45F, 1.25F);
+        }
         if (progress >= CAPTURE_SECONDS) capture(player);
     }
 
