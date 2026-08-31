@@ -25,29 +25,28 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Persistente Bindung existierender Villager an SkyKings-Shops.
- * Die Bindung ist weltunabhängig und kann deshalb auf Spawn/Map sowie später auf Islands/Plots genutzt werden.
- */
+/** Persistente Bindung existierender Villager an SkyKings-Shops. */
 public final class ShopNpcService implements Listener, CommandExecutor, TabCompleter {
 
     public static final String ADMIN_PERMISSION = "skykings.admin.shopnpc";
 
-    private enum Type {
-        SYSTEM,
-        PVP_RESTOCK
-    }
+    private enum Type { SYSTEM, PVP_RESTOCK, BLACKSMITH, ENCHANT }
 
     private final JavaPlugin plugin;
     private final SystemShopGui systemShopGui;
     private final PvpRestockShopGui pvpRestockShopGui;
+    private final BlacksmithShopGui blacksmithShopGui;
+    private final EnchantShopGui enchantShopGui;
     private final File file;
     private final Map<UUID, Type> bindings = new LinkedHashMap<UUID, Type>();
 
-    public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui) {
+    public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui,
+                          BlacksmithShopGui blacksmithShopGui, EnchantShopGui enchantShopGui) {
         this.plugin = plugin;
         this.systemShopGui = systemShopGui;
         this.pvpRestockShopGui = pvpRestockShopGui;
+        this.blacksmithShopGui = blacksmithShopGui;
+        this.enchantShopGui = enchantShopGui;
         this.file = new File(plugin.getDataFolder(), "shop-npcs.yml");
         load();
     }
@@ -58,8 +57,13 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         Type type = bindings.get(event.getRightClicked().getUniqueId());
         if (type == null) return;
         event.setCancelled(true);
-        if (type == Type.SYSTEM) systemShopGui.open(event.getPlayer());
-        else if (type == Type.PVP_RESTOCK) pvpRestockShopGui.open(event.getPlayer());
+        switch (type) {
+            case SYSTEM: systemShopGui.open(event.getPlayer()); break;
+            case PVP_RESTOCK: pvpRestockShopGui.open(event.getPlayer()); break;
+            case BLACKSMITH: blacksmithShopGui.open(event.getPlayer()); break;
+            case ENCHANT: enchantShopGui.open(event.getPlayer()); break;
+            default: break;
+        }
     }
 
     @Override
@@ -73,7 +77,6 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
             player.sendMessage(ChatColor.RED + "Keine Berechtigung.");
             return true;
         }
-
         if (args.length == 0) {
             sendUsage(player);
             return true;
@@ -82,7 +85,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         String sub = args[0].toLowerCase(Locale.ROOT);
         if ("bind".equals(sub)) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp>.");
+                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant>.");
                 return true;
             }
             Villager villager = nearestVillager(player, 6D);
@@ -92,12 +95,12 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
             }
             Type type = parse(args[1]);
             if (type == null) {
-                player.sendMessage(ChatColor.RED + "Shoptyp muss system oder pvp sein.");
+                player.sendMessage(ChatColor.RED + "Unbekannter Shoptyp.");
                 return true;
             }
             bindings.put(villager.getUniqueId(), type);
             save();
-            villager.setCustomName(type == Type.SYSTEM ? ChatColor.GOLD + "Systemhändler" : ChatColor.LIGHT_PURPLE + "PvP Restock");
+            villager.setCustomName(displayName(type));
             villager.setCustomNameVisible(true);
             player.sendMessage(ChatColor.GREEN + "Villager wurde als " + type.name() + " Shop gebunden.");
             return true;
@@ -135,12 +138,24 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         return true;
     }
 
+    private String displayName(Type type) {
+        switch (type) {
+            case SYSTEM: return ChatColor.GOLD + "Systemhändler";
+            case PVP_RESTOCK: return ChatColor.LIGHT_PURPLE + "PvP Restock";
+            case BLACKSMITH: return ChatColor.DARK_GRAY + "Blacksmith";
+            case ENCHANT: return ChatColor.DARK_PURPLE + "Enchanter";
+            default: return ChatColor.GOLD + "Händler";
+        }
+    }
+
     private void sendUsage(Player player) {
         player.sendMessage(ChatColor.GOLD + "SkyKings Shop-NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind system" + ChatColor.GRAY + " - nächsten Villager binden");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind pvp" + ChatColor.GRAY + " - PvP-Restock binden");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc unbind" + ChatColor.GRAY + " - Bindung entfernen");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc info" + ChatColor.GRAY + " - Bindung anzeigen");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind system");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind pvp");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind blacksmith");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind enchant");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc unbind");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc info");
     }
 
     private Villager nearestVillager(Player player, double radius) {
@@ -159,9 +174,11 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
     private Type parse(String value) {
         if (value == null) return null;
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        if ("system".equals(normalized) || "coins".equals(normalized)) return Type.SYSTEM;
-        if ("pvp".equals(normalized) || "restock".equals(normalized) || "netherstar".equals(normalized)) return Type.PVP_RESTOCK;
+        String n = value.trim().toLowerCase(Locale.ROOT);
+        if ("system".equals(n) || "coins".equals(n)) return Type.SYSTEM;
+        if ("pvp".equals(n) || "restock".equals(n) || "netherstar".equals(n)) return Type.PVP_RESTOCK;
+        if ("blacksmith".equals(n) || "smith".equals(n) || "repair".equals(n)) return Type.BLACKSMITH;
+        if ("enchant".equals(n) || "enchanter".equals(n) || "level".equals(n)) return Type.ENCHANT;
         return null;
     }
 
@@ -173,8 +190,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         for (String key : yaml.getConfigurationSection("shops").getKeys(false)) {
             try {
                 UUID uuid = UUID.fromString(key);
-                String rawType = yaml.getString("shops." + key + ".type", "");
-                Type type = Type.valueOf(rawType.toUpperCase(Locale.ROOT));
+                Type type = Type.valueOf(yaml.getString("shops." + key + ".type", "").toUpperCase(Locale.ROOT));
                 bindings.put(uuid, type);
             } catch (RuntimeException ignored) {
                 plugin.getLogger().warning("Ungültige Shop-NPC-Bindung in shop-npcs.yml: " + key);
@@ -184,10 +200,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
     private void save() {
         YamlConfiguration yaml = new YamlConfiguration();
-        for (Map.Entry<UUID, Type> entry : bindings.entrySet()) {
-            String base = "shops." + entry.getKey();
-            yaml.set(base + ".type", entry.getValue().name());
-        }
+        for (Map.Entry<UUID, Type> entry : bindings.entrySet()) yaml.set("shops." + entry.getKey() + ".type", entry.getValue().name());
         try {
             if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
             yaml.save(file);
@@ -199,7 +212,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) return filter(Arrays.asList("bind", "unbind", "info"), args[0]);
-        if (args.length == 2 && "bind".equalsIgnoreCase(args[0])) return filter(Arrays.asList("system", "pvp"), args[1]);
+        if (args.length == 2 && "bind".equalsIgnoreCase(args[0])) return filter(Arrays.asList("system", "pvp", "blacksmith", "enchant"), args[1]);
         return Collections.emptyList();
     }
 
