@@ -18,6 +18,14 @@ commands:
     description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
     usage: /killeffect
     aliases: [killeffects, killeffekt]
+  collection:
+    description: Öffnet deine Head Collection mit bereits besiegten Spielern.
+    usage: /collection [Seite]
+    aliases: [heads, headcollection, sammlung]
+  stattrack:
+    description: Öffnet Weapon History und verwaltet StatTrack-Module.
+    usage: /stattrack [apply|give]
+    aliases: [weaponhistory, weaponstats]
   mapmastery:
     description: Zeigt deine Map-Mastery mit Hot-Zone-, King-, End- und Secret-Fortschritt.
     usage: /mapmastery [Spieler]
@@ -33,6 +41,18 @@ commands:
     description: Zeigt dein PvP-Level 1-100.
     usage: /pvplevel
     aliases: [level, pvplvl]
+  medals:
+    description: Öffnet permanente Season- und Combat-Medaillen.
+    usage: /medals [Spieler]
+    aliases: [medaillen]
+  seasonadmin:
+    description: Schließt eine Season sicher ab und archiviert Hall-of-Fame und Medaillen.
+    usage: /seasonadmin finish
+    permission: skykings.admin.season
+  legacyhall:
+    description: Öffnet die permanente Season Hall of Fame.
+    usage: /legacyhall [page|set|remove]
+    aliases: [halloffame, hof]
   battlepass:
     description: Öffnet den Season Battle Pass mit Free- und Premium-Track.
     usage: /battlepass
@@ -46,13 +66,17 @@ commands:
     usage: /peace <Spieler|accept|deny|remove|list>
     aliases: [friede, friend]
   duel:
-    description: Fordert einen Spieler zu einem sicheren 1v1 ohne Itemverlust heraus.
-    usage: /duel <Spieler> [Arena]
+    description: Fordert einen Spieler zu einem sicheren 1v1 mit optionalem Coin-Einsatz heraus.
+    usage: /duel <Spieler> [Einsatz|Arena] [Arena]
     aliases: [1v1]
   lms:
     description: Last-Man-Standing Queue und Serverevent.
     usage: /lms <join|leave|start|stop>
     aliases: [lastmanstanding]
+  targetevent:
+    description: Most-Wanted-Event innerhalb konfigurierter PvP-Regionen.
+    usage: /targetevent <status|start|stop> [Spieler]
+    aliases: [mostwanted, target]
   verlosung:
     description: Serverweite Coin-Verlosung.
     usage: /verlosung <join|start|stop>
@@ -88,11 +112,21 @@ commands:
     description: Setzt und verwaltet die End-Zone mit eigenen PvP-Rewards.
     usage: /endzone <set|remove|info> [Radius]
     permission: skykings.admin.map
+  pvpregion:
+    description: Definiert Open-World-PvP-Cuboids für Target- und Map-Events.
+    usage: /pvpregion <pos1|pos2|create|remove|list>
+    permission: skykings.admin.pvpregion
+    aliases: [pvpzone, pvparea]
   secret:
     description: Setzt und verwaltet einmalige Map-Secrets.
     usage: /secret <add|remove|list> [Name] [Radius]
     permission: skykings.admin.map
     aliases: [secrets]
+  secretroom:
+    description: Bindet versteckte Loot-Truhen mit globalem Respawn-Cooldown.
+    usage: /secretroom <add|remove|list>
+    permission: skykings.admin.secretroom
+    aliases: [secretcache, lootroom]
   route:
     description: Erstellt Jump- und Pearl-Routen mit Checkpoints.
     usage: /route <create|addpoint|remove|list> [Name]
@@ -139,6 +173,24 @@ permissions:
     default: false
   skykings.admin.map:
     description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
+    default: false
+  skykings.admin.pvpregion:
+    description: Darf PvP-Regionen für Open-World-Events definieren.
+    default: false
+  skykings.admin.secretroom:
+    description: Darf Secret Loot Rooms einrichten und entfernen.
+    default: false
+  skykings.admin.targetevent:
+    description: Darf Most-Wanted-Events starten und stoppen.
+    default: false
+  skykings.admin.stattrack:
+    description: Darf StatTrack-Module ausgeben.
+    default: false
+  skykings.admin.season:
+    description: Darf eine Season abschließen und archivieren.
+    default: false
+  skykings.admin.legacyhall:
+    description: Darf Legacy-Hall-Displays platzieren und entfernen.
     default: false
   skykings.admin.event:
     description: Darf Serverevents und Event-Arenen einrichten, starten und stoppen.
