@@ -55,6 +55,10 @@ commands:
     description: Aktiviert/deaktiviert den Staff-Baumodus auf geschützten Maps.
     usage: /buildmode
     aliases: [bm]
+  trade:
+    description: Sicherer Zwei-Spieler-Handel mit Items und Coins.
+    usage: /trade <Spieler|accept|deny>
+    aliases: [handel]
   shop:
     description: Öffnet den zentralen SkyKings-Systemshop.
     usage: /shop
