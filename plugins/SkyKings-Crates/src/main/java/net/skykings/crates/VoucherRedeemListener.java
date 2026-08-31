@@ -18,6 +18,7 @@ import org.bukkit.potion.PotionEffect;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 /** Rechtsklick auf Gutschein = einmalige, persistente Einloesung. */
 public final class VoucherRedeemListener implements Listener {
@@ -38,8 +39,7 @@ public final class VoucherRedeemListener implements Listener {
     public void onInteract(PlayerInteractEvent event) {
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
-        ItemStack hand = event.getItem();
-        VoucherItemCodec.DecodedVoucher voucher = codec.decode(hand);
+        VoucherItemCodec.DecodedVoucher voucher = codec.decode(event.getItem());
         if (voucher == null) return;
         event.setCancelled(true);
         Player player = event.getPlayer();
@@ -49,19 +49,27 @@ public final class VoucherRedeemListener implements Listener {
         }
         if (!canRedeem(player, voucher)) return;
 
-        store.redeem(voucher.getSerial()).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
+        final UUID serial = voucher.getSerial();
+        store.redeem(serial).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!marked) {
                 player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits eingeloest oder konnte nicht sicher gespeichert werden.");
                 return;
             }
             if (!grant(player, voucher)) {
-                player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + voucher.getSerial());
+                player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + serial);
                 return;
             }
-            consume(player, hand);
+
+            // Niemals das alte ItemStack-Objekt vom Klickzeitpunkt mutieren: Zwischen Datei-Write
+            // und Main-Thread-Callback kann der Spieler Slots wechseln, droppen oder Inventare
+            // bewegen. Stattdessen wird jetzt nur ein aktuell vorhandener Voucher mit exakt
+            // derselben persistenten Serial entfernt. Ist er inzwischen weg, bleibt er durch
+            // den Redemption-Store trotzdem dauerhaft wertlos und kann nicht doppelt ausloesen.
+            consumeMatchingSerial(player, serial);
+
             core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
                     player.getUniqueId(), player.getName(), null,
-                    "serial=" + voucher.getSerial() + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
+                    "serial=" + serial + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
             player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
         }));
     }
@@ -164,9 +172,21 @@ public final class VoucherRedeemListener implements Listener {
         return false;
     }
 
-    private void consume(Player player, ItemStack hand) {
-        if (hand.getAmount() <= 1) player.setItemInHand(null);
-        else hand.setAmount(hand.getAmount() - 1);
-        player.updateInventory();
+    private void consumeMatchingSerial(Player player, UUID serial) {
+        if (player == null || serial == null) return;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack current = contents[slot];
+            VoucherItemCodec.DecodedVoucher decoded = codec.decode(current);
+            if (decoded == null || !serial.equals(decoded.getSerial())) continue;
+            if (current.getAmount() <= 1) player.getInventory().setItem(slot, null);
+            else {
+                ItemStack reduced = current.clone();
+                reduced.setAmount(current.getAmount() - 1);
+                player.getInventory().setItem(slot, reduced);
+            }
+            player.updateInventory();
+            return;
+        }
     }
 }
