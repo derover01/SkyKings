@@ -1,5 +1,6 @@
 package net.skykings.admin.discord;
 
+import net.skykings.core.discord.DiscordNotifier;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -21,7 +22,7 @@ import java.util.logging.Level;
  * Sichere ausgehende Discord-Bot-Bridge ohne Token im Repository.
  * Der Bot-Token wird ausschliesslich aus SKYKINGS_DISCORD_BOT_TOKEN gelesen.
  */
-public final class DiscordBridge {
+public final class DiscordBridge implements DiscordNotifier {
 
     private final JavaPlugin plugin;
     private final File configFile;
@@ -54,6 +55,7 @@ public final class DiscordBridge {
         }
     }
 
+    @Override
     public boolean isEnabled() {
         return config.getBoolean("enabled", false) && token() != null;
     }
@@ -62,10 +64,12 @@ public final class DiscordBridge {
         return config.getString("channels." + normalize(key), "").trim();
     }
 
+    @Override
     public boolean isConfigured(String key) {
         return isEnabled() && isNumericId(configuredChannel(key));
     }
 
+    @Override
     public void send(String channelKey, String message) {
         String channelId = configuredChannel(channelKey);
         if (!isEnabled() || !isNumericId(channelId) || message == null || message.trim().isEmpty()) return;
