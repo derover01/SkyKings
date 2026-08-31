@@ -67,6 +67,9 @@ import net.skykings.core.perk.BuildBlockSafetyListener;
 import net.skykings.core.perk.BuildBlockStore;
 import net.skykings.core.perk.BuildBlockWorldListener;
 import net.skykings.core.perk.BuildBlocksGui;
+import net.skykings.core.plot.PlotCommand;
+import net.skykings.core.plot.PlotProtectionListener;
+import net.skykings.core.plot.PlotService;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.profile.PlayerProfileServiceImpl;
 import net.skykings.core.protection.MapProtectionService;
@@ -86,6 +89,7 @@ import net.skykings.core.shop.player.IslandShopPlacementPolicy;
 import net.skykings.core.shop.player.PlayerShopController;
 import net.skykings.core.shop.player.PlayerShopService;
 import net.skykings.core.shop.player.PlayerShopStore;
+import net.skykings.core.spawner.SpawnerStackService;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
@@ -104,9 +108,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit-, Perk-, Island- und Display-Services. */
+/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Claim-, Shop- und Display-Services. */
 public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
-
     private DataStore dataStore;
     private ExecutorService dbExecutor;
     private ConfigService configService;
@@ -128,32 +131,23 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private EnderChestService enderChestService;
     private ShopTransactionService shopTransactionService;
     private IslandService islandService;
+    private PlotService plotService;
     private DailyRewardService dailyRewardService;
     private PlayerShopStore playerShopStore;
+    private SpawnerStackService spawnerStackService;
 
     @Override
     public void onEnable() {
         this.configService = new ConfigServiceImpl(this);
         try {
-            this.dataStore = createDataStore();
-            dataStore.initialize();
+            this.dataStore = createDataStore(); dataStore.initialize();
         } catch (DataStoreException e) {
             getLogger().log(Level.SEVERE, "Datenbank-Initialisierung fehlgeschlagen, SkyKings-Core wird deaktiviert.", e);
-            getServer().getPluginManager().disablePlugin(this);
-            return;
+            getServer().getPluginManager().disablePlugin(this); return;
         }
-
-        this.dbExecutor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "SkyKings-Core-DB");
-            thread.setDaemon(true);
-            return thread;
-        });
-
-        List<AuditSink> sinks = new ArrayList<>();
-        sinks.add(new PluginLoggerAuditSink(getLogger()));
-        sinks.add(new PersistentAuditSink(dataStore, dbExecutor, getLogger()));
+        this.dbExecutor = Executors.newSingleThreadExecutor(runnable -> { Thread thread = new Thread(runnable, "SkyKings-Core-DB"); thread.setDaemon(true); return thread; });
+        List<AuditSink> sinks = new ArrayList<>(); sinks.add(new PluginLoggerAuditSink(getLogger())); sinks.add(new PersistentAuditSink(dataStore, dbExecutor, getLogger()));
         this.loggingService = new LoggingServiceImpl(sinks, getLogger());
-
         this.playerProfileService = new PlayerProfileServiceImpl(dataStore, dbExecutor, loggingService, getLogger());
         this.permissionBridge = createPermissionBridge();
         this.rankService = new RankServiceImpl(playerProfileService, loggingService, permissionBridge);
@@ -162,8 +156,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.rankProgressionService = new RankProgressionService(rankService, economyService, rankProgressionConfig);
         this.netherstarService = new NetherstarServiceImpl(playerProfileService, loggingService);
         this.cooldownService = new CooldownServiceImpl(dataStore, dbExecutor, getLogger());
-        this.kitRegistry = new KitRegistryImpl();
-        new RankKitLoader(this, kitRegistry).loadAndRegister();
+        this.kitRegistry = new KitRegistryImpl(); new RankKitLoader(this, kitRegistry).loadAndRegister();
         this.kitGrantService = new KitGrantServiceImpl(kitRegistry, playerProfileService, cooldownService);
         this.guiManager = new GuiManager();
         this.voucherPermissionService = new VoucherPermissionService(this, permissionBridge, loggingService);
@@ -172,17 +165,18 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.enderChestService = new EnderChestService(this, rankService, economyService);
         this.shopTransactionService = new ShopTransactionService(economyService, loggingService);
         this.islandService = new IslandService(this);
+        this.plotService = new PlotService(this);
         this.dailyRewardService = new DailyRewardService(this, economyService);
         this.playerShopStore = new PlayerShopStore(this);
         PlayerShopService playerShopService = new PlayerShopService(playerShopStore, economyService, loggingService);
-        playerShopService.setPlacementPolicy(new IslandShopPlacementPolicy(islandService));
+        playerShopService.setPlacementPolicy(new IslandShopPlacementPolicy(islandService, plotService));
         PlayerShopController playerShopController = new PlayerShopController(playerShopService);
+        this.spawnerStackService = new SpawnerStackService(this, islandService, plotService);
 
         ShopPriceRegistry shopPrices = new ShopPriceRegistry(this);
         MapProtectionService mapProtectionService = new MapProtectionService();
         TradeService tradeService = new TradeService();
         TradeGuiService tradeGuiService = new TradeGuiService(this, tradeService, economyService, loggingService);
-
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
         SkyKingsScoreboardService scoreboardService = new SkyKingsScoreboardService(playerProfileService, rankDisplayConfig);
@@ -194,7 +188,6 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         SystemShopGui systemShopGui = new SystemShopGui(guiManager, shopTransactionService);
         PvpRestockShopGui pvpRestockShopGui = new PvpRestockShopGui(guiManager, shopTransactionService);
         ShopNpcService shopNpcService = new ShopNpcService(this, systemShopGui, pvpRestockShopGui);
-
         this.economyBridge = createEconomyBridge();
 
         getServer().getPluginManager().registerEvents(new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
@@ -212,30 +205,19 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(mapProtectionService, this);
         getServer().getPluginManager().registerEvents(tradeGuiService, this);
         getServer().getPluginManager().registerEvents(new IslandProtectionListener(islandService), this);
+        getServer().getPluginManager().registerEvents(new PlotProtectionListener(plotService), this);
         getServer().getPluginManager().registerEvents(playerShopController, this);
+        getServer().getPluginManager().registerEvents(spawnerStackService, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
-            displayService.refreshTab(player);
-            paidRankHolograms.refresh(player);
-            scoreboardService.refresh(player);
+            displayService.refreshTab(player); paidRankHolograms.refresh(player); scoreboardService.refresh(player);
         }), 40L, 40L);
 
         if (!registerCommand("commands", new CommandsCommand(commandsGui))) return;
-
-        PluginCommand kitCommand = requireCommand("kit");
-        if (kitCommand == null) return;
-        KitCommand kitExecutor = new KitCommand(kitGrantService, kitGui);
-        kitCommand.setExecutor(kitExecutor);
-        kitCommand.setTabCompleter(kitExecutor);
-
-        PluginCommand rankupCommand = requireCommand("rankup");
-        if (rankupCommand == null) return;
-        rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
-
-        PluginCommand ranksCommand = requireCommand("raenge");
-        if (ranksCommand == null) return;
-        ranksCommand.setExecutor(new RanksCommand(ranksGui));
-
+        PluginCommand kitCommand = requireCommand("kit"); if (kitCommand == null) return;
+        KitCommand kitExecutor = new KitCommand(kitGrantService, kitGui); kitCommand.setExecutor(kitExecutor); kitCommand.setTabCompleter(kitExecutor);
+        PluginCommand rankupCommand = requireCommand("rankup"); if (rankupCommand == null) return; rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
+        PluginCommand ranksCommand = requireCommand("raenge"); if (ranksCommand == null) return; ranksCommand.setExecutor(new RanksCommand(ranksGui));
         if (!registerCommand("fly", new FlyCommand(rankService))) return;
         if (!registerCommand("speed", new SpeedCommand())) return;
         if (!registerCommand("stack", new StackCommand(rankService))) return;
@@ -250,47 +232,30 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("shop", new ShopCommand(systemShopGui))) return;
         if (!registerCommand("worth", new WorthCommand(shopPrices))) return;
         if (!registerCommand("sell", new SellCommand(shopPrices, economyService))) return;
-
-        PluginCommand shopNpcCommand = requireCommand("shopnpc");
-        if (shopNpcCommand == null) return;
-        shopNpcCommand.setExecutor(shopNpcService);
-        shopNpcCommand.setTabCompleter(shopNpcService);
-
-        PluginCommand islandCommand = requireCommand("island");
-        if (islandCommand == null) return;
-        IslandCommand islandExecutor = new IslandCommand(islandService);
-        islandCommand.setExecutor(islandExecutor);
-        islandCommand.setTabCompleter(islandExecutor);
-
+        PluginCommand shopNpcCommand = requireCommand("shopnpc"); if (shopNpcCommand == null) return; shopNpcCommand.setExecutor(shopNpcService); shopNpcCommand.setTabCompleter(shopNpcService);
+        PluginCommand islandCommand = requireCommand("island"); if (islandCommand == null) return;
+        IslandCommand islandExecutor = new IslandCommand(islandService); islandCommand.setExecutor(islandExecutor); islandCommand.setTabCompleter(islandExecutor);
+        if (!registerCommand("plot", new PlotCommand(plotService))) return;
         if (!registerCommand("playershop", playerShopController)) return;
+        if (!registerCommand("spawnerstack", spawnerStackService)) return;
         if (!registerCommand("dailyrewards", new DailyRewardCommand(dailyRewardService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
         if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 7 Islands + PlayerShops + Retention-Basis) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 7 Claims + PlayerShops + SpawnerStacking + Retention) aktiviert. Storage: " + configService.getStorageType());
     }
 
-    private boolean registerCommand(String name, CommandExecutor executor) {
-        PluginCommand command = requireCommand(name);
-        if (command == null) return false;
-        command.setExecutor(executor);
-        return true;
-    }
-
-    private PluginCommand requireCommand(String name) {
-        PluginCommand command = getCommand(name);
-        if (command != null) return command;
-        getLogger().severe("/" + name + " fehlt in plugin.yml - SkyKings-Core wird deaktiviert.");
-        getServer().getPluginManager().disablePlugin(this);
-        return null;
-    }
+    private boolean registerCommand(String name, CommandExecutor executor) { PluginCommand command = requireCommand(name); if (command == null) return false; command.setExecutor(executor); return true; }
+    private PluginCommand requireCommand(String name) { PluginCommand command = getCommand(name); if (command != null) return command; getLogger().severe("/" + name + " fehlt in plugin.yml - SkyKings-Core wird deaktiviert."); getServer().getPluginManager().disablePlugin(this); return null; }
 
     @Override
     public void onDisable() {
+        if (spawnerStackService != null) spawnerStackService.save();
         if (dailyRewardService != null) dailyRewardService.save();
         if (playerShopStore != null) playerShopStore.save();
+        if (plotService != null) plotService.save();
         if (islandService != null) islandService.save();
         if (enderChestService != null) enderChestService.shutdown();
         if (buildBlockStore != null) buildBlockStore.shutdown();
@@ -298,13 +263,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (playerProfileService != null) playerProfileService.saveAll();
         if (dbExecutor != null) {
             dbExecutor.shutdown();
-            try {
-                if (!dbExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    getLogger().warning("SkyKings-Core-DB-Executor wurde nach 5 Sekunden nicht sauber beendet.");
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            try { if (!dbExecutor.awaitTermination(5, TimeUnit.SECONDS)) getLogger().warning("SkyKings-Core-DB-Executor wurde nach 5 Sekunden nicht sauber beendet."); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         if (dataStore != null) dataStore.close();
         getServer().getServicesManager().unregisterAll(this);
@@ -316,25 +276,16 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (type == StorageType.SQLITE) return new SQLiteDataStore(new File(getDataFolder(), configService.getSqliteFileName()), getLogger());
         throw new DataStoreException("MySQL/MariaDB-Storage ist architektonisch vorbereitet, aber noch nicht implementiert. Bitte storage.type: SQLITE verwenden.");
     }
-
     private PermissionBridge createPermissionBridge() {
         if (getServer().getPluginManager().getPlugin("LuckPerms") == null) return new NoOpPermissionBridge();
         try { return LuckPermsPermissionBridge.createIfAvailable(getLogger()); }
-        catch (Throwable t) {
-            getLogger().log(Level.WARNING, "LuckPerms erkannt, aber die Bridge konnte nicht initialisiert werden.", t);
-            return new NoOpPermissionBridge();
-        }
+        catch (Throwable t) { getLogger().log(Level.WARNING, "LuckPerms erkannt, aber die Bridge konnte nicht initialisiert werden.", t); return new NoOpPermissionBridge(); }
     }
-
     private EconomyBridge createEconomyBridge() {
         if (getServer().getPluginManager().getPlugin("Vault") == null) return new NoOpEconomyBridge();
         try { return VaultEconomyBridge.createAndRegister(this, economyService, getLogger()); }
-        catch (Throwable t) {
-            getLogger().log(Level.WARNING, "Vault/VaultUnlocked erkannt, aber die Economy-Bridge konnte nicht registriert werden.", t);
-            return new NoOpEconomyBridge();
-        }
+        catch (Throwable t) { getLogger().log(Level.WARNING, "Vault/VaultUnlocked erkannt, aber die Economy-Bridge konnte nicht registriert werden.", t); return new NoOpEconomyBridge(); }
     }
-
     private void logIntegrationStatus() {
         getLogger().info("LuckPerms verfügbar: " + (getServer().getPluginManager().getPlugin("LuckPerms") != null));
         getLogger().info("PermissionBridge aktiv: " + permissionBridge.isAvailable());
