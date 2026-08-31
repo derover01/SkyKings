@@ -11,9 +11,11 @@ import net.skykings.core.command.KitCommand;
 import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
 import net.skykings.core.command.RepairCommand;
+import net.skykings.core.command.SellCommand;
 import net.skykings.core.command.ShopCommand;
 import net.skykings.core.command.StackCommand;
 import net.skykings.core.command.TrashCommand;
+import net.skykings.core.command.WorthCommand;
 import net.skykings.core.config.ConfigService;
 import net.skykings.core.config.ConfigServiceImpl;
 import net.skykings.core.config.StorageType;
@@ -66,6 +68,7 @@ import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.rank.RanksGui;
 import net.skykings.core.shop.PvpRestockShopGui;
 import net.skykings.core.shop.ShopNpcService;
+import net.skykings.core.shop.ShopPriceRegistry;
 import net.skykings.core.shop.ShopTransactionService;
 import net.skykings.core.shop.SystemShopGui;
 import net.skykings.core.storage.DataStore;
@@ -148,6 +151,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.buildBlockStore = new BuildBlockStore(this);
         this.enderChestService = new EnderChestService(this, rankService, economyService);
         this.shopTransactionService = new ShopTransactionService(economyService, loggingService);
+        ShopPriceRegistry shopPrices = new ShopPriceRegistry(this);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -203,6 +207,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
         if (!registerCommand("enderchest", new EnderChestCommand(enderChestService))) return;
         if (!registerCommand("shop", new ShopCommand(systemShopGui))) return;
+        if (!registerCommand("worth", new WorthCommand(shopPrices))) return;
+        if (!registerCommand("sell", new SellCommand(shopPrices, economyService))) return;
 
         PluginCommand shopNpcCommand = requireCommand("shopnpc");
         if (shopNpcCommand == null) return;
@@ -214,7 +220,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 5: Economy/Shop-Engine + Shop-NPCs + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 5: Economy/Shop-Engine + Shop-NPCs + /worth + /sell) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
