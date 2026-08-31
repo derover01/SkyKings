@@ -11,10 +11,11 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
- * Weltunabhängige Transaktionslogik für System-, Villager- und spätere Player-Shops.
- * Coins werden über EconomyService gebucht, Nethersterne immer als physische NETHER_STAR-Items.
+ * Weltunabhaengige Transaktionslogik fuer System-, Villager- und Player-Shops.
+ * Coins werden ueber EconomyService gebucht, SkyKings Sterne bleiben physische NETHER_STAR-Items.
  */
 public final class ShopTransactionService {
 
@@ -60,6 +61,10 @@ public final class ShopTransactionService {
                         + ", item=" + reward.getType() + ", amount=" + reward.getAmount()));
         player.updateInventory();
         return ShopPurchaseResult.SUCCESS;
+    }
+
+    public long getCoinBalance(UUID uuid) {
+        return uuid == null ? 0L : economyService.getBalance(uuid);
     }
 
     public int countNetherstars(Inventory inventory) {
