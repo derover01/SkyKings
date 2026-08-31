@@ -2,9 +2,12 @@ package net.skykings.combat.retention;
 
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiItems;
+import net.skykings.core.ui.UiTheme;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -13,7 +16,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,28 +34,34 @@ public final class QuestCommand implements CommandExecutor {
 
     private void open(Player player) {
         UUID uuid = player.getUniqueId();
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings " + ChatColor.GRAY + "| " + ChatColor.GREEN + "Quests", 45);
-        decorate(gui);
-        gui.setItem(11, quest(Material.IRON_SWORD, ChatColor.GREEN.toString() + ChatColor.BOLD + "DAILY • PVP JAEGER",
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Quests"), 54);
+        gui.setItem(11, quest(Material.IRON_SWORD, UiTheme.SUCCESS + "Daily • PvP Jaeger",
                 quests.get(uuid, "daily.kills"), 5, quests.claimed(uuid, "daily.claimed-kills"),
                 "150.000 Coins + 2 SkyKings Sterne"));
-        gui.setItem(13, quest(Material.ENDER_PEARL, ChatColor.AQUA.toString() + ChatColor.BOLD + "DAILY • PEARL RUNNER",
+        gui.setItem(13, quest(Material.ENDER_PEARL, UiTheme.PRIMARY + "Daily • Pearl Runner",
                 quests.get(uuid, "daily.pearls"), 20, quests.claimed(uuid, "daily.claimed-pearls"),
                 "75.000 Coins + 1 SkyKings Stern"));
-        gui.setItem(15, quest(Material.DIAMOND_SWORD, ChatColor.GOLD.toString() + ChatColor.BOLD + "WEEKLY • KAMPFKOENIG",
+        gui.setItem(15, quest(Material.DIAMOND_SWORD, UiTheme.LEGENDARY + "Weekly • Kampfkoenig",
                 quests.get(uuid, "weekly.kills"), 30, quests.claimed(uuid, "weekly.claimed-kills"),
                 "500.000 Coins + 5 SkyKings Sterne"));
-        gui.setItem(22, item(Material.BOOK, ChatColor.YELLOW.toString() + ChatColor.BOLD + "DEIN QUESTBOARD",
-                ChatColor.GRAY + "Daily Quests resetten jeden Tag.",
-                ChatColor.GRAY + "Weekly Quests resetten jede Woche.",
-                "",
-                ChatColor.GREEN + "Rewards werden automatisch ausgezahlt.",
-                ChatColor.DARK_GRAY + "Event-Kills und Kill-Farming zaehlen nicht."));
-        gui.setItem(31, item(Material.NETHER_STAR, ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS REWARDS",
-                ChatColor.GRAY + "Quests belohnen aktives Gameplay statt AFK-Grind.",
-                ChatColor.GRAY + "Sterne sind die physische SkyKings-Waehrung."));
+        gui.setItem(31, UiItems.item(Material.BOOK,
+                UiTheme.PRIMARY + "Questboard",
+                UiTheme.MUTED + "Daily: taeglicher Reset",
+                UiTheme.MUTED + "Weekly: woechentlicher Reset",
+                UiTheme.MUTED + "Event-Kills und Farming zaehlen nicht."));
+        gui.setItem(33, UiItems.item(Material.NETHER_STAR,
+                UiTheme.PRIMARY + "SkyKings Rewards",
+                UiTheme.MUTED + "Aktives Gameplay wird belohnt.",
+                UiTheme.MUTED + "Sterne bleiben physische Waehrung."));
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
+            SoundFeedback.back(p);
+            Bukkit.dispatchCommand(p, "profile");
+        });
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS,
+                UiTheme.PRIMARY + "Quests",
+                UiTheme.MUTED + "Daily • Weekly • Rewards"));
         GuiManager.active().open(gui);
-        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.35F);
+        SoundFeedback.menuOpen(player);
     }
 
     private ItemStack quest(Material material, String name, int current, int target, boolean claimed, String reward) {
@@ -62,39 +70,26 @@ public final class QuestCommand implements CommandExecutor {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(name);
         List<String> lore = new ArrayList<String>();
-        lore.add(ChatColor.GRAY + "Fortschritt: " + ChatColor.WHITE + shown + "/" + target);
+        lore.add(UiTheme.MUTED + "Fortschritt " + UiTheme.TEXT + shown + "/" + target);
         lore.add(progress(shown, target));
         lore.add("");
-        lore.add(ChatColor.GRAY + "Reward: " + ChatColor.YELLOW + reward);
+        lore.add(UiTheme.MUTED + "Reward " + UiTheme.WARNING + reward);
         lore.add("");
-        lore.add(claimed ? ChatColor.GREEN.toString() + ChatColor.BOLD + "ABGESCHLOSSEN ✔"
-                : (shown >= target ? ChatColor.GREEN + "Geschafft - Reward wird ausgezahlt" : ChatColor.YELLOW + "Weiter spielen!"));
-        meta.setLore(lore); item.setItemMeta(meta); return item;
+        lore.add(claimed ? UiTheme.STATUS_COMPLETED
+                : (shown >= target ? UiTheme.STATUS_READY : UiTheme.WARNING + "IN PROGRESS"));
+        meta.setLore(UiItems.wrapLore(lore.toArray(new String[0])));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private String progress(int current, int target) {
         int filled = Math.min(10, (int) Math.floor((current * 10D) / Math.max(1, target)));
         StringBuilder out = new StringBuilder();
-        out.append(ChatColor.GREEN);
+        out.append(ChatColor.AQUA);
         for (int i = 0; i < 10; i++) {
             if (i == filled) out.append(ChatColor.DARK_GRAY);
             out.append('■');
         }
         return out.toString();
-    }
-
-    private void decorate(GuiSession gui) {
-        ItemStack dark = pane((short) 15, " "); ItemStack green = pane((short) 5, ChatColor.GREEN + "Quests");
-        for (int i = 0; i < 45; i++) if (i < 9 || i >= 36 || i % 9 == 0 || i % 9 == 8) gui.setItem(i, dark);
-        gui.setItem(4, green); gui.setItem(40, green);
-    }
-
-    private ItemStack pane(short data, String name) {
-        ItemStack item = new ItemStack(Material.STAINED_GLASS_PANE, 1, data); ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name); item.setItemMeta(meta); return item;
-    }
-    private ItemStack item(Material material, String name, String... lore) {
-        ItemStack item = new ItemStack(material); ItemMeta meta = item.getItemMeta(); meta.setDisplayName(name);
-        meta.setLore(Arrays.asList(lore)); item.setItemMeta(meta); return item;
     }
 }
