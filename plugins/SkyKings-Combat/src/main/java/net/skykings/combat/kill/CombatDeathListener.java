@@ -1,6 +1,7 @@
 package net.skykings.combat.kill;
 
 import net.skykings.combat.cosmetic.KillCosmeticService;
+import net.skykings.combat.event.EventParticipationService;
 import net.skykings.combat.tag.CombatTagService;
 import net.skykings.combat.tag.LastAttackerService;
 import org.bukkit.Bukkit;
@@ -18,7 +19,7 @@ import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Verbindet echte PvP-Tode und Combat-Logout mit dem zentralen Kill-Pfad. */
+/** Verbindet echte Open-World-PvP-Tode und Combat-Logout mit dem zentralen Kill-Pfad. */
 public final class CombatDeathListener implements Listener {
 
     private final CombatKillService combatKillService;
@@ -26,6 +27,7 @@ public final class CombatDeathListener implements Listener {
     private final LastAttackerService lastAttackerService;
     private final KillMessageService killMessageService;
     private final KillCosmeticService killCosmeticService;
+    private final EventParticipationService eventParticipationService;
     private final Logger logger;
     private final Function<UUID, Player> playerResolver;
 
@@ -34,29 +36,46 @@ public final class CombatDeathListener implements Listener {
 
     public CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                                 LastAttackerService lastAttackerService, Logger logger) {
-        this(combatKillService, combatTagService, lastAttackerService, null, null, logger, Bukkit::getPlayer);
+        this(combatKillService, combatTagService, lastAttackerService, null, null, null, logger, Bukkit::getPlayer);
     }
 
     public CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                                 LastAttackerService lastAttackerService, KillMessageService killMessageService,
                                 KillCosmeticService killCosmeticService, Logger logger) {
         this(combatKillService, combatTagService, lastAttackerService, killMessageService, killCosmeticService,
-                logger, Bukkit::getPlayer);
+                null, logger, Bukkit::getPlayer);
+    }
+
+    public CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
+                                LastAttackerService lastAttackerService, KillMessageService killMessageService,
+                                KillCosmeticService killCosmeticService, EventParticipationService eventParticipationService,
+                                Logger logger) {
+        this(combatKillService, combatTagService, lastAttackerService, killMessageService, killCosmeticService,
+                eventParticipationService, logger, Bukkit::getPlayer);
     }
 
     CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                          LastAttackerService lastAttackerService, Logger logger, Function<UUID, Player> playerResolver) {
-        this(combatKillService, combatTagService, lastAttackerService, null, null, logger, playerResolver);
+        this(combatKillService, combatTagService, lastAttackerService, null, null, null, logger, playerResolver);
     }
 
     CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
                          LastAttackerService lastAttackerService, KillMessageService killMessageService,
                          KillCosmeticService killCosmeticService, Logger logger, Function<UUID, Player> playerResolver) {
+        this(combatKillService, combatTagService, lastAttackerService, killMessageService, killCosmeticService,
+                null, logger, playerResolver);
+    }
+
+    CombatDeathListener(CombatKillService combatKillService, CombatTagService combatTagService,
+                         LastAttackerService lastAttackerService, KillMessageService killMessageService,
+                         KillCosmeticService killCosmeticService, EventParticipationService eventParticipationService,
+                         Logger logger, Function<UUID, Player> playerResolver) {
         this.combatKillService = combatKillService;
         this.combatTagService = combatTagService;
         this.lastAttackerService = lastAttackerService;
         this.killMessageService = killMessageService;
         this.killCosmeticService = killCosmeticService;
+        this.eventParticipationService = eventParticipationService;
         this.logger = logger;
         this.playerResolver = playerResolver;
     }
@@ -65,11 +84,15 @@ public final class CombatDeathListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         UUID victimUuid = victim.getUniqueId();
-        Player killer = resolveKiller(victim, victimUuid);
 
         combatTagService.clear(victimUuid);
         lastAttackerService.clear(victimUuid);
 
+        // Event-Kaempfe sind bewusst von Open-World-Stats, Streaks, Bounties,
+        // Netherstern-Rewards, Death-Messages und Kill-Cosmetics isoliert.
+        if (isEventParticipant(victimUuid)) return;
+
+        Player killer = resolveKiller(victim, victimUuid);
         if (killer != null && !killer.getUniqueId().equals(victimUuid)) {
             if (killMessageService != null) event.setDeathMessage(killMessageService.create(killer, victim));
             if (killCosmeticService != null) killCosmeticService.play(killer, victim.getLocation());
@@ -83,6 +106,8 @@ public final class CombatDeathListener implements Listener {
         Player player = event.getPlayer();
         UUID uuid = player.getUniqueId();
 
+        // Der jeweilige Event-Controller entscheidet selbst ueber Forfeit/Elimination.
+        if (isEventParticipant(uuid)) return;
         if (!combatTagService.isTagged(uuid) || player.isDead()) return;
 
         UUID attackerUuid = lastAttackerService.getLastAttacker(uuid);
@@ -96,6 +121,10 @@ public final class CombatDeathListener implements Listener {
             pendingCombatLogout.remove(uuid);
             pendingCombatLogoutKiller.remove(uuid);
         }
+    }
+
+    private boolean isEventParticipant(UUID uuid) {
+        return eventParticipationService != null && eventParticipationService.isInEvent(uuid);
     }
 
     private Player resolveKiller(Player victim, UUID victimUuid) {
