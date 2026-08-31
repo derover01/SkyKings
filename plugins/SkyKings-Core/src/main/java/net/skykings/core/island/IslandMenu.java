@@ -2,16 +2,20 @@ package net.skykings.core.island;
 
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 /** Hochwertiges /is Hauptmenue fuer den Vanilla-1.8.9-Client. */
 public final class IslandMenu {
@@ -79,8 +83,8 @@ public final class IslandMenu {
             gui.setItem(16, item(Material.SKULL_ITEM, ChatColor.GOLD.toString() + ChatColor.BOLD + "VERTRAUTE SPIELER",
                     ChatColor.GRAY + "Trusted Spieler: " + ChatColor.WHITE + data.getTrusted().size(),
                     "",
-                    ChatColor.YELLOW + "/is trust <Spieler>",
-                    ChatColor.YELLOW + "/is untrust <Spieler>"));
+                    ChatColor.YELLOW + "Klicken zum Verwalten",
+                    ChatColor.DARK_GRAY + "Hinzufuegen: /is trust <Spieler>"), (p,e,s) -> openTrusted(p));
             gui.setItem(22, item(Material.CHEST, ChatColor.YELLOW.toString() + ChatColor.BOLD + "ISLAND INFO",
                     ChatColor.GRAY + "Groesse: " + ChatColor.WHITE + "129x129",
                     ChatColor.GRAY + "Island-ID: " + ChatColor.WHITE + "#" + data.index,
@@ -101,6 +105,42 @@ public final class IslandMenu {
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.35F);
     }
 
+    private void openTrusted(Player player) {
+        IslandService.IslandData data = islands.get(player.getUniqueId());
+        if (data == null) { open(player); return; }
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Island " + ChatColor.GRAY + "| " + ChatColor.GOLD + "Trust", 45);
+        ItemStack filler = pane((short) 15, " ");
+        for (int i = 0; i < 45; i++) gui.setItem(i, filler);
+        gui.setItem(4, item(Material.SKULL_ITEM, ChatColor.GOLD.toString() + ChatColor.BOLD + "VERTRAUTE SPIELER",
+                ChatColor.GRAY + "Spieler mit Baurechten auf deiner Insel.",
+                ChatColor.GRAY + "Hinzufuegen mit " + ChatColor.AQUA + "/is trust <Spieler>"));
+        int slot = 10;
+        for (UUID uuid : data.getTrusted()) {
+            if (slot > 34) break;
+            final UUID target = uuid;
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
+            String name = offline.getName() == null ? uuid.toString().substring(0, 8) : offline.getName();
+            gui.setItem(slot++, skull(name, ChatColor.YELLOW + name,
+                    offline.isOnline() ? ChatColor.GREEN + "Online" : ChatColor.GRAY + "Offline",
+                    "",
+                    ChatColor.RED + "Klicken, um Trust zu entfernen"), (p,e,s) -> {
+                if (islands.untrust(p.getUniqueId(), target)) {
+                    p.sendMessage(ChatColor.YELLOW + "Trust entfernt.");
+                    p.playSound(p.getLocation(), Sound.CLICK, 0.6F, 0.8F);
+                }
+                openTrusted(p);
+            });
+        }
+        if (data.getTrusted().isEmpty()) {
+            gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Noch niemand vertraut",
+                    ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/is trust <Spieler>",
+                    ChatColor.GRAY + "um einem Freund Baurechte zu geben."));
+        }
+        gui.setItem(40, item(Material.ARROW, ChatColor.YELLOW + "Zurueck", ChatColor.GRAY + "Zur Island-Uebersicht"), (p,e,s) -> open(p));
+        guiManager.open(gui);
+        player.playSound(player.getLocation(), Sound.CLICK, 0.55F, 1.35F);
+    }
+
     private void decorate(GuiSession gui) {
         ItemStack dark = pane((short) 15, " ");
         ItemStack cyan = pane((short) 9, ChatColor.AQUA + "SkyKings");
@@ -109,6 +149,16 @@ public final class IslandMenu {
         }
         gui.setItem(4, cyan);
         gui.setItem(40, cyan);
+    }
+
+    private ItemStack skull(String owner, String name, String... lore) {
+        ItemStack item = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
+        meta.setOwner(owner);
+        meta.setDisplayName(name);
+        meta.setLore(Arrays.asList(lore));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack pane(short data, String name) {
