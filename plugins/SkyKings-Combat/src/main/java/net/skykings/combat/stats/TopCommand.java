@@ -1,39 +1,31 @@
 package net.skykings.combat.stats;
 
+import net.skykings.core.gui.GuiManager;
+import net.skykings.core.gui.GuiSession;
 import net.skykings.core.pvp.PvpStatsSnapshot;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiItems;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** /top - ästhetische PvP-Leaderboards für Kills, Beststreak und K/D. */
+/** Gemeinsame Leaderboard-Oberflaeche fuer Kills, Beststreak und K/D. */
 public final class TopCommand implements CommandExecutor, Listener {
-
-    private static final String ROOT_TITLE = ChatColor.DARK_GRAY + "SkyKings | Top";
-    private static final String KILLS_TITLE = ChatColor.DARK_GRAY + "Top | Kills";
-    private static final String STREAK_TITLE = ChatColor.DARK_GRAY + "Top | Beststreak";
-    private static final String KD_TITLE = ChatColor.DARK_GRAY + "Top | K/D";
-
     private final PvpStatsService statsService;
-    private final DecimalFormat kdFormat = new DecimalFormat("0.00");
 
     public TopCommand(PvpStatsService statsService) {
         this.statsService = statsService;
@@ -42,7 +34,7 @@ public final class TopCommand implements CommandExecutor, Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur ingame verfügbar.");
+            sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
             return true;
         }
         openRoot((Player) sender);
@@ -50,74 +42,97 @@ public final class TopCommand implements CommandExecutor, Listener {
     }
 
     private void openRoot(Player player) {
-        Inventory inv = Bukkit.createInventory(null, 27, ROOT_TITLE);
-        inv.setItem(11, icon(Material.DIAMOND_SWORD, ChatColor.RED + "Top Kills", ChatColor.GRAY + "Die gefährlichsten Spieler"));
-        inv.setItem(13, icon(Material.BLAZE_POWDER, ChatColor.GOLD + "Top Beststreak", ChatColor.GRAY + "Die höchsten Killstreaks"));
-        inv.setItem(15, icon(Material.NETHER_STAR, ChatColor.YELLOW + "Top K/D", ChatColor.GRAY + "Die stärksten K/D-Werte"));
-        player.openInventory(inv);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Leaderboards"), 27);
+        gui.setItem(11, UiItems.item(Material.DIAMOND_SWORD,
+                UiTheme.PRIMARY + "Kills",
+                UiTheme.MUTED + "Die meisten legitimen PvP-Kills.",
+                "",
+                UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.KILLS));
+        gui.setItem(13, UiItems.item(Material.BLAZE_POWDER,
+                UiTheme.PRIMARY + "Beststreak",
+                UiTheme.MUTED + "Die hoechsten permanenten Killstreaks.",
+                "",
+                UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.STREAK));
+        gui.setItem(15, UiItems.item(Material.NETHER_STAR,
+                UiTheme.PRIMARY + "K/D",
+                UiTheme.MUTED + "Die staerksten Kill/Death-Werte.",
+                "",
+                UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.KD));
+        gui.setItem(22, UiItems.item(Material.COMPASS,
+                UiTheme.TEXT + "Leaderboards",
+                UiTheme.MUTED + "Einheitliche Combat-Ranglisten",
+                UiTheme.MUTED + "Klick auf einen Spieler fuer sein Profile."));
+        GuiManager.active().open(gui);
+        SoundFeedback.menuOpen(player);
     }
 
-    @EventHandler
-    public void onClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player)) return;
-        String title = event.getView().getTitle();
-        if (!title.equals(ROOT_TITLE) && !title.equals(KILLS_TITLE) && !title.equals(STREAK_TITLE) && !title.equals(KD_TITLE)) return;
-        event.setCancelled(true);
-        Player player = (Player) event.getWhoClicked();
-        if (title.equals(ROOT_TITLE)) {
-            if (event.getRawSlot() == 11) openLeaderboard(player, KILLS_TITLE, Comparator.comparingLong((Map.Entry<UUID, PvpStatsSnapshot> e) -> e.getValue().getKills()).reversed(), "Kills");
-            else if (event.getRawSlot() == 13) openLeaderboard(player, STREAK_TITLE, Comparator.comparingInt((Map.Entry<UUID, PvpStatsSnapshot> e) -> e.getValue().getBestStreak()).reversed(), "Beststreak");
-            else if (event.getRawSlot() == 15) openLeaderboard(player, KD_TITLE, Comparator.comparingDouble((Map.Entry<UUID, PvpStatsSnapshot> e) -> kd(e.getValue())).reversed(), "K/D");
-        } else if (event.getRawSlot() == 49) {
-            openRoot(player);
-        }
-    }
-
-    private void openLeaderboard(Player player, String title,
-                                 Comparator<Map.Entry<UUID, PvpStatsSnapshot>> comparator, String metric) {
-        Inventory inv = Bukkit.createInventory(null, 54, title);
+    private void openLeaderboard(Player player, Metric metric) {
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Top " + metric.label), 54);
         List<Map.Entry<UUID, PvpStatsSnapshot>> entries = new ArrayList<Map.Entry<UUID, PvpStatsSnapshot>>(statsService.getAllStats().entrySet());
-        entries.sort(comparator);
+        entries.sort(metric.comparator());
         int limit = Math.min(45, entries.size());
         for (int i = 0; i < limit; i++) {
             Map.Entry<UUID, PvpStatsSnapshot> entry = entries.get(i);
-            inv.setItem(i, playerHead(entry.getKey(), entry.getValue(), i + 1, metric));
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(entry.getKey());
+            String name = offline.getName() == null ? entry.getKey().toString().substring(0, 8) : offline.getName();
+            final String selected = name;
+            gui.setItem(i, playerHead(entry.getKey(), entry.getValue(), i + 1, metric),
+                    (p,e,s) -> Bukkit.dispatchCommand(p, "profile " + selected));
         }
-        inv.setItem(49, icon(Material.ARROW, ChatColor.YELLOW + "Zurück", ChatColor.GRAY + "Zur Übersicht"));
-        player.openInventory(inv);
+        if (entries.isEmpty()) gui.setItem(22, UiItems.empty("Keine Daten", "Noch wurden keine PvP-Stats aufgezeichnet."));
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); openRoot(p); });
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.PAPER,
+                UiTheme.PRIMARY + metric.label,
+                UiTheme.MUTED + "Sortiert nach " + metric.description,
+                UiTheme.TEXT.toString() + entries.size() + UiTheme.MUTED + " Spieler gewertet"));
+        GuiManager.active().open(gui);
+        SoundFeedback.menuOpen(player);
     }
 
-    private ItemStack playerHead(UUID uuid, PvpStatsSnapshot stats, int position, String metric) {
+    private org.bukkit.inventory.ItemStack playerHead(UUID uuid, PvpStatsSnapshot value, int position, Metric metric) {
         OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
-        String name = offline != null && offline.getName() != null ? offline.getName() : uuid.toString().substring(0, 8);
-        ItemStack item = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
-        SkullMeta meta = (SkullMeta) item.getItemMeta();
-        meta.setOwner(name);
-        meta.setDisplayName(ChatColor.GOLD + "#" + position + " " + ChatColor.YELLOW + name);
-        List<String> lore = new ArrayList<String>();
-        lore.add(ChatColor.GRAY + "Kills: " + ChatColor.WHITE + stats.getKills());
-        lore.add(ChatColor.GRAY + "Tode: " + ChatColor.WHITE + stats.getDeaths());
-        lore.add(ChatColor.GRAY + "K/D: " + ChatColor.WHITE + kdFormat.format(kd(stats)));
-        lore.add(ChatColor.GRAY + "Beststreak: " + ChatColor.WHITE + stats.getBestStreak());
-        lore.add("");
-        lore.add(ChatColor.AQUA + "Sortiert nach " + metric);
-        meta.setLore(lore);
-        item.setItemMeta(meta);
-        return item;
+        String name = offline.getName() == null ? uuid.toString().substring(0, 8) : offline.getName();
+        String rankColor = position == 1 ? UiTheme.LEGENDARY.toString()
+                : position == 2 ? UiTheme.PRIMARY.toString()
+                : position == 3 ? UiTheme.WARNING.toString() : UiTheme.TEXT.toString();
+        return UiItems.head(name,
+                rankColor + "#" + position + " " + UiTheme.TEXT + name,
+                metric.line(value),
+                UiTheme.MUTED + "Kills " + UiTheme.TEXT + UiFormat.number(value.getKills()),
+                UiTheme.MUTED + "K/D " + UiTheme.TEXT + kd(value),
+                UiTheme.MUTED + "Beststreak " + UiTheme.TEXT + value.getBestStreak(),
+                "",
+                UiItems.action("Profile oeffnen"));
     }
 
-    private double kd(PvpStatsSnapshot stats) {
-        return stats.getDeaths() <= 0L ? (double) stats.getKills() : (double) stats.getKills() / (double) stats.getDeaths();
+    private static String kd(PvpStatsSnapshot value) {
+        return String.format(Locale.GERMANY, "%.2f", value.getKd());
     }
 
-    private ItemStack icon(Material material, String name, String loreLine) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name);
-        List<String> lore = new ArrayList<String>();
-        lore.add(loreLine);
-        meta.setLore(lore);
-        item.setItemMeta(meta);
-        return item;
+    private enum Metric {
+        KILLS("Kills", "Lifetime Kills") {
+            @Override Comparator<Map.Entry<UUID, PvpStatsSnapshot>> comparator() {
+                return Comparator.comparingLong((Map.Entry<UUID, PvpStatsSnapshot> e) -> e.getValue().getKills()).reversed();
+            }
+            @Override String line(PvpStatsSnapshot s) { return UiTheme.PRIMARY + UiFormat.number(s.getKills()) + " Kills"; }
+        },
+        STREAK("Beststreak", "Beststreak") {
+            @Override Comparator<Map.Entry<UUID, PvpStatsSnapshot>> comparator() {
+                return Comparator.comparingInt((Map.Entry<UUID, PvpStatsSnapshot> e) -> e.getValue().getBestStreak()).reversed();
+            }
+            @Override String line(PvpStatsSnapshot s) { return UiTheme.PRIMARY.toString() + s.getBestStreak() + " Beststreak"; }
+        },
+        KD("K/D", "Kill/Death Ratio") {
+            @Override Comparator<Map.Entry<UUID, PvpStatsSnapshot>> comparator() {
+                return Comparator.comparingDouble((Map.Entry<UUID, PvpStatsSnapshot> e) -> e.getValue().getKd()).reversed();
+            }
+            @Override String line(PvpStatsSnapshot s) { return UiTheme.PRIMARY + kd(s) + " K/D"; }
+        };
+
+        final String label;
+        final String description;
+        Metric(String label, String description) { this.label = label; this.description = description; }
+        abstract Comparator<Map.Entry<UUID, PvpStatsSnapshot>> comparator();
+        abstract String line(PvpStatsSnapshot s);
     }
 }
