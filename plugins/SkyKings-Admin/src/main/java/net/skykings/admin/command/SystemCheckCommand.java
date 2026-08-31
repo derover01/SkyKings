@@ -2,6 +2,7 @@ package net.skykings.admin.command;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.island.IslandAccessService;
+import net.skykings.core.plot.PlotAccessService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -26,8 +27,10 @@ public final class SystemCheckCommand implements CommandExecutor {
         plugin(sender, "Vault");
         sender.sendMessage(status(Bukkit.getServicesManager().load(SkyKingsCoreAPI.class) != null) + " Core API");
         sender.sendMessage(status(Bukkit.getServicesManager().load(IslandAccessService.class) != null) + " Island Access API");
+        sender.sendMessage(status(Bukkit.getServicesManager().load(PlotAccessService.class) != null) + " Plot Access API");
         sender.sendMessage(status(Bukkit.getWorld("SkyPvP") != null) + " SkyPvP Produktionswelt");
         sender.sendMessage(status(Bukkit.getWorld("SkyIslands") != null) + " SkyIslands Welt");
+        sender.sendMessage(status(Bukkit.getWorld("SkyPlots") != null) + " SkyPlots Welt");
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
         return true;
     }
