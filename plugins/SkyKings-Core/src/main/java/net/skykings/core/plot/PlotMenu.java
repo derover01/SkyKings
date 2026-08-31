@@ -2,14 +2,18 @@ package net.skykings.core.plot;
 
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.Arrays;
+import java.util.UUID;
 
 /** PlotSquared-inspiriertes Hauptmenue fuer das eigene SkyKings-Plot-System. */
 public final class PlotMenu {
@@ -52,6 +56,7 @@ public final class PlotMenu {
                 if (plots.setHome(p.getUniqueId(), p.getLocation())) {
                     p.sendMessage(ChatColor.GREEN + "Plot-Home gesetzt.");
                     p.playSound(p.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.4F);
+                    open(p);
                 } else {
                     p.sendMessage(ChatColor.RED + "Du musst auf deinem eigenen Plot stehen.");
                     p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
@@ -59,11 +64,11 @@ public final class PlotMenu {
             });
             gui.setItem(14, item(Material.SKULL_ITEM, ChatColor.GOLD.toString() + ChatColor.BOLD + "MITGLIEDER / TRUST",
                     ChatColor.GRAY + "Trusted: " + ChatColor.WHITE + data.getTrusted().size(), "",
-                    ChatColor.YELLOW + "/plot trust <Spieler>",
-                    ChatColor.YELLOW + "/plot untrust <Spieler>"));
+                    ChatColor.YELLOW + "Klicken zum Verwalten",
+                    ChatColor.DARK_GRAY + "Hinzufuegen: /p trust <Spieler>"), (p,e,s) -> openTrusted(p));
             gui.setItem(16, item(Material.COMPASS, ChatColor.AQUA.toString() + ChatColor.BOLD + "PLOT BESUCHEN",
                     ChatColor.GRAY + "Besuche den Plot eines anderen Spielers.", "",
-                    ChatColor.YELLOW + "/plot visit <Spieler>"));
+                    ChatColor.YELLOW + "/p visit <Spieler>"));
             gui.setItem(22, item(Material.SMOOTH_BRICK, ChatColor.WHITE.toString() + ChatColor.BOLD + "PLOT #" + data.index,
                     ChatColor.GRAY + "Groesse: " + ChatColor.WHITE + "65x65",
                     ChatColor.GRAY + "Center: " + ChatColor.WHITE + data.centerX + ", " + data.centerZ,
@@ -78,11 +83,57 @@ public final class PlotMenu {
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
     }
 
+    private void openTrusted(Player player) {
+        PlotService.PlotData data = plots.get(player.getUniqueId());
+        if (data == null) { open(player); return; }
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Plot " + ChatColor.GRAY + "| " + ChatColor.GOLD + "Trust", 45);
+        ItemStack filler = pane((short) 15, " ");
+        for (int i = 0; i < 45; i++) gui.setItem(i, filler);
+        gui.setItem(4, item(Material.SKULL_ITEM, ChatColor.GOLD.toString() + ChatColor.BOLD + "PLOT TRUST",
+                ChatColor.GRAY + "Spieler mit Baurechten auf deinem Plot.",
+                ChatColor.GRAY + "Hinzufuegen mit " + ChatColor.AQUA + "/p trust <Spieler>"));
+        int slot = 10;
+        for (UUID uuid : data.getTrusted()) {
+            if (slot > 34) break;
+            final UUID target = uuid;
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
+            String name = offline.getName() == null ? uuid.toString().substring(0, 8) : offline.getName();
+            gui.setItem(slot++, skull(name, ChatColor.YELLOW + name,
+                    offline.isOnline() ? ChatColor.GREEN + "Online" : ChatColor.GRAY + "Offline",
+                    "",
+                    ChatColor.RED + "Klicken, um Trust zu entfernen"), (p,e,s) -> {
+                if (plots.untrust(p.getUniqueId(), target)) {
+                    p.sendMessage(ChatColor.YELLOW + "Plot-Trust entfernt.");
+                    p.playSound(p.getLocation(), Sound.CLICK, 0.6F, 0.8F);
+                }
+                openTrusted(p);
+            });
+        }
+        if (data.getTrusted().isEmpty()) {
+            gui.setItem(22, item(Material.BARRIER, ChatColor.RED + "Noch niemand vertraut",
+                    ChatColor.GRAY + "Nutze " + ChatColor.AQUA + "/p trust <Spieler>",
+                    ChatColor.GRAY + "um einem Freund Baurechte zu geben."));
+        }
+        gui.setItem(40, item(Material.ARROW, ChatColor.YELLOW + "Zurueck", ChatColor.GRAY + "Zur Plot-Uebersicht"), (p,e,s) -> open(p));
+        guiManager.open(gui);
+        player.playSound(player.getLocation(), Sound.CLICK, 0.55F, 1.35F);
+    }
+
     private void decorate(GuiSession gui) {
         ItemStack gray = pane((short) 15, " ");
         ItemStack green = pane((short) 5, ChatColor.GREEN + "SkyKings Plots");
         for (int i = 0; i < 45; i++) if (i < 9 || i >= 36 || i % 9 == 0 || i % 9 == 8) gui.setItem(i, gray);
         gui.setItem(4, green); gui.setItem(40, green);
+    }
+
+    private ItemStack skull(String owner, String name, String... lore) {
+        ItemStack item = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
+        SkullMeta meta = (SkullMeta) item.getItemMeta();
+        meta.setOwner(owner);
+        meta.setDisplayName(name);
+        meta.setLore(Arrays.asList(lore));
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack pane(short data, String name) {
