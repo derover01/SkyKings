@@ -1,15 +1,14 @@
 package net.skykings.combat.map.zone;
 
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.item.SkyKingsCurrencyItems;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -46,14 +45,11 @@ public final class HotZoneRewardListener implements Listener {
         repeatCooldowns.put(pair, now + REPEAT_COOLDOWN_MS);
 
         economy.deposit(winner.getUniqueId(), COIN_BONUS, "HOT_ZONE", "Hot Zone PvP Reward: " + zone);
-        ItemStack star = new ItemStack(Material.NETHER_STAR, 1);
-        Map<Integer, ItemStack> left = winner.getInventory().addItem(star);
-        for (ItemStack stack : left.values()) winner.getWorld().dropItemNaturally(winner.getLocation(), stack);
-        winner.updateInventory();
+        SkyKingsCurrencyItems.give(winner, 1L);
         mastery.addHotZoneKill(winner.getUniqueId());
 
         winner.sendMessage(ChatColor.RED.toString() + ChatColor.BOLD + "HOT ZONE BONUS "
-                + ChatColor.YELLOW + "+25.000 Coins, +1 Netherstern"
+                + ChatColor.YELLOW + "+25.000 Coins, +1 SkyKings Stern"
                 + ChatColor.GRAY + " | " + ChatColor.WHITE + mastery.getTitle(winner.getUniqueId()));
         winner.playSound(winner.getLocation(), Sound.LEVEL_UP, 0.55F, 1.55F);
     }
