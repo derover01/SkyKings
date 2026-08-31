@@ -10,6 +10,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -68,6 +69,11 @@ public final class BattlePassService implements Listener {
             if (slot == FREE_SLOTS[i]) { claim(player, false, LEVELS[i]); open(player); return; }
             if (slot == PREMIUM_SLOTS[i]) { claim(player, true, LEVELS[i]); open(player); return; }
         }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent event) {
+        if (event.getInventory() != null && TITLE.equals(event.getInventory().getTitle())) event.setCancelled(true);
     }
 
     public boolean setPremium(UUID uuid, boolean enabled) {
