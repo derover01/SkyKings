@@ -21,6 +21,10 @@ import net.skykings.combat.loot.LootProtectionService;
 import net.skykings.combat.loot.LootProtectionServiceImpl;
 import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.map.builder.SkyMapCommand;
+import net.skykings.combat.map.zone.HotZoneCommand;
+import net.skykings.combat.map.zone.HotZoneService;
+import net.skykings.combat.map.zone.KingAltarCommand;
+import net.skykings.combat.map.zone.KingAltarService;
 import net.skykings.combat.newbie.NewbieProtectionService;
 import net.skykings.combat.newbie.NewbieProtectionServiceImpl;
 import net.skykings.combat.pearl.EnderpearlCooldownListener;
@@ -57,6 +61,8 @@ public final class SkyKingsCombat extends JavaPlugin {
     private KillCosmeticService killCosmeticService;
     private MapGameplayService mapGameplayService;
     private SpawnService spawnService;
+    private KingAltarService kingAltarService;
+    private HotZoneService hotZoneService;
 
     @Override
     public void onEnable() {
@@ -85,6 +91,8 @@ public final class SkyKingsCombat extends JavaPlugin {
         KillMessageService killMessageService = new KillMessageService();
         this.mapGameplayService = new MapGameplayService(this);
         this.spawnService = new SpawnService(this, combatTagService);
+        this.kingAltarService = new KingAltarService(this, coreApi.getEconomyService());
+        this.hotZoneService = new HotZoneService(this);
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
@@ -108,17 +116,21 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
         getServer().getPluginManager().registerEvents(mapGameplayService, this);
         getServer().getPluginManager().registerEvents(spawnService, this);
+        getServer().getPluginManager().registerEvents(hotZoneService, this);
 
         PluginCommand statsCommand = getCommand("stats");
         PluginCommand topCommand = getCommand("top");
         PluginCommand killEffectCommand = getCommand("killeffect");
         PluginCommand mapLootCommand = getCommand("maploot");
         PluginCommand supplyDropCommand = getCommand("supplydrop");
+        PluginCommand kingAltarCommand = getCommand("kingaltar");
+        PluginCommand hotZoneCommand = getCommand("hotzone");
         PluginCommand skyMapCommand = getCommand("skymap");
         PluginCommand spawnCommand = getCommand("spawn");
         PluginCommand setSpawnCommand = getCommand("setspawn");
         if (statsCommand == null || topCommand == null || killEffectCommand == null || mapLootCommand == null
-                || supplyDropCommand == null || skyMapCommand == null || spawnCommand == null || setSpawnCommand == null) {
+                || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
+                || skyMapCommand == null || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -131,16 +143,20 @@ public final class SkyKingsCombat extends JavaPlugin {
         killEffectCommand.setExecutor(new KillEffectCommand(new KillEffectGui(coreApi.getGuiManager(), killCosmeticService)));
         mapLootCommand.setExecutor(mapGameplayService);
         supplyDropCommand.setExecutor(mapGameplayService);
+        kingAltarCommand.setExecutor(new KingAltarCommand(kingAltarService));
+        hotZoneCommand.setExecutor(new HotZoneCommand(hotZoneService));
         skyMapCommand.setExecutor(new SkyMapCommand(this, spawnService));
         spawnCommand.setExecutor(spawnService);
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (PvP + Map-Generator + /spawn + Map-Loot + Supply-Drops) aktiviert.");
+        getLogger().info("SkyKings-Combat (PvP + Phase 6 Map Gameplay + King Altar + Hot Zones) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (kingAltarService != null) kingAltarService.save();
+        if (hotZoneService != null) hotZoneService.save();
         if (spawnService != null) spawnService.shutdown();
         if (mapGameplayService != null) mapGameplayService.shutdown();
         if (killCosmeticService != null) killCosmeticService.shutdown();
