@@ -11,6 +11,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.HashSet;
+
 /** Staff-Setup fuer versteckte Loot-Caches. */
 public final class SecretLootRoomCommand implements CommandExecutor {
     private final SecretLootRoomService service;
@@ -32,7 +34,7 @@ public final class SecretLootRoomCommand implements CommandExecutor {
 
         if ("add".equalsIgnoreCase(args[0])) {
             if (args.length < 3) { usage(player); return true; }
-            Block target = player.getTargetBlock(null, 6);
+            Block target = player.getTargetBlock((HashSet<Byte>) null, 6);
             if (target == null || target.getType() != Material.CHEST) {
                 player.sendMessage(UiTheme.DANGER + "Schau eine Truhe innerhalb von 6 Bloecken an.");
                 SoundFeedback.error(player);
