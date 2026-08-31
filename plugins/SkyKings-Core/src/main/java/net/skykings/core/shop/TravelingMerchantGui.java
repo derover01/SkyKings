@@ -17,7 +17,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,7 +69,7 @@ public final class TravelingMerchantGui {
         gui.setItem(4, UiItems.item(Material.ENDER_CHEST,
                 UiTheme.TEXT + "Black Market",
                 UiTheme.MUTED + "Seltene, zeitlich rotierende Angebote.",
-                UiTheme.TEXT + ACTIVE_OFFERS + UiTheme.MUTED + " Angebote pro Rotation"));
+                UiTheme.TEXT.toString() + ACTIVE_OFFERS + UiTheme.MUTED + " Angebote pro Rotation"));
 
         guiManager.open(gui);
         SoundFeedback.menuOpen(player);
