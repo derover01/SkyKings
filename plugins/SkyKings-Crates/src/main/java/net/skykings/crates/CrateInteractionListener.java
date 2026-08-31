@@ -7,6 +7,8 @@ import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import net.skykings.core.shop.player.PlayerShopEgg;
+import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiItems;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -175,7 +177,7 @@ public final class CrateInteractionListener implements Listener {
             List<String> lore = new ArrayList<String>();
             double chance = totalWeight <= 0 ? 0D : (100D * reward.getWeight() / totalWeight);
             lore.add(ChatColor.GRAY + "Chance: " + ChatColor.WHITE + String.format(java.util.Locale.US, "%.2f%%", chance));
-            lore.add(ChatColor.GRAY + "Wert: " + ChatColor.GOLD + reward.getEvValue());
+            lore.add(ChatColor.GRAY + "Economy-Wert: " + ChatColor.GOLD + UiFormat.coins(reward.getEvValue()));
             meta.setLore(lore);
             icon.setItemMeta(meta);
             inventory.setItem(slot++, icon);
@@ -183,7 +185,7 @@ public final class CrateInteractionListener implements Listener {
         player.openInventory(inventory);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.2F);
         player.sendMessage(ChatColor.GRAY + "Expected Value: " + ChatColor.GOLD
-                + Math.round(crate.getExpectedValue()) + ChatColor.GRAY + " Coins-Wert");
+                + UiFormat.coins(Math.round(crate.getExpectedValue())));
     }
 
     private void openAll(Player player, CrateRegistry.CrateDefinition crate) {
@@ -275,10 +277,9 @@ public final class CrateInteractionListener implements Listener {
     private boolean hasSpace(Player player, CrateRegistry.RewardDefinition reward) {
         ItemStack rewardItem;
         if (reward.getType() == CrateRegistry.RewardType.VOUCHER) {
-            rewardItem = voucherCodec.create(reward.getVoucherType(), reward.getVoucherTarget(), reward.getVoucherDisplay());
+            rewardItem = voucherCodec.preview(reward.getVoucherType(), reward.getVoucherDisplay());
         } else if (reward.getType() == CrateRegistry.RewardType.NETHERSTARS) {
-            if (reward.getAmount() > 64L) return false;
-            rewardItem = SkyKingsCurrencyItems.star((int) reward.getAmount());
+            rewardItem = SkyKingsCurrencyItems.star(1);
         } else if (reward.getType() == CrateRegistry.RewardType.PLAYER_SHOP_EGG) {
             rewardItem = playerShopEgg.create();
         } else {
@@ -297,6 +298,7 @@ public final class CrateInteractionListener implements Listener {
         try {
             switch (reward.getType()) {
                 case COINS:
+                    // Legacy-Fallback fuer alte externe Configs. Neue Defaults geben Coins als Gutschein aus.
                     core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case NETHERSTARS:
@@ -327,12 +329,14 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private ItemStack rewardIcon(CrateRegistry.RewardDefinition reward) {
+        if (reward.getType() == CrateRegistry.RewardType.VOUCHER) {
+            return voucherCodec.preview(reward.getVoucherType(), reward.getVoucherDisplay());
+        }
         ItemStack icon;
         switch (reward.getType()) {
-            case COINS: icon = new ItemStack(Material.GOLD_INGOT); break;
+            case COINS: icon = new ItemStack(Material.DOUBLE_PLANT); break;
             case NETHERSTARS: icon = SkyKingsCurrencyItems.star(1); break;
             case PLAYER_SHOP_EGG: icon = playerShopEgg.create(); break;
-            case VOUCHER: icon = new ItemStack(Material.PAPER); break;
             case ITEM:
             default: icon = new ItemStack(reward.getMaterial(), 1, reward.getData()); break;
         }
@@ -344,11 +348,11 @@ public final class CrateInteractionListener implements Listener {
 
     private String rewardText(CrateRegistry.RewardDefinition reward) {
         switch (reward.getType()) {
-            case COINS: return reward.getAmount() + " Coins";
-            case NETHERSTARS: return reward.getAmount() + " SkyKings Sterne";
+            case COINS: return UiFormat.coins(reward.getAmount());
+            case NETHERSTARS: return UiFormat.number(reward.getAmount()) + " SkyKings Sterne";
             case PLAYER_SHOP_EGG: return "1x SkyKings Haendler-Ei";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
-            case VOUCHER: return ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
+            case VOUCHER: return "Gutschein: " + ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
             default: return reward.getId();
         }
     }
@@ -357,7 +361,7 @@ public final class CrateInteractionListener implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(name);
-        if (lore != null && lore.length > 0) meta.setLore(java.util.Arrays.asList(lore));
+        if (lore != null && lore.length > 0) meta.setLore(UiItems.wrapLore(lore));
         item.setItemMeta(meta);
         return item;
     }
