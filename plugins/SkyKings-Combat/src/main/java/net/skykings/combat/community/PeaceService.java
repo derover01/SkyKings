@@ -47,7 +47,8 @@ public final class PeaceService implements Listener {
         return count;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    /** LOWEST ist absichtlich: Peace muss vor CombatTag/Newbie-Logik canceln. */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player)) return;
         Player victim = (Player) event.getEntity();
