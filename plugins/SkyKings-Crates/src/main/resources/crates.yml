@@ -91,6 +91,11 @@ crates:
         display-target: 'Gold Rang'
         weight: 2
         ev-value: 750000
+      player-shop-egg:
+        type: PLAYER_SHOP_EGG
+        amount: 1
+        weight: 1
+        ev-value: 2500000
 
   epic:
     display-name: '&5&lEpic Crate'
@@ -134,6 +139,11 @@ crates:
         display-target: 'Diamond Rang'
         weight: 3
         ev-value: 7500000
+      player-shop-egg:
+        type: PLAYER_SHOP_EGG
+        amount: 1
+        weight: 2
+        ev-value: 2500000
 
   legendary:
     display-name: '&6&lLegendary Crate'
@@ -184,6 +194,11 @@ crates:
         display-target: 'Knight Rang'
         weight: 1
         ev-value: 12000000
+      player-shop-egg:
+        type: PLAYER_SHOP_EGG
+        amount: 1
+        weight: 3
+        ev-value: 2500000
 
   royal:
     display-name: '&d&lRoyal Crate'
@@ -234,6 +249,11 @@ crates:
         display-target: 'Phoenix Rang'
         weight: 2
         ev-value: 20000000
+      player-shop-egg:
+        type: PLAYER_SHOP_EGG
+        amount: 1
+        weight: 3
+        ev-value: 2500000
 
   king:
     display-name: '&e&lKing Crate'
@@ -291,3 +311,8 @@ crates:
         display-target: 'King Rang'
         weight: 1
         ev-value: 100000000
+      player-shop-egg:
+        type: PLAYER_SHOP_EGG
+        amount: 1
+        weight: 4
+        ev-value: 2500000
