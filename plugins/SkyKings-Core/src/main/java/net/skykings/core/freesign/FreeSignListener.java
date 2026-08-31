@@ -2,6 +2,7 @@ package net.skykings.core.freesign;
 
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -71,6 +72,7 @@ public final class FreeSignListener implements Listener {
         event.setLine(2, ChatColor.WHITE + prettyName(parsed.material, parsed.data));
         event.setLine(3, ChatColor.YELLOW + "x" + amount + " | KLICK");
         player.sendMessage(ChatColor.GREEN + "Free Sign erstellt: " + amount + "x " + prettyName(parsed.material, parsed.data));
+        SoundFeedback.success(player);
     }
 
     @EventHandler
@@ -81,6 +83,7 @@ public final class FreeSignListener implements Listener {
         FreeSignStore.FreeItem freeItem = store.get(block.getLocation());
         if (freeItem == null) return;
         event.setCancelled(true);
+        SoundFeedback.menuOpen(event.getPlayer());
         openMenu(event.getPlayer(), freeItem);
     }
 
@@ -106,11 +109,13 @@ public final class FreeSignListener implements Listener {
         ItemStack reward = new ItemStack(freeItem.getMaterial(), freeItem.getAmount(), freeItem.getData());
         if (!player.getInventory().addItem(reward).isEmpty()) {
             player.sendMessage(ChatColor.RED + "Du brauchst mehr freien Inventarplatz.");
+            SoundFeedback.error(player);
             return;
         }
         player.updateInventory();
         player.sendMessage(ChatColor.GREEN + "Du hast " + freeItem.getAmount() + "x "
                 + prettyName(freeItem.getMaterial(), freeItem.getData()) + ChatColor.GREEN + " erhalten.");
+        SoundFeedback.reward(player);
     }
 
     @EventHandler
@@ -120,10 +125,12 @@ public final class FreeSignListener implements Listener {
         if (!player.hasPermission("skykings.admin.freesign")) {
             event.setCancelled(true);
             player.sendMessage(ChatColor.RED + "Dieses Free Sign ist geschützt.");
+            SoundFeedback.error(player);
             return;
         }
         store.remove(event.getBlock().getLocation());
         player.sendMessage(ChatColor.YELLOW + "Free Sign entfernt.");
+        SoundFeedback.confirm(player);
     }
 
     @EventHandler public void onEntityExplode(EntityExplodeEvent event) { removeProtectedSigns(event.blockList().iterator()); }
