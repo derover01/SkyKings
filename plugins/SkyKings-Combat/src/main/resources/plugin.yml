@@ -4,7 +4,7 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, physische Nethersterne,
-  PvP-Stats, Map-Gameplay, Map-Generator und globalen Spawn.
+  PvP-Stats, Map-Gameplay, King Altar, Hot Zones und globalen Spawn.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -27,9 +27,19 @@ commands:
     description: Verwaltet Supply-Drop-Punkte und Drops.
     usage: /supplydrop <addpoint|points|trigger>
     permission: skykings.admin.map
+  kingaltar:
+    description: Setzt und verwaltet den King Altar / KOTH.
+    usage: /kingaltar <set|remove|info> [Radius]
+    permission: skykings.admin.map
+    aliases: [koth, kingzone]
+  hotzone:
+    description: Setzt und verwaltet PvP-Hot-Zones.
+    usage: /hotzone <add|remove|list> [Name] [Radius]
+    permission: skykings.admin.map
+    aliases: [hotzones]
   skymap:
-    description: Generiert die SkyKings-SkyPvP-Map in einer neuen Void-Welt.
-    usage: /skymap generate [Weltname]
+    description: Lädt die Produktionsmap oder generiert die Legacy-Testmap.
+    usage: /skymap <load|generate> [Weltname]
     permission: skykings.admin.map
   spawn:
     description: Teleportiert dich nach 3 Sekunden zum globalen SkyKings-Spawn.
@@ -52,5 +62,5 @@ permissions:
     description: Schaltet den Ender-Kill-Effect frei.
     default: false
   skykings.admin.map:
-    description: Darf Map-Gameplay, Spawn und Map-Generator einrichten.
+    description: Darf Map-Gameplay, Spawn, Zonen und Map-Import einrichten.
     default: false
