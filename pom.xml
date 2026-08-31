@@ -12,7 +12,6 @@
   <name>SkyKings Parent</name>
   <description>
     Maven-Monorepo-Parent fuer die SkyKings-Plugins (OP-SkyPvP, 1.8.9-Client / 1.8.8-Legacy-Serverstack).
-    Phase 0 gemaess docs/ROADMAP.md: nur Projektstruktur und Buildsystem, keine Gameplay-Features.
   </description>
 
   <modules>
@@ -24,31 +23,22 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-    <!--
-      WICHTIG (siehe Auftrag / CLAUDE.md Punkt 8+13): Es wurde bewusst KEINE moderne
-      Java-Version eigenmaechtig festgelegt. 1.8 ist der langjaehrige Standardwert fuer
-      Spigot/Paper-1.8.8-Legacy-Plugins und damit die konservativste, nicht-moderne Wahl.
-      Dies ist NICHT final - siehe docs/LOCAL_DEVELOPMENT.md, Abschnitt "Offene Punkte",
-      zur Verifikation gegen die lokal tatsaechlich installierten JDKs.
-    -->
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-
     <skykings.spigot.version>1.8.8-R0.1-SNAPSHOT</skykings.spigot.version>
   </properties>
 
   <repositories>
-    <!--
-      Die Spigot-API ist nicht auf Maven Central verfuegbar. Offizieller Weg ist
-      BuildTools.jar (siehe tools/README.md). Dieses Repository ist der von SpigotMC
-      dokumentierte Zusatzweg, spigot-api direkt zu beziehen, FALLS das lokale Netzwerk
-      Zugriff erlaubt - siehe docs/LOCAL_DEVELOPMENT.md fuer den bekannten Blocker in
-      der Cloud-Build-Umgebung dieser Session.
-    -->
     <repository>
       <id>spigotmc-repo</id>
       <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
+    </repository>
+    <!-- Legacy mirror required because Spigot 1.8.8 depends on the historical
+         net.md-5:bungeecord-chat:1.8-SNAPSHOT artifact, which is no longer available
+         from the old Sonatype/Spigot snapshot endpoints but remains mirrored here. -->
+    <repository>
+      <id>aikar-legacy</id>
+      <url>https://repo.aikar.co/nexus/content/repositories/aikar/</url>
     </repository>
   </repositories>
 
