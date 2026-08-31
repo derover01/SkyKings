@@ -17,11 +17,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** /is create|home|sethome|info|trust|untrust|visit */
+/** /is oeffnet das Hauptmenue; Unterbefehle bleiben fuer schnelle Bedienung verfuegbar. */
 public final class IslandCommand implements CommandExecutor, TabCompleter {
     private final IslandService islands;
+    private final IslandMenu menu;
 
-    public IslandCommand(IslandService islands) { this.islands = islands; }
+    public IslandCommand(IslandService islands, IslandMenu menu) {
+        this.islands = islands;
+        this.menu = menu;
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -30,9 +34,8 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         Player player = (Player) sender;
-        if (args.length == 0) {
-            if (islands.hasIsland(player.getUniqueId())) islands.teleportHome(player, player.getUniqueId());
-            else usage(player);
+        if (args.length == 0 || "menu".equalsIgnoreCase(args[0])) {
+            menu.open(player);
             return true;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
@@ -45,8 +48,9 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.RED + "Deine Insel konnte nicht erstellt werden.");
                 return true;
             }
-            player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "INSEL ERSTELLT!" + ChatColor.GRAY + " Nutze /is fuer dein Home.");
-            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.7F, 1.3F);
+            player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS ISLANDS "
+                    + ChatColor.GREEN + "Deine Insel wurde erstellt!");
+            player.sendMessage(ChatColor.GRAY + "In der Startertruhe findest du Material fuer den Anfang.");
             return true;
         }
         if ("home".equals(sub)) {
@@ -56,19 +60,15 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
         if ("sethome".equals(sub)) {
             if (islands.setHome(player.getUniqueId(), player.getLocation())) {
                 player.sendMessage(ChatColor.GREEN + "Island-Home gesetzt.");
-            } else player.sendMessage(ChatColor.RED + "Du musst dich auf deiner eigenen Insel befinden.");
+                player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.4F);
+            } else {
+                player.sendMessage(ChatColor.RED + "Du musst dich auf deiner eigenen Insel befinden.");
+                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+            }
             return true;
         }
         if ("info".equals(sub)) {
-            IslandService.IslandData data = islands.get(player.getUniqueId());
-            if (data == null) {
-                player.sendMessage(ChatColor.RED + "Du besitzt noch keine Insel. /is create");
-                return true;
-            }
-            player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "DEINE INSEL");
-            player.sendMessage(ChatColor.GRAY + "Region: " + ChatColor.WHITE + (IslandService.RADIUS * 2 + 1) + "x" + (IslandService.RADIUS * 2 + 1));
-            player.sendMessage(ChatColor.GRAY + "Trusted: " + ChatColor.WHITE + data.getTrusted().size());
-            player.sendMessage(ChatColor.GRAY + "Center: " + ChatColor.WHITE + data.centerX + ", " + data.centerZ);
+            menu.open(player);
             return true;
         }
         if (("trust".equals(sub) || "untrust".equals(sub)) && args.length >= 2) {
@@ -81,11 +81,14 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage(ChatColor.RED + "Du besitzt keine Insel.");
                 return true;
             }
-            boolean changed = "trust".equals(sub)
-                    ? islands.trust(player.getUniqueId(), target.getUniqueId())
+            boolean adding = "trust".equals(sub);
+            boolean changed = adding ? islands.trust(player.getUniqueId(), target.getUniqueId())
                     : islands.untrust(player.getUniqueId(), target.getUniqueId());
-            player.sendMessage(changed ? ChatColor.GREEN + target.getName() + ("trust".equals(sub) ? " wurde vertraut." : " wurde entfernt.")
-                    : ChatColor.YELLOW + "Keine Aenderung.");
+            if (changed) {
+                player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "ISLAND " + ChatColor.GREEN
+                        + target.getName() + (adding ? " darf jetzt auf deiner Insel bauen." : " wurde aus deiner Trust-Liste entfernt."));
+                player.playSound(player.getLocation(), adding ? Sound.ORB_PICKUP : Sound.CLICK, 0.7F, adding ? 1.4F : 0.8F);
+            } else player.sendMessage(ChatColor.YELLOW + "Keine Aenderung.");
             return true;
         }
         if ("visit".equals(sub) && args.length >= 2) {
@@ -96,11 +99,7 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
                 @SuppressWarnings("deprecation") OfflinePlayer offline = Bukkit.getOfflinePlayer(args[1]);
                 owner = offline.getUniqueId();
             }
-            if (!islands.hasIsland(owner)) {
-                player.sendMessage(ChatColor.RED + "Dieser Spieler besitzt keine Insel.");
-                return true;
-            }
-            islands.teleportHome(player, owner);
+            islands.visit(player, owner);
             return true;
         }
         usage(player);
@@ -108,19 +107,19 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
     }
 
     private void usage(Player player) {
-        player.sendMessage(ChatColor.GOLD + "SkyKings Islands");
-        player.sendMessage(ChatColor.YELLOW + "/is create" + ChatColor.GRAY + " - Insel erstellen");
-        player.sendMessage(ChatColor.YELLOW + "/is home" + ChatColor.GRAY + " - eigenes Home");
-        player.sendMessage(ChatColor.YELLOW + "/is sethome");
-        player.sendMessage(ChatColor.YELLOW + "/is trust <Spieler>");
-        player.sendMessage(ChatColor.YELLOW + "/is untrust <Spieler>");
-        player.sendMessage(ChatColor.YELLOW + "/is visit <Spieler>");
-        player.sendMessage(ChatColor.YELLOW + "/is info");
+        player.sendMessage(ChatColor.DARK_GRAY + "---------------- " + ChatColor.AQUA + ChatColor.BOLD + "SKYKINGS ISLANDS" + ChatColor.DARK_GRAY + " ----------------");
+        player.sendMessage(ChatColor.AQUA + "/is" + ChatColor.GRAY + " - Island-Menue");
+        player.sendMessage(ChatColor.AQUA + "/is home" + ChatColor.GRAY + " - eigenes Home");
+        player.sendMessage(ChatColor.AQUA + "/is sethome" + ChatColor.GRAY + " - Home setzen");
+        player.sendMessage(ChatColor.AQUA + "/is trust <Spieler>" + ChatColor.GRAY + " - Baurechte geben");
+        player.sendMessage(ChatColor.AQUA + "/is untrust <Spieler>" + ChatColor.GRAY + " - Baurechte entfernen");
+        player.sendMessage(ChatColor.AQUA + "/is visit <Spieler>" + ChatColor.GRAY + " - oeffentliche Insel besuchen");
+        player.sendMessage(ChatColor.GRAY + "Besuche sind nur moeglich, wenn der Owner ein " + ChatColor.GREEN + "[Welcome]" + ChatColor.GRAY + "-Schild gesetzt hat.");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return filter(Arrays.asList("create", "home", "sethome", "info", "trust", "untrust", "visit"), args[0]);
+        if (args.length == 1) return filter(Arrays.asList("menu", "create", "home", "sethome", "info", "trust", "untrust", "visit"), args[0]);
         if (args.length == 2 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0]) || "visit".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<String>();
             for (Player player : Bukkit.getOnlinePlayers()) names.add(player.getName());
