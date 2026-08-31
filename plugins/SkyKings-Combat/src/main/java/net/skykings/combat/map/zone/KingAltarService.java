@@ -16,10 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * King Altar / KOTH: ein einzelner Spieler muss die Zone 60 Sekunden lang kontrollieren.
- * Bei mehreren Spielern pausiert der Fortschritt. Nach Capture folgt Reward + Cooldown.
- */
+/** King Altar / KOTH mit Reward, Cooldown und Map-Mastery. */
 public final class KingAltarService {
     private static final int CAPTURE_SECONDS = 60;
     private static final int COOLDOWN_SECONDS = 300;
@@ -28,6 +25,7 @@ public final class KingAltarService {
 
     private final JavaPlugin plugin;
     private final EconomyService economy;
+    private final MapMasteryService mastery;
     private final File file;
     private MapZone zone;
     private UUID capturing;
@@ -35,8 +33,13 @@ public final class KingAltarService {
     private int cooldown;
 
     public KingAltarService(JavaPlugin plugin, EconomyService economy) {
+        this(plugin, economy, null);
+    }
+
+    public KingAltarService(JavaPlugin plugin, EconomyService economy, MapMasteryService mastery) {
         this.plugin = plugin;
         this.economy = economy;
+        this.mastery = mastery;
         this.file = new File(plugin.getDataFolder(), "king-altar.yml");
         load();
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
@@ -111,10 +114,12 @@ public final class KingAltarService {
         java.util.Map<Integer, ItemStack> left = player.getInventory().addItem(stars);
         for (ItemStack item : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), item);
         player.updateInventory();
+        if (mastery != null) mastery.addKingCapture(player.getUniqueId());
 
+        String masterySuffix = mastery == null ? "" : ChatColor.DARK_GRAY + " [" + mastery.getTitle(player.getUniqueId()) + "]";
         Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "KING ALTAR " + ChatColor.YELLOW
                 + player.getName() + ChatColor.GOLD + " hat den Altar erobert! " + ChatColor.GRAY
-                + "(+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " Nethersterne)");
+                + "(+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " Nethersterne)" + masterySuffix);
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.playSound(online.getLocation(), Sound.ENDERDRAGON_GROWL, 0.55F, 1.25F);
         }
