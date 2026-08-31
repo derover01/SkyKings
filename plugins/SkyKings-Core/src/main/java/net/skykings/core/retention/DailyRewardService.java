@@ -31,11 +31,11 @@ public final class DailyRewardService {
 
     public boolean claim(Player player) {
         UUID uuid = player.getUniqueId();
-        long today = dayId(System.currentTimeMillis());
-        long last = data.getLong("players." + uuid + ".last-day", -1L);
+        int today = dayId();
+        int last = data.getInt("players." + uuid + ".last-day", -1);
         if (last == today) return false;
         int streak = data.getInt("players." + uuid + ".streak", 0);
-        if (last == today - 1L) streak++; else streak = 1;
+        if (last == yesterdayId()) streak++; else streak = 1;
         if (streak > 7) streak = 1;
 
         long coins = 50_000L + (streak - 1L) * 25_000L;
@@ -55,21 +55,24 @@ public final class DailyRewardService {
     public int getStreak(UUID uuid) { return data.getInt("players." + uuid + ".streak", 0); }
 
     public long secondsUntilNext(UUID uuid) {
-        long today = dayId(System.currentTimeMillis());
-        if (data.getLong("players." + uuid + ".last-day", -1L) != today) return 0L;
-        long next = (today + 1L) * 86_400_000L;
-        return Math.max(0L, (next - System.currentTimeMillis() + 999L) / 1000L);
+        int today = dayId();
+        if (data.getInt("players." + uuid + ".last-day", -1) != today) return 0L;
+        Calendar next = Calendar.getInstance();
+        next.add(Calendar.DAY_OF_YEAR, 1);
+        next.set(Calendar.HOUR_OF_DAY, 0);
+        next.set(Calendar.MINUTE, 0);
+        next.set(Calendar.SECOND, 0);
+        next.set(Calendar.MILLISECOND, 0);
+        return Math.max(0L, (next.getTimeInMillis() - System.currentTimeMillis() + 999L) / 1000L);
     }
 
-    private long dayId(long millis) {
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(millis);
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        return calendar.getTimeInMillis() / 86_400_000L;
+    private int dayId() { return dayId(Calendar.getInstance()); }
+    private int yesterdayId() {
+        Calendar c = Calendar.getInstance();
+        c.add(Calendar.DAY_OF_YEAR, -1);
+        return dayId(c);
     }
+    private int dayId(Calendar c) { return c.get(Calendar.YEAR) * 1000 + c.get(Calendar.DAY_OF_YEAR); }
 
     public void save() {
         try {
