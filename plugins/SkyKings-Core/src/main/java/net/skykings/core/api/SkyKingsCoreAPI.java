@@ -10,6 +10,7 @@ import net.skykings.core.netherstar.NetherstarService;
 import net.skykings.core.permission.VoucherPermissionService;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.rank.RankService;
+import net.skykings.core.shop.ShopTransactionService;
 
 /** Zugriffspunkt fuer andere SkyKings-Module (Combat, Crates, Admin). */
 public interface SkyKingsCoreAPI {
@@ -33,4 +34,6 @@ public interface SkyKingsCoreAPI {
     GuiManager getGuiManager();
 
     VoucherPermissionService getVoucherPermissionService();
+
+    ShopTransactionService getShopTransactionService();
 }
