@@ -3,8 +3,7 @@ version: ${project.version}
 main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
-  Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, physische Nethersterne,
-  PvP-Stats, Map-Gameplay, Zonen, Secrets, Routes, Landmarks, Displays und globalen Spawn.
+  Combat-Modul für klassisches 1.8-SkyPvP, Map-Gameplay, Retention und Community-Systeme.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -23,6 +22,29 @@ commands:
     description: Zeigt deine Map-Mastery mit Hot-Zone-, King-, End- und Secret-Fortschritt.
     usage: /mapmastery [Spieler]
     aliases: [mastery, mapstats]
+  achievements:
+    description: Zeigt deine PvP- und Map-Achievements.
+    usage: /achievements
+    aliases: [achievements, erfolge]
+  season:
+    description: Zeigt Season-XP und PvP-Level.
+    usage: /season
+  pvplevel:
+    description: Zeigt dein PvP-Level 1-100.
+    usage: /pvplevel
+    aliases: [level, pvplvl]
+  peace:
+    description: Gegenseitiges Peace-System für SkyPvP.
+    usage: /peace <Spieler|accept|deny|remove|list>
+    aliases: [friede, friend]
+  verlosung:
+    description: Serverweite Coin-Verlosung.
+    usage: /verlosung <join|start|stop>
+    aliases: [giveaway]
+  mapsetup:
+    description: Öffnet die 6x9 Staff-Übersicht für das Map-Setup.
+    usage: /mapsetup
+    permission: skykings.admin.map
   maploot:
     description: Richtet persistente Map-Loot-Chests ein.
     usage: /maploot <set|remove|refill>
@@ -96,4 +118,7 @@ permissions:
     default: false
   skykings.admin.map:
     description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
+    default: false
+  skykings.admin.event:
+    description: Darf Serverevents wie /verlosung starten und stoppen.
     default: false
