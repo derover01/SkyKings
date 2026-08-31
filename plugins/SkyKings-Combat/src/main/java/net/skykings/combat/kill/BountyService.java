@@ -44,12 +44,12 @@ public final class BountyService {
         SoundFeedback.reward(killer);
     }
 
-    public long getCoinBounty(int streak) {
+    public static long getCoinBounty(int streak) {
         Bounty bounty = bountyFor(streak);
         return bounty == null ? 0L : bounty.coins;
     }
 
-    public long getStarBounty(int streak) {
+    public static long getStarBounty(int streak) {
         Bounty bounty = bountyFor(streak);
         return bounty == null ? 0L : bounty.netherstars;
     }
@@ -58,7 +58,7 @@ public final class BountyService {
         return streak == 5 || streak == 10 || streak == 20 || streak == 30 || streak == 50 || streak == 100;
     }
 
-    private Bounty bountyFor(int streak) {
+    private static Bounty bountyFor(int streak) {
         if (streak >= 100) return new Bounty(250L, 5000000L);
         if (streak >= 50) return new Bounty(100L, 1000000L);
         if (streak >= 30) return new Bounty(50L, 500000L);
