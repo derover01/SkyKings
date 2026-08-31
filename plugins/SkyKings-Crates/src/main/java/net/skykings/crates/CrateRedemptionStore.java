@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -91,8 +92,17 @@ public final class CrateRedemptionStore {
         }, executor);
     }
 
+    /** Verhindert, dass ein Restart bereits reservierte Claims vor dem Datei-Flush verliert. */
     public void shutdown() {
         ready = false;
         executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                logger.warning("Crate-Anti-Dupe-Store hatte beim Shutdown noch ausstehende Writes.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.warning("Warten auf Crate-Anti-Dupe-Store wurde unterbrochen.");
+        }
     }
 }
