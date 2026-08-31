@@ -32,7 +32,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
     public static final String ADMIN_PERMISSION = "skykings.admin.shopnpc";
 
-    private enum Type { SYSTEM, PVP_RESTOCK, BLACKSMITH, ENCHANT, RECYCLER, MERCHANT }
+    private enum Type { SYSTEM, PVP_RESTOCK, BLACKSMITH, ENCHANT, RECYCLER, MERCHANT, JACKPOT }
 
     private final JavaPlugin plugin;
     private final SystemShopGui systemShopGui;
@@ -41,6 +41,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     private EnchantShopGui enchantShopGui;
     private BottleRecyclerGui bottleRecyclerGui;
     private TravelingMerchantGui travelingMerchantGui;
+    private JackpotGui jackpotGui;
     private final File file;
     private final Map<UUID, Type> bindings = new LinkedHashMap<UUID, Type>();
 
@@ -78,18 +79,21 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
             case ENCHANT: enchantShopGui.open(event.getPlayer()); break;
             case RECYCLER: bottleRecyclerGui.open(event.getPlayer()); break;
             case MERCHANT: travelingMerchantGui.open(event.getPlayer()); break;
+            case JACKPOT: jackpotGui.open(event.getPlayer()); break;
             default: break;
         }
     }
 
     private boolean ensureExtendedShops() {
-        if (blacksmithShopGui != null && enchantShopGui != null && bottleRecyclerGui != null && travelingMerchantGui != null) return true;
+        if (blacksmithShopGui != null && enchantShopGui != null && bottleRecyclerGui != null
+                && travelingMerchantGui != null && jackpotGui != null) return true;
         SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
         if (api == null) return false;
         if (blacksmithShopGui == null) blacksmithShopGui = new BlacksmithShopGui(api.getGuiManager(), api.getEconomyService());
         if (enchantShopGui == null) enchantShopGui = new EnchantShopGui(api.getGuiManager(), api.getShopTransactionService());
         if (bottleRecyclerGui == null) bottleRecyclerGui = new BottleRecyclerGui(api.getGuiManager(), api.getEconomyService());
         if (travelingMerchantGui == null) travelingMerchantGui = new TravelingMerchantGui(api.getGuiManager(), api.getShopTransactionService());
+        if (jackpotGui == null) jackpotGui = new JackpotGui(plugin, api.getGuiManager(), api.getEconomyService());
         return true;
     }
 
@@ -112,7 +116,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         String sub = args[0].toLowerCase(Locale.ROOT);
         if ("bind".equals(sub)) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant|recycler|merchant>.");
+                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant|recycler|merchant|jackpot>.");
                 return true;
             }
             Villager villager = nearestVillager(player, 6D);
@@ -173,6 +177,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
             case ENCHANT: return ChatColor.DARK_PURPLE + "Enchanter";
             case RECYCLER: return ChatColor.AQUA + "Bottle Recycler";
             case MERCHANT: return ChatColor.RED + "Black Market";
+            case JACKPOT: return ChatColor.GOLD.toString() + ChatColor.BOLD + "Jackpot";
             default: return ChatColor.GOLD + "Händler";
         }
     }
@@ -185,6 +190,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind enchant");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind recycler");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind merchant");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind jackpot");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc unbind");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc info");
     }
@@ -212,6 +218,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         if ("enchant".equals(n) || "enchanter".equals(n) || "level".equals(n)) return Type.ENCHANT;
         if ("recycler".equals(n) || "bottle".equals(n) || "bottles".equals(n)) return Type.RECYCLER;
         if ("merchant".equals(n) || "blackmarket".equals(n) || "black-market".equals(n)) return Type.MERCHANT;
+        if ("jackpot".equals(n) || "pot".equals(n)) return Type.JACKPOT;
         return null;
     }
 
@@ -246,7 +253,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) return filter(Arrays.asList("bind", "unbind", "info"), args[0]);
         if (args.length == 2 && "bind".equalsIgnoreCase(args[0])) {
-            return filter(Arrays.asList("system", "pvp", "blacksmith", "enchant", "recycler", "merchant"), args[1]);
+            return filter(Arrays.asList("system", "pvp", "blacksmith", "enchant", "recycler", "merchant", "jackpot"), args[1]);
         }
         return Collections.emptyList();
     }
