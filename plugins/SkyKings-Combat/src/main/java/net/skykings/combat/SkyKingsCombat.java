@@ -19,6 +19,7 @@ import net.skykings.combat.killstreak.KillstreakServiceImpl;
 import net.skykings.combat.loot.LootPickupListener;
 import net.skykings.combat.loot.LootProtectionService;
 import net.skykings.combat.loot.LootProtectionServiceImpl;
+import net.skykings.combat.map.IslandGameplayService;
 import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.map.MapLandmarkCommand;
 import net.skykings.combat.map.MapLandmarkService;
@@ -79,6 +80,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     private SecretDiscoveryService secretDiscoveryService;
     private MapRouteService mapRouteService;
     private MapLandmarkService mapLandmarkService;
+    private IslandGameplayService islandGameplayService;
 
     @Override
     public void onEnable() {
@@ -114,6 +116,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         this.secretDiscoveryService = new SecretDiscoveryService(this, coreApi.getEconomyService(), mapMasteryService);
         this.mapRouteService = new MapRouteService(this, coreApi.getEconomyService());
         this.mapLandmarkService = new MapLandmarkService(this);
+        this.islandGameplayService = new IslandGameplayService(this, mapLandmarkService, coreApi.getEconomyService());
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
@@ -188,11 +191,12 @@ public final class SkyKingsCombat extends JavaPlugin {
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 6: King Altar + Hot Zones + End Zone + Secrets + Routes + Landmarks + Mastery) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 6: Zones + Secrets + Routes + Landmarks + Island Gameplay + Mastery) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (islandGameplayService != null) islandGameplayService.shutdown();
         if (mapLandmarkService != null) mapLandmarkService.save();
         if (mapRouteService != null) mapRouteService.save();
         if (secretDiscoveryService != null) secretDiscoveryService.save();
