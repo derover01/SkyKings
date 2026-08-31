@@ -14,6 +14,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 
 /** /craterewards GUI mit eigenem Cooldown pro Paid-Rang-Tier. */
 public final class CrateRewardsGui {
@@ -77,8 +78,20 @@ public final class CrateRewardsGui {
             player.sendMessage(ChatColor.RED + "Du brauchst einen freien Inventarplatz.");
             return;
         }
-        player.getInventory().addItem(stack);
-        core.getCooldownService().set(player.getUniqueId(), key, tier.hours * 60L * 60L * 1000L);
+
+        // Crash-sicherer Reihenfolgepunkt: Erst den persistenten Cooldown reservieren, danach
+        // das Item vergeben. Ein Prozessabbruch kann dadurch hoechstens einen Reward verlieren,
+        // aber niemals denselben Reward mehrfach erzeugen. Normale AddItem-Fehler rollen zurueck.
+        long duration = tier.hours * 60L * 60L * 1000L;
+        core.getCooldownService().set(player.getUniqueId(), key, duration);
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(stack);
+        if (!leftovers.isEmpty()) {
+            core.getCooldownService().remove(player.getUniqueId(), key);
+            player.sendMessage(ChatColor.RED + "Reward konnte nicht sicher ins Inventar gelegt werden. Cooldown wurde zurückgesetzt.");
+            return;
+        }
+
+        player.updateInventory();
         player.sendMessage(ChatColor.GREEN + "Crate-Reward für " + display(tier.rank) + ChatColor.GREEN
                 + " abgeholt: " + tier.amount + "x " + ChatColor.translateAlternateColorCodes('&', crate.getDisplayName()));
         open(player);
