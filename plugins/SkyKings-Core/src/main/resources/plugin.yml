@@ -43,6 +43,9 @@ commands:
     description: Öffnet den zentralen SkyKings-Systemshop.
     usage: /shop
     aliases: [markt]
+  shopnpc:
+    description: Bindet Villager persistent an SkyKings-Shops.
+    usage: /shopnpc <bind|unbind|info> [system|pvp]
   gm:
     description: Staff-Gamemode-Befehl.
     usage: /gm <0|1|2|3> [Spieler]
@@ -57,6 +60,9 @@ permissions:
     default: false
   skykings.admin.freesign:
     description: Darf persistente SkyKings-Free-Signs erstellen und entfernen.
+    default: false
+  skykings.admin.shopnpc:
+    description: Darf Villager an SkyKings-Shoptypen binden.
     default: false
   skykings.staff.gamemode:
     description: Darf /gm verwenden.
