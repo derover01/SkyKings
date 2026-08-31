@@ -25,11 +25,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 /** Permanente kosmetische Medaillen und sichere Archivierung abgeschlossener Seasons. */
@@ -149,7 +146,7 @@ public final class SeasonMedalService implements Listener {
         List<String> medals = getMedals(targetUuid);
         GuiSession gui = GuiSession.create(viewer, UiTheme.title("Medals"), 54);
         gui.setItem(4, UiItems.head(targetName, UiTheme.TEXT + targetName,
-                UiTheme.MUTED + "Permanente Auszeichnungen", UiTheme.TEXT + medals.size() + UiTheme.MUTED + " Medaillen"));
+                UiTheme.MUTED + "Permanente Auszeichnungen", UiTheme.TEXT.toString() + medals.size() + UiTheme.MUTED + " Medaillen"));
         int slot = 9;
         for (String medal : medals) {
             if (slot >= 45) break;
