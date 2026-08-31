@@ -16,6 +16,7 @@ import net.skykings.core.command.RepairCommand;
 import net.skykings.core.command.SellCommand;
 import net.skykings.core.command.ShopCommand;
 import net.skykings.core.command.StackCommand;
+import net.skykings.core.command.TradeCommand;
 import net.skykings.core.command.TrashCommand;
 import net.skykings.core.command.WorthCommand;
 import net.skykings.core.config.ConfigService;
@@ -78,6 +79,8 @@ import net.skykings.core.shop.SystemShopGui;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
+import net.skykings.core.trade.TradeGuiService;
+import net.skykings.core.trade.TradeService;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
@@ -157,6 +160,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.shopTransactionService = new ShopTransactionService(economyService, loggingService);
         ShopPriceRegistry shopPrices = new ShopPriceRegistry(this);
         MapProtectionService mapProtectionService = new MapProtectionService();
+        TradeService tradeService = new TradeService();
+        TradeGuiService tradeGuiService = new TradeGuiService(this, tradeService, economyService, loggingService);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -185,6 +190,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(new EnderChestBlockListener(enderChestService), this);
         getServer().getPluginManager().registerEvents(shopNpcService, this);
         getServer().getPluginManager().registerEvents(mapProtectionService, this);
+        getServer().getPluginManager().registerEvents(tradeGuiService, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
@@ -217,6 +223,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("workbench", new PortableInventoryCommand(PortableInventoryCommand.Type.WORKBENCH, "skykings.perk.workbench"))) return;
         if (!registerCommand("enchantmenttable", new PortableInventoryCommand(PortableInventoryCommand.Type.ENCHANTING, "skykings.perk.enchantmenttable"))) return;
         if (!registerCommand("buildmode", new BuildModeCommand(mapProtectionService))) return;
+        if (!registerCommand("trade", new TradeCommand(tradeService, tradeGuiService))) return;
         if (!registerCommand("shop", new ShopCommand(systemShopGui))) return;
         if (!registerCommand("worth", new WorthCommand(shopPrices))) return;
         if (!registerCommand("sell", new SellCommand(shopPrices, economyService))) return;
@@ -231,7 +238,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 5 + Custom EC + Map Protection) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 5 + Trade + Custom EC + Map Protection) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
