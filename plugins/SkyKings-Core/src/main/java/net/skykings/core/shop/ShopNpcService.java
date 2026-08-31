@@ -32,37 +32,31 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
     public static final String ADMIN_PERMISSION = "skykings.admin.shopnpc";
 
-    private enum Type { SYSTEM, PVP_RESTOCK, BLACKSMITH, ENCHANT }
+    private enum Type { SYSTEM, PVP_RESTOCK, BLACKSMITH, ENCHANT, RECYCLER, MERCHANT }
 
     private final JavaPlugin plugin;
     private final SystemShopGui systemShopGui;
     private final PvpRestockShopGui pvpRestockShopGui;
-    private final BlacksmithShopGui blacksmithShopGui;
-    private final EnchantShopGui enchantShopGui;
+    private BlacksmithShopGui blacksmithShopGui;
+    private EnchantShopGui enchantShopGui;
+    private BottleRecyclerGui bottleRecyclerGui;
+    private TravelingMerchantGui travelingMerchantGui;
     private final File file;
     private final Map<UUID, Type> bindings = new LinkedHashMap<UUID, Type>();
 
     public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui) {
-        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
-        if (api == null) throw new IllegalStateException("SkyKingsCoreAPI nicht verfügbar");
         this.plugin = plugin;
         this.systemShopGui = systemShopGui;
         this.pvpRestockShopGui = pvpRestockShopGui;
-        this.blacksmithShopGui = new BlacksmithShopGui(api.getGuiManager(), api.getEconomyService());
-        this.enchantShopGui = new EnchantShopGui(api.getGuiManager(), api.getShopTransactionService());
         this.file = new File(plugin.getDataFolder(), "shop-npcs.yml");
         load();
     }
 
     public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui,
                           BlacksmithShopGui blacksmithShopGui, EnchantShopGui enchantShopGui) {
-        this.plugin = plugin;
-        this.systemShopGui = systemShopGui;
-        this.pvpRestockShopGui = pvpRestockShopGui;
+        this(plugin, systemShopGui, pvpRestockShopGui);
         this.blacksmithShopGui = blacksmithShopGui;
         this.enchantShopGui = enchantShopGui;
-        this.file = new File(plugin.getDataFolder(), "shop-npcs.yml");
-        load();
     }
 
     @EventHandler
@@ -71,13 +65,32 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         Type type = bindings.get(event.getRightClicked().getUniqueId());
         if (type == null) return;
         event.setCancelled(true);
+
+        if (!ensureExtendedShops()) {
+            event.getPlayer().sendMessage(ChatColor.RED + "Der Shop-Service ist noch nicht bereit.");
+            return;
+        }
+
         switch (type) {
             case SYSTEM: systemShopGui.open(event.getPlayer()); break;
             case PVP_RESTOCK: pvpRestockShopGui.open(event.getPlayer()); break;
             case BLACKSMITH: blacksmithShopGui.open(event.getPlayer()); break;
             case ENCHANT: enchantShopGui.open(event.getPlayer()); break;
+            case RECYCLER: bottleRecyclerGui.open(event.getPlayer()); break;
+            case MERCHANT: travelingMerchantGui.open(event.getPlayer()); break;
             default: break;
         }
+    }
+
+    private boolean ensureExtendedShops() {
+        if (blacksmithShopGui != null && enchantShopGui != null && bottleRecyclerGui != null && travelingMerchantGui != null) return true;
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        if (api == null) return false;
+        if (blacksmithShopGui == null) blacksmithShopGui = new BlacksmithShopGui(api.getGuiManager(), api.getEconomyService());
+        if (enchantShopGui == null) enchantShopGui = new EnchantShopGui(api.getGuiManager(), api.getShopTransactionService());
+        if (bottleRecyclerGui == null) bottleRecyclerGui = new BottleRecyclerGui(api.getGuiManager(), api.getEconomyService());
+        if (travelingMerchantGui == null) travelingMerchantGui = new TravelingMerchantGui(api.getGuiManager(), api.getShopTransactionService());
+        return true;
     }
 
     @Override
@@ -99,7 +112,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         String sub = args[0].toLowerCase(Locale.ROOT);
         if ("bind".equals(sub)) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant>.");
+                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant|recycler|merchant>.");
                 return true;
             }
             Villager villager = nearestVillager(player, 6D);
@@ -158,6 +171,8 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
             case PVP_RESTOCK: return ChatColor.LIGHT_PURPLE + "PvP Restock";
             case BLACKSMITH: return ChatColor.DARK_GRAY + "Blacksmith";
             case ENCHANT: return ChatColor.DARK_PURPLE + "Enchanter";
+            case RECYCLER: return ChatColor.AQUA + "Bottle Recycler";
+            case MERCHANT: return ChatColor.RED + "Black Market";
             default: return ChatColor.GOLD + "Händler";
         }
     }
@@ -168,6 +183,8 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind pvp");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind blacksmith");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc bind enchant");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind recycler");
+        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind merchant");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc unbind");
         player.sendMessage(ChatColor.YELLOW + "/shopnpc info");
     }
@@ -193,6 +210,8 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         if ("pvp".equals(n) || "restock".equals(n) || "netherstar".equals(n)) return Type.PVP_RESTOCK;
         if ("blacksmith".equals(n) || "smith".equals(n) || "repair".equals(n)) return Type.BLACKSMITH;
         if ("enchant".equals(n) || "enchanter".equals(n) || "level".equals(n)) return Type.ENCHANT;
+        if ("recycler".equals(n) || "bottle".equals(n) || "bottles".equals(n)) return Type.RECYCLER;
+        if ("merchant".equals(n) || "blackmarket".equals(n) || "black-market".equals(n)) return Type.MERCHANT;
         return null;
     }
 
@@ -226,7 +245,9 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) return filter(Arrays.asList("bind", "unbind", "info"), args[0]);
-        if (args.length == 2 && "bind".equalsIgnoreCase(args[0])) return filter(Arrays.asList("system", "pvp", "blacksmith", "enchant"), args[1]);
+        if (args.length == 2 && "bind".equalsIgnoreCase(args[0])) {
+            return filter(Arrays.asList("system", "pvp", "blacksmith", "enchant", "recycler", "merchant"), args[1]);
+        }
         return Collections.emptyList();
     }
 
