@@ -1,5 +1,6 @@
 package net.skykings.combat.map;
 
+import net.skykings.combat.map.route.MapRouteService;
 import net.skykings.combat.map.secret.SecretDiscoveryService;
 import net.skykings.combat.map.zone.EndZoneService;
 import net.skykings.combat.map.zone.HotZoneService;
@@ -17,7 +18,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /** 6x9 Staff-Uebersicht fuer den aktuellen Phase-6-Map-Setup-Stand. */
 public final class MapSetupCommand implements CommandExecutor {
@@ -26,13 +26,13 @@ public final class MapSetupCommand implements CommandExecutor {
     private final EndZoneService endZone;
     private final SecretDiscoveryService secrets;
     private final MapLandmarkService landmarks;
-    private final MapRouteServiceFacade routes;
+    private final MapRouteService routes;
     private final TrashBinService trashBins;
     private final MapDisplayService displays;
 
     public MapSetupCommand(KingAltarService king, HotZoneService hotZones, EndZoneService endZone,
                            SecretDiscoveryService secrets, MapLandmarkService landmarks,
-                           MapRouteServiceFacade routes, TrashBinService trashBins, MapDisplayService displays) {
+                           MapRouteService routes, TrashBinService trashBins, MapDisplayService displays) {
         this.king = king;
         this.hotZones = hotZones;
         this.endZone = endZone;
@@ -62,13 +62,10 @@ public final class MapSetupCommand implements CommandExecutor {
         inv.setItem(14, status(Material.ENDER_STONE, "End Zone", endZone.getZone() != null,
                 endZone.getZone() == null ? "/endzone set <Radius>" : "Eingerichtet"));
         inv.setItem(16, info(Material.ENDER_PEARL, "Secrets", secrets.getSecrets().size(), "/secret add <Name> <Radius>"));
-
-        int landmarkCount = landmarks.list().size();
-        inv.setItem(28, info(Material.COMPASS, "Landmarks", landmarkCount, "/landmark set <Typ> <Radius>"));
-        inv.setItem(30, info(Material.FEATHER, "Jump/Pearl Routes", routes.countRoutes(), "/route create <Name>"));
+        inv.setItem(28, info(Material.COMPASS, "Landmarks", landmarks.list().size(), "/landmark set <Typ> <Radius>"));
+        inv.setItem(30, info(Material.FEATHER, "Jump/Pearl Routes", routes.count(), "/route create <Name>"));
         inv.setItem(32, info(Material.HOPPER, "Trash Bins", trashBins.count(), "/trashbin add"));
-        inv.setItem(34, info(Material.ARMOR_STAND, "Map Displays", displays.list().size(), "/mapdisplay set <Typ>"));
-
+        inv.setItem(34, info(Material.NAME_TAG, "Map Displays", displays.list().size(), "/mapdisplay set <Typ>"));
         inv.setItem(49, item(Material.BOOK, ChatColor.GOLD + "Setup-Reihenfolge",
                 ChatColor.GRAY + "1. Spawn + Zonen",
                 ChatColor.GRAY + "2. Insel-Landmarks + NPCs",
@@ -98,7 +95,4 @@ public final class MapSetupCommand implements CommandExecutor {
         stack.setItemMeta(meta);
         return stack;
     }
-
-    /** Kleine Adapter-Schnittstelle, damit das Setup-GUI nur die Anzahl der Routen benoetigt. */
-    public interface MapRouteServiceFacade { int countRoutes(); }
 }
