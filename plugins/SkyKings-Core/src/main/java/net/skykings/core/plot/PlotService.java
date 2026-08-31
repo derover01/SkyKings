@@ -5,6 +5,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.configuration.ConfigurationSection;
@@ -24,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Zweite, kleinere Claim-Welt fuer klassische /plot-Nutzung. */
+/** Eigene PlotSquared-inspirierte Claim-Welt mit 65x65 Plots. */
 public final class PlotService implements PlotAccessService {
     public static final String WORLD_NAME = "SkyPlots";
     public static final int SPACING = 128;
@@ -74,16 +75,25 @@ public final class PlotService implements PlotAccessService {
         generate(world, cx, cz);
         save();
         player.teleport(home);
+        player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.25F);
         return true;
     }
 
+    /** 65x65 Plot mit Grass-Flaeche, sauberem Rand und kleinem Eingangsweg. */
     private void generate(World world, int cx, int cz) {
-        for (int x = -16; x <= 16; x++) {
-            for (int z = -16; z <= 16; z++) {
-                world.getBlockAt(cx + x, Y - 1, cz + z).setType(Material.SMOOTH_BRICK);
+        for (int x = -RADIUS; x <= RADIUS; x++) {
+            for (int z = -RADIUS; z <= RADIUS; z++) {
+                boolean border = Math.abs(x) == RADIUS || Math.abs(z) == RADIUS;
+                world.getBlockAt(cx + x, Y - 2, cz + z).setType(Material.DIRT);
+                world.getBlockAt(cx + x, Y - 1, cz + z).setType(border ? Material.SMOOTH_BRICK : Material.GRASS);
             }
         }
-        world.getBlockAt(cx, Y - 2, cz).setType(Material.BEDROCK);
+        world.getBlockAt(cx, Y - 3, cz).setType(Material.BEDROCK);
+        for (int z = RADIUS - 3; z <= RADIUS; z++) {
+            world.getBlockAt(cx, Y - 1, cz + z).setType(Material.STONE);
+            world.getBlockAt(cx - 1, Y - 1, cz + z).setType(Material.STONE);
+            world.getBlockAt(cx + 1, Y - 1, cz + z).setType(Material.STONE);
+        }
     }
 
     public synchronized PlotData get(UUID owner) { return plots.get(owner); }
@@ -108,6 +118,7 @@ public final class PlotService implements PlotAccessService {
         PlotData plot = get(owner);
         if (plot == null) { player.sendMessage(ChatColor.RED + "Dieser Plot existiert nicht."); return; }
         player.teleport(plot.home.clone());
+        player.playSound(player.getLocation(), Sound.ENDERMAN_TELEPORT, 0.7F, 1.2F);
     }
 
     @Override public boolean isPlotWorld(Location location) { return location != null && location.getWorld() != null && WORLD_NAME.equals(location.getWorld().getName()); }
