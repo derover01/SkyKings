@@ -39,6 +39,10 @@ commands:
     description: Öffnet die eigene Enderchest für Gold+.
     usage: /enderchest
     aliases: [ec]
+  shop:
+    description: Öffnet den zentralen SkyKings-Systemshop.
+    usage: /shop
+    aliases: [markt]
   gm:
     description: Staff-Gamemode-Befehl.
     usage: /gm <0|1|2|3> [Spieler]
