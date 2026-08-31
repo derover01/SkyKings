@@ -1,5 +1,6 @@
 package net.skykings.core.gui;
 
+import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -44,12 +45,10 @@ public final class GuiManager implements Listener {
             return;
         }
 
-        // Waehrend eine Session offen ist, wird JEDE Interaktion (oben wie unten) gecancelt, um
-        // Item-Verschiebung/-Duplikation ueber die GUI zu verhindern. Ein registrierter Handler
-        // kann danach trotzdem gezielt reagieren (z. B. selbst Items vergeben).
         event.setCancelled(true);
 
         if (event.getClickedInventory() != null && session.getInventory().equals(event.getClickedInventory())) {
+            SoundFeedback.click((Player) clicker);
             session.handleClick((Player) clicker, event, event.getRawSlot());
         }
     }
@@ -70,7 +69,6 @@ public final class GuiManager implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        // Absicherung gegen Memory-Leaks, falls InventoryCloseEvent aus irgendeinem Grund nicht feuert.
         openSessions.remove(event.getPlayer().getUniqueId());
     }
 }
