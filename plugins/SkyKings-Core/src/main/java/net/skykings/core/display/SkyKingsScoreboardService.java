@@ -1,5 +1,8 @@
 package net.skykings.core.display;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
 import net.skykings.core.pvp.PvpStatsProvider;
@@ -12,11 +15,12 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 
 import java.text.NumberFormat;
 import java.util.Locale;
 
-/** Ästhetisches 1.8.8-PvP-Sidebar-Scoreboard mit persistenten SkyKings-Stats. */
+/** Ästhetisches 1.8.8-PvP-Sidebar-Scoreboard mit persistenten SkyKings-Stats und Nametags. */
 public final class SkyKingsScoreboardService {
 
     private final PlayerProfileService profileService;
@@ -61,7 +65,69 @@ public final class SkyKingsScoreboardService {
         line(objective, ChatColor.GRAY.toString(), 2);
         line(objective, ChatColor.GOLD + "OP SkyPvP", 1);
 
+        applyNameTags(board);
         player.setScoreboard(board);
+    }
+
+    /**
+     * In 1.8 werden Nametag-Prefixe ueber Scoreboard-Teams gerendert. Da SkyKings pro Viewer
+     * ein eigenes Sidebar-Board verwendet, muessen die Teams auf genau diesem Board existieren.
+     */
+    private void applyNameTags(Scoreboard board) {
+        for (Player target : Bukkit.getOnlinePlayers()) {
+            String rawPrefix = displayPrefix(target);
+            String teamName = "nt" + target.getUniqueId().toString().replace("-", "").substring(0, 14);
+            Team team = board.registerNewTeam(teamName);
+            team.setPrefix(nametagPrefix(rawPrefix));
+            team.addPlayer(target);
+        }
+    }
+
+    private String displayPrefix(Player target) {
+        if (displayConfig.isConfiguredOwner(target.getName())) return displayConfig.getOwnerPrefix();
+
+        String primaryGroup = resolvePrimaryGroup(target);
+        if (displayConfig.isTeamGroup(primaryGroup)) return displayConfig.getTeamPrefix(primaryGroup);
+
+        PlayerProfile targetProfile = profileService.getCached(target.getUniqueId());
+        return targetProfile == null ? ChatColor.GRAY + "SPIELER" : displayConfig.getRankPrefix(targetProfile.getRank());
+    }
+
+    private String resolvePrimaryGroup(Player player) {
+        try {
+            LuckPerms luckPerms = LuckPermsProvider.get();
+            User user = luckPerms.getUserManager().getUser(player.getUniqueId());
+            return user == null ? null : user.getPrimaryGroup();
+        } catch (IllegalStateException unavailable) {
+            return null;
+        }
+    }
+
+    /** Team-Prefixe sind in Minecraft 1.8 hart auf 16 Zeichen begrenzt. */
+    private String nametagPrefix(String raw) {
+        String plain = ChatColor.stripColor(raw == null ? "" : raw);
+        ChatColor color = firstColor(raw);
+        if (color == null) color = ChatColor.GRAY;
+
+        String withSpace = color.toString() + plain + " ";
+        if (withSpace.length() <= 16) return withSpace;
+
+        String exact = color.toString() + plain;
+        if (exact.length() <= 16) return exact;
+
+        int maxPlain = 14; // 2 Zeichen fuer den §-Farbcode.
+        return color.toString() + plain.substring(0, Math.min(maxPlain, plain.length()));
+    }
+
+    private ChatColor firstColor(String raw) {
+        if (raw == null) return null;
+        for (int i = 0; i + 1 < raw.length(); i++) {
+            if (raw.charAt(i) != ChatColor.COLOR_CHAR) continue;
+            char code = Character.toLowerCase(raw.charAt(i + 1));
+            if ("0123456789abcdef".indexOf(code) < 0) continue;
+            return ChatColor.getByChar(code);
+        }
+        return null;
     }
 
     private PvpStatsSnapshot stats(Player player) {
