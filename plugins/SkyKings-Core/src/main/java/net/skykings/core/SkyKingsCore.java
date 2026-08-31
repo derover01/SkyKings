@@ -64,6 +64,8 @@ import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.rank.RanksGui;
+import net.skykings.core.shop.PvpRestockShopGui;
+import net.skykings.core.shop.ShopNpcService;
 import net.skykings.core.shop.ShopTransactionService;
 import net.skykings.core.shop.SystemShopGui;
 import net.skykings.core.storage.DataStore;
@@ -156,6 +158,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         PaidRankHologramListener paidRankHolograms = new PaidRankHologramListener(this, rankService);
         CommandsGui commandsGui = new CommandsGui(guiManager);
         SystemShopGui systemShopGui = new SystemShopGui(guiManager, shopTransactionService);
+        PvpRestockShopGui pvpRestockShopGui = new PvpRestockShopGui(guiManager, shopTransactionService);
+        ShopNpcService shopNpcService = new ShopNpcService(this, systemShopGui, pvpRestockShopGui);
 
         this.economyBridge = createEconomyBridge();
 
@@ -169,6 +173,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
         getServer().getPluginManager().registerEvents(enderChestService, this);
+        getServer().getPluginManager().registerEvents(shopNpcService, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
@@ -198,12 +203,18 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
         if (!registerCommand("enderchest", new EnderChestCommand(enderChestService))) return;
         if (!registerCommand("shop", new ShopCommand(systemShopGui))) return;
+
+        PluginCommand shopNpcCommand = requireCommand("shopnpc");
+        if (shopNpcCommand == null) return;
+        shopNpcCommand.setExecutor(shopNpcService);
+        shopNpcCommand.setTabCompleter(shopNpcService);
+
         if (!registerCommand("gm", new GamemodeCommand())) return;
         if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 5: Economy/Shop-Engine + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 5: Economy/Shop-Engine + Shop-NPCs + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
