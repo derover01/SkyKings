@@ -1,5 +1,6 @@
 package net.skykings.core.shop.player;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -13,16 +14,22 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.Locale;
 import java.util.UUID;
 
-/** Bedienung fuer Villager-PlayerShops auf privaten Islands. */
+/** PlayerShops werden ausschliesslich ueber das SkyKings Haendler-Ei platziert. */
 public final class PlayerShopController implements Listener, CommandExecutor {
+    private static final long EGG_PRICE = 2_500_000L;
     private final PlayerShopService service;
     private final PlayerShopStore store;
+    private final PlayerShopEgg shopEgg = new PlayerShopEgg();
 
     public PlayerShopController(PlayerShopService service) {
         this.service = service;
@@ -40,17 +47,25 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         String sub = args[0].toLowerCase(Locale.ROOT);
 
         if ("create".equals(sub)) {
-            PlayerShop shop = service.create(player, player.getLocation());
-            if (shop == null) {
-                player.sendMessage(ChatColor.RED + "PlayerShops kannst du nur auf deiner eigenen Insel oder deinem eigenen Plot erstellen.");
+            player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "PLAYERSHOP " + ChatColor.YELLOW + "Shops werden mit einem Haendler-Ei platziert.");
+            player.sendMessage(ChatColor.GRAY + "Kaufe eins mit " + ChatColor.AQUA + "/playershop kaufen" + ChatColor.GRAY + " oder gewinne es spaeter aus Events/Crates.");
+            player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 1.2F);
+            return true;
+        }
+        if ("kaufen".equals(sub) || "buyegg".equals(sub) || "egg".equals(sub)) {
+            SkyKingsCoreAPI core = core();
+            if (core == null) { player.sendMessage(ChatColor.RED + "Economy ist noch nicht bereit."); return true; }
+            ItemStack egg = shopEgg.create();
+            if (player.getInventory().firstEmpty() < 0) { player.sendMessage(ChatColor.RED + "Du brauchst einen freien Inventarplatz."); return true; }
+            if (!core.getEconomyService().withdraw(player.getUniqueId(), EGG_PRICE, player.getName(), "PlayerShop Haendler-Ei")) {
+                player.sendMessage(ChatColor.RED + "Dir fehlen Coins. Preis: " + ChatColor.YELLOW + format(EGG_PRICE) + " Coins");
+                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
                 return true;
             }
-            Villager villager = player.getWorld().spawn(player.getLocation(), Villager.class);
-            villager.setCustomName(ChatColor.GOLD + "Shop von " + player.getName());
-            villager.setCustomNameVisible(true);
-            shop.setVillagerUuid(villager.getUniqueId());
-            store.save();
-            player.sendMessage(ChatColor.GREEN + "PlayerShop erstellt. Jetzt /playershop set <Menge> <Preis> und /playershop stock <Menge>.");
+            player.getInventory().addItem(egg);
+            player.updateInventory();
+            player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "HAENDLER-EI GEKAUFT! " + ChatColor.GRAY + "Rechtsklick auf deiner Insel/deinem Plot zum Platzieren.");
+            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.4F);
             return true;
         }
 
@@ -62,23 +77,21 @@ public final class PlayerShopController implements Listener, CommandExecutor {
 
         if ("set".equals(sub) && args.length >= 3) {
             try {
-                int amount = Integer.parseInt(args[1]);
-                long price = Long.parseLong(args[2]);
+                int amount = Integer.parseInt(args[1]); long price = Long.parseLong(args[2]);
                 if (!service.configure(player, shop.getId(), amount, price)) throw new IllegalArgumentException();
                 player.sendMessage(ChatColor.GREEN + "Angebot: " + amount + " Item(s) fuer " + price + " Coins.");
-            } catch (IllegalArgumentException ex) {
-                player.sendMessage(ChatColor.RED + "Nutze /playershop set <1-64> <Coins>.");
-            }
+                player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.6F, 1.3F);
+            } catch (IllegalArgumentException ex) { player.sendMessage(ChatColor.RED + "Nutze /playershop set <1-64> <Coins>."); }
             return true;
         }
         if ("stock".equals(sub) && args.length >= 2) {
             try {
                 int amount = Integer.parseInt(args[1]);
                 if (!service.addStock(player, shop.getId(), amount)) {
-                    player.sendMessage(ChatColor.RED + "Stock konnte nicht hinzugefuegt werden. Halte das passende normale Item in der Hand.");
-                    return true;
+                    player.sendMessage(ChatColor.RED + "Stock konnte nicht hinzugefuegt werden. Halte das passende normale Item in der Hand."); return true;
                 }
                 player.sendMessage(ChatColor.GREEN + "Stock hinzugefuegt. Gesamt: " + shop.getStock());
+                player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.5F, 1.3F);
             } catch (NumberFormatException ex) { player.sendMessage(ChatColor.RED + "Ungueltige Menge."); }
             return true;
         }
@@ -86,10 +99,10 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             try {
                 int amount = Integer.parseInt(args[1]);
                 if (!service.withdrawStock(player, shop.getId(), amount)) {
-                    player.sendMessage(ChatColor.RED + "Stock konnte nicht entnommen werden. Pruefe Menge und Inventarplatz.");
-                    return true;
+                    player.sendMessage(ChatColor.RED + "Stock konnte nicht entnommen werden. Pruefe Menge und Inventarplatz."); return true;
                 }
-                player.sendMessage(ChatColor.GREEN.toString() + amount + " Item(s) aus dem Shop entnommen. Rest: " + shop.getStock());
+                player.sendMessage(ChatColor.GREEN.toString() + amount + " Item(s) entnommen. Rest: " + shop.getStock());
+                player.playSound(player.getLocation(), Sound.CHEST_CLOSE, 0.5F, 1.1F);
             } catch (NumberFormatException ex) { player.sendMessage(ChatColor.RED + "Ungueltige Menge."); }
             return true;
         }
@@ -97,10 +110,11 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             long amount = service.claimRevenue(player, shop.getId());
             player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + amount + " Coins Shop-Einnahmen abgeholt."
                     : ChatColor.YELLOW + "Keine Einnahmen zum Abholen.");
+            if (amount > 0) player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.6F, 1.5F);
             return true;
         }
         if ("info".equals(sub)) {
-            player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "PLAYERSHOP");
+            player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOP");
             player.sendMessage(ChatColor.GRAY + "ID: " + ChatColor.WHITE + shop.getId().toString().substring(0, 8));
             player.sendMessage(ChatColor.GRAY + "Item: " + ChatColor.WHITE + (shop.getMaterial() == null ? "noch nicht gesetzt" : shop.getMaterial().name()));
             player.sendMessage(ChatColor.GRAY + "Menge/Kauf: " + ChatColor.WHITE + shop.getAmountPerSale());
@@ -111,38 +125,49 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         }
         if ("remove".equals(sub)) {
             if (shop.getStock() > 0 || shop.getPendingRevenue() > 0) {
-                player.sendMessage(ChatColor.RED + "Leere zuerst den Stock mit /playershop withdraw und hole Einnahmen ab.");
-                return true;
+                player.sendMessage(ChatColor.RED + "Leere zuerst den Stock und hole Einnahmen ab."); return true;
             }
-            removeVillager(shop.getVillagerUuid());
-            store.delete(shop.getId());
-            player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt.");
-            return true;
+            removeVillager(shop.getVillagerUuid()); store.delete(shop.getId());
+            player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt."); player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 0.7F); return true;
         }
-        usage(player);
-        return true;
+        usage(player); return true;
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlaceEgg(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK || !shopEgg.isShopEgg(event.getItem()) || event.getClickedBlock() == null) return;
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        Location location = event.getClickedBlock().getRelative(event.getBlockFace()).getLocation().add(0.5D, 0D, 0.5D);
+        PlayerShop shop = service.create(player, location);
+        if (shop == null) {
+            player.sendMessage(ChatColor.RED + "Das Haendler-Ei kann nur auf deiner eigenen Insel oder deinem eigenen Plot platziert werden.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F); return;
+        }
+        Villager villager = player.getWorld().spawn(location, Villager.class);
+        villager.setCustomName(ChatColor.GOLD.toString() + ChatColor.BOLD + "Shop " + ChatColor.YELLOW + "von " + player.getName());
+        villager.setCustomNameVisible(true);
+        shop.setVillagerUuid(villager.getUniqueId()); store.save();
+        consumeHand(player);
+        player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Jetzt Angebot und Stock konfigurieren.");
+        player.playSound(location, Sound.LEVEL_UP, 0.8F, 1.35F);
     }
 
     @EventHandler
     public void onInteract(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Villager)) return;
-        PlayerShop shop = store.getByVillager(event.getRightClicked().getUniqueId());
-        if (shop == null) return;
-        event.setCancelled(true);
-        Player player = event.getPlayer();
+        PlayerShop shop = store.getByVillager(event.getRightClicked().getUniqueId()); if (shop == null) return;
+        event.setCancelled(true); Player player = event.getPlayer();
         if (!isNearStoredLocation(shop, event.getRightClicked().getLocation())) {
-            player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist aus Sicherheitsgruenden deaktiviert.");
-            return;
+            player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist deaktiviert."); return;
         }
         if (player.getUniqueId().equals(shop.getOwner())) {
-            player.sendMessage(ChatColor.GOLD + "Dein PlayerShop: " + ChatColor.GRAY + shop.getStock() + " Stock, "
-                    + shop.getPendingRevenue() + " Coins Einnahmen. /playershop info");
-            return;
+            player.sendMessage(ChatColor.GOLD + "Dein Shop: " + ChatColor.GRAY + shop.getStock() + " Stock, " + shop.getPendingRevenue() + " Coins Einnahmen.");
+            player.playSound(player.getLocation(), Sound.CLICK, 0.5F, 1.3F); return;
         }
         PlayerShopService.Result result = service.purchase(player, shop.getId());
         if (result == PlayerShopService.Result.SUCCESS) {
-            player.sendMessage(ChatColor.GREEN + "Kauf erfolgreich: " + shop.getAmountPerSale() + "x " + shop.getMaterial().name()
-                    + " fuer " + shop.getPriceCoins() + " Coins.");
+            player.sendMessage(ChatColor.GREEN + "Kauf erfolgreich: " + shop.getAmountPerSale() + "x " + shop.getMaterial().name() + " fuer " + shop.getPriceCoins() + " Coins.");
             player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.65F, 1.25F);
         } else {
             player.sendMessage(ChatColor.RED + "Kauf nicht moeglich: " + readable(result));
@@ -152,21 +177,26 @@ public final class PlayerShopController implements Listener, CommandExecutor {
 
     @EventHandler(ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Villager)) return;
-        if (store.getByVillager(event.getEntity().getUniqueId()) != null) event.setCancelled(true);
+        if (event.getEntity() instanceof Villager && store.getByVillager(event.getEntity().getUniqueId()) != null) event.setCancelled(true);
     }
 
+    private void consumeHand(Player player) {
+        ItemStack hand = player.getItemInHand();
+        if (hand == null) return;
+        if (hand.getAmount() <= 1) player.setItemInHand(null); else hand.setAmount(hand.getAmount() - 1);
+        player.updateInventory();
+    }
+    private SkyKingsCoreAPI core() {
+        RegisteredServiceProvider<SkyKingsCoreAPI> registration = Bukkit.getServicesManager().getRegistration(SkyKingsCoreAPI.class);
+        return registration == null ? null : registration.getProvider();
+    }
     private boolean isNearStoredLocation(PlayerShop shop, Location current) {
         if (shop.getWorld() == null || current == null || current.getWorld() == null || !shop.getWorld().equals(current.getWorld().getName())) return false;
-        double dx = current.getX() - shop.getX();
-        double dy = current.getY() - shop.getY();
-        double dz = current.getZ() - shop.getZ();
+        double dx = current.getX() - shop.getX(), dy = current.getY() - shop.getY(), dz = current.getZ() - shop.getZ();
         return dx * dx + dy * dy + dz * dz <= 16D;
     }
-
     private PlayerShop nearestOwned(Player player, double radius) {
-        double best = radius * radius;
-        PlayerShop result = null;
+        double best = radius * radius; PlayerShop result = null;
         for (Entity entity : player.getNearbyEntities(radius, radius, radius)) {
             if (!(entity instanceof Villager)) continue;
             PlayerShop shop = store.getByVillager(entity.getUniqueId());
@@ -176,14 +206,10 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         }
         return result;
     }
-
     private void removeVillager(UUID uuid) {
         if (uuid == null) return;
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) if (uuid.equals(entity.getUniqueId())) { entity.remove(); return; }
-        }
+        for (World world : Bukkit.getWorlds()) for (Entity entity : world.getEntities()) if (uuid.equals(entity.getUniqueId())) { entity.remove(); return; }
     }
-
     private String readable(PlayerShopService.Result result) {
         switch (result) {
             case OUT_OF_STOCK: return "ausverkauft";
@@ -193,15 +219,13 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             default: return "Transaktion fehlgeschlagen";
         }
     }
-
+    private String format(long value) { return String.format("%,d", value).replace(',', '.'); }
     private void usage(Player player) {
-        player.sendMessage(ChatColor.GOLD + "PlayerShops (eigene Insel / eigener Plot)");
-        player.sendMessage(ChatColor.YELLOW + "/playershop create");
+        player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOPS");
+        player.sendMessage(ChatColor.YELLOW + "/playershop kaufen" + ChatColor.GRAY + " - Haendler-Ei fuer " + format(EGG_PRICE) + " Coins");
         player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>");
         player.sendMessage(ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " - Item in Hand");
         player.sendMessage(ChatColor.YELLOW + "/playershop withdraw <Menge>");
-        player.sendMessage(ChatColor.YELLOW + "/playershop claim");
-        player.sendMessage(ChatColor.YELLOW + "/playershop info");
-        player.sendMessage(ChatColor.YELLOW + "/playershop remove");
+        player.sendMessage(ChatColor.YELLOW + "/playershop claim | info | remove");
     }
 }
