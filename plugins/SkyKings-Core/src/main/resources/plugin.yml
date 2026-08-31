@@ -43,6 +43,14 @@ commands:
     description: Öffnet den zentralen SkyKings-Systemshop.
     usage: /shop
     aliases: [markt]
+  worth:
+    description: Zeigt den Systemshop-Verkaufswert des gehaltenen Items.
+    usage: /worth
+    aliases: [wert]
+  sell:
+    description: Verkauft whitelisted Items an den Systemshop.
+    usage: /sell <hand|all>
+    aliases: [verkaufen]
   shopnpc:
     description: Bindet Villager persistent an SkyKings-Shops.
     usage: /shopnpc <bind|unbind|info> [system|pvp]
