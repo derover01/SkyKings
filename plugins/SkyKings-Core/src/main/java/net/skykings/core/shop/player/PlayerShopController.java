@@ -42,7 +42,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         if ("create".equals(sub)) {
             PlayerShop shop = service.create(player, player.getLocation());
             if (shop == null) {
-                player.sendMessage(ChatColor.RED + "PlayerShops kannst du nur auf deiner eigenen Insel erstellen.");
+                player.sendMessage(ChatColor.RED + "PlayerShops kannst du nur auf deiner eigenen Insel oder deinem eigenen Plot erstellen.");
                 return true;
             }
             Villager villager = player.getWorld().spawn(player.getLocation(), Villager.class);
@@ -89,7 +89,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
                     player.sendMessage(ChatColor.RED + "Stock konnte nicht entnommen werden. Pruefe Menge und Inventarplatz.");
                     return true;
                 }
-                player.sendMessage(ChatColor.GREEN + amount + " Item(s) aus dem Shop entnommen. Rest: " + shop.getStock());
+                player.sendMessage(ChatColor.GREEN.toString() + amount + " Item(s) aus dem Shop entnommen. Rest: " + shop.getStock());
             } catch (NumberFormatException ex) { player.sendMessage(ChatColor.RED + "Ungueltige Menge."); }
             return true;
         }
@@ -195,7 +195,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
     }
 
     private void usage(Player player) {
-        player.sendMessage(ChatColor.GOLD + "PlayerShops (eigene Insel)");
+        player.sendMessage(ChatColor.GOLD + "PlayerShops (eigene Insel / eigener Plot)");
         player.sendMessage(ChatColor.YELLOW + "/playershop create");
         player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>");
         player.sendMessage(ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " - Item in Hand");
