@@ -27,6 +27,7 @@ import net.skykings.core.display.RankDisplayConfig;
 import net.skykings.core.display.SkyKingsScoreboardService;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.economy.EconomyServiceImpl;
+import net.skykings.core.enderchest.EnderChestService;
 import net.skykings.core.freesign.FreeSignListener;
 import net.skykings.core.freesign.FreeSignStore;
 import net.skykings.core.gui.GuiManager;
@@ -99,6 +100,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private VoucherPermissionService voucherPermissionService;
     private FreeSignStore freeSignStore;
     private BuildBlockStore buildBlockStore;
+    private EnderChestService enderChestService;
 
     @Override
     public void onEnable() {
@@ -138,6 +140,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.voucherPermissionService = new VoucherPermissionService(this, permissionBridge, loggingService);
         this.freeSignStore = new FreeSignStore(this);
         this.buildBlockStore = new BuildBlockStore(this);
+        this.enderChestService = new EnderChestService(this, rankService, economyService);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -159,6 +162,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(new BuildBlockWorldListener(buildBlockStore), this);
         getServer().getPluginManager().registerEvents(paidRankHolograms, this);
         getServer().getPluginManager().registerEvents(guiManager, this);
+        getServer().getPluginManager().registerEvents(enderChestService, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
@@ -186,7 +190,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("stack", new StackCommand(rankService))) return;
         if (!registerCommand("bloecke", new BlocksCommand(rankService, buildBlocksGui))) return;
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
-        if (!registerCommand("enderchest", new EnderChestCommand(rankService))) return;
+        if (!registerCommand("enderchest", new EnderChestCommand(enderChestService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
         if (!registerCommand("trash", new TrashCommand())) return;
 
@@ -212,6 +216,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     @Override
     public void onDisable() {
+        if (enderChestService != null) enderChestService.shutdown();
         if (buildBlockStore != null) buildBlockStore.shutdown();
         if (freeSignStore != null) freeSignStore.shutdown();
         if (playerProfileService != null) playerProfileService.saveAll();
