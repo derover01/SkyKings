@@ -4,7 +4,7 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, physische Nethersterne,
-  PvP-Stats, Map-Gameplay, King Altar, Hot Zones, End Zone, Secrets, Routes, Landmarks und globalen Spawn.
+  PvP-Stats, Map-Gameplay, Zonen, Secrets, Routes, Landmarks, Displays und globalen Spawn.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -60,6 +60,16 @@ commands:
     usage: /landmark <set|remove|list> [Typ] [Radius]
     permission: skykings.admin.map
     aliases: [islandmarker, maplandmark]
+  trashbin:
+    description: Registriert Hopper als 6x9 Map-Muelleimer.
+    usage: /trashbin <add|remove|list>
+    permission: skykings.admin.map
+    aliases: [maptrash, muelleimer]
+  mapdisplay:
+    description: Setzt dynamische Map-Hologramme und Leaderboards.
+    usage: /mapdisplay <set|remove|list> [topkills|king|hotzones]
+    permission: skykings.admin.map
+    aliases: [mapholo, maphologram]
   skymap:
     description: Lädt die Produktionsmap oder generiert die Legacy-Testmap.
     usage: /skymap <load|generate> [Weltname]
@@ -85,5 +95,5 @@ permissions:
     description: Schaltet den Ender-Kill-Effect frei.
     default: false
   skykings.admin.map:
-    description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks und Map-Import einrichten.
+    description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
     default: false
