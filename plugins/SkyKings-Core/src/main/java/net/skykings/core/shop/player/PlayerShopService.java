@@ -41,7 +41,6 @@ public final class PlayerShopService {
         };
     }
 
-    /** Phase 7 setzt hier die Island-/Plot-Owner-Pruefung ein. */
     public void setPlacementPolicy(ShopPlacementPolicy placementPolicy) {
         if (placementPolicy != null) this.placementPolicy = placementPolicy;
     }
@@ -108,10 +107,26 @@ public final class PlayerShopService {
         if (hand.hasItemMeta() && hand.getItemMeta() != null && (hand.getItemMeta().hasDisplayName() || hand.getItemMeta().hasLore())) return false;
         if (!hand.getEnchantments().isEmpty()) return false;
 
-        hand.setAmount(hand.getAmount() - amount);
-        owner.setItemInHand(hand.getAmount() <= 0 ? null : hand);
+        int remaining = hand.getAmount() - amount;
+        if (remaining <= 0) owner.setItemInHand(new ItemStack(Material.AIR));
+        else { hand.setAmount(remaining); owner.setItemInHand(hand); }
         shop.setStock(shop.getStock() + amount);
         store.save();
+        owner.updateInventory();
+        return true;
+    }
+
+    /** Gibt normalen Stock sicher an den Besitzer zurueck. */
+    public boolean withdrawStock(Player owner, UUID shopId, int amount) {
+        PlayerShop shop = store.get(shopId);
+        if (owner == null || shop == null || amount <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
+        if (shop.getMaterial() == null || shop.getStock() < amount) return false;
+        ItemStack returned = new ItemStack(shop.getMaterial(), amount, shop.getData());
+        if (!canFit(owner, returned)) return false;
+        if (!owner.getInventory().addItem(returned).isEmpty()) return false;
+        shop.setStock(shop.getStock() - amount);
+        store.save();
+        owner.updateInventory();
         return true;
     }
 
