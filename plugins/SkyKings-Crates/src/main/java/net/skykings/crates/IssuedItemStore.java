@@ -17,6 +17,8 @@ import java.util.logging.Logger;
  */
 public final class IssuedItemStore {
 
+    private static volatile IssuedItemStore active;
+
     private static final class Entry {
         final char kind;
         final String type;
@@ -39,7 +41,11 @@ public final class IssuedItemStore {
         this.file = file;
         this.logger = logger;
         load();
+        active = this;
     }
+
+    /** Produktion: von Default-Codecs genutzt. Tests ohne Plugin erhalten weiterhin null. */
+    public static IssuedItemStore active() { return active; }
 
     public synchronized boolean issueVoucher(UUID serial, VoucherItemCodec.VoucherType type, String target) {
         if (serial == null || type == null) return false;
