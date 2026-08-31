@@ -1,13 +1,14 @@
 package net.skykings.combat.kill;
 
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
-/** Automatische Kopfgelder für hohe Killstreaks. */
+/** Automatische Kopfgelder fuer hohe Killstreaks mit zentralem SkyKings-Feedback. */
 public final class BountyService {
-
     private final EconomyService economyService;
     private final NetherstarRewardDelivery rewardDelivery;
 
@@ -19,13 +20,11 @@ public final class BountyService {
     public void announceStreak(Player player, int streak) {
         Bounty bounty = bountyFor(streak);
         if (!isMilestone(streak) || bounty == null) return;
-        Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "⚔ KILLSTREAK ⚔");
-        Bukkit.broadcastMessage(ChatColor.YELLOW + player.getName() + ChatColor.GRAY + " ist jetzt auf einer "
-                + ChatColor.RED + streak + "er Killstreak" + ChatColor.GRAY + "!");
-        Bukkit.broadcastMessage(ChatColor.GRAY + "Kopfgeld: " + ChatColor.AQUA + bounty.netherstars + " Nethersterne"
-                + ChatColor.DARK_GRAY + " + " + ChatColor.GOLD + bounty.coins + " Coins");
-        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage(UiTheme.WARNING + "Bounty active");
+        Bukkit.broadcastMessage(UiTheme.TEXT + player.getName() + UiTheme.MUTED + " • Streak " + UiTheme.TEXT + streak);
+        Bukkit.broadcastMessage(UiTheme.MUTED + "Reward " + UiTheme.TEXT + UiFormat.number(bounty.netherstars)
+                + " SkyKings Sterne  •  " + UiTheme.TEXT + UiFormat.coins(bounty.coins));
+        for (Player online : Bukkit.getOnlinePlayers()) SoundFeedback.warning(online);
     }
 
     public void awardStreakShutdown(Player killer, Player victim, int victimStreak, double antiFarmMultiplier) {
@@ -37,14 +36,22 @@ public final class BountyService {
         if (coins > 0L) economyService.deposit(killer.getUniqueId(), coins, "BOUNTY",
                 "Streak-Shutdown gegen " + victim.getName() + " (" + victimStreak + ")");
 
-        Bukkit.broadcastMessage("");
-        Bukkit.broadcastMessage(ChatColor.DARK_RED.toString() + ChatColor.BOLD + "☠ STREAK BEENDET ☠");
-        Bukkit.broadcastMessage(ChatColor.GOLD + killer.getName() + ChatColor.GRAY + " hat die "
-                + ChatColor.RED + victimStreak + "er Streak" + ChatColor.GRAY + " von "
-                + ChatColor.YELLOW + victim.getName() + ChatColor.GRAY + " beendet!");
-        Bukkit.broadcastMessage(ChatColor.GRAY + "Belohnung: " + ChatColor.AQUA + stars + " Nethersterne"
-                + ChatColor.DARK_GRAY + " + " + ChatColor.GOLD + coins + " Coins");
-        Bukkit.broadcastMessage("");
+        Bukkit.broadcastMessage(UiTheme.PRIMARY + "Bounty claimed");
+        Bukkit.broadcastMessage(UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " besiegt "
+                + UiTheme.TEXT + victim.getName() + UiTheme.MUTED + " bei Streak " + UiTheme.TEXT + victimStreak);
+        Bukkit.broadcastMessage(UiTheme.MUTED + "Reward " + UiTheme.TEXT + UiFormat.number(stars)
+                + " SkyKings Sterne  •  " + UiTheme.TEXT + UiFormat.coins(coins));
+        SoundFeedback.reward(killer);
+    }
+
+    public long getCoinBounty(int streak) {
+        Bounty bounty = bountyFor(streak);
+        return bounty == null ? 0L : bounty.coins;
+    }
+
+    public long getStarBounty(int streak) {
+        Bounty bounty = bountyFor(streak);
+        return bounty == null ? 0L : bounty.netherstars;
     }
 
     private boolean isMilestone(int streak) {
