@@ -1,6 +1,8 @@
 package net.skykings.core.shop;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -70,12 +72,14 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         event.setCancelled(true);
 
         if (!isAllowedAtConfiguredLandmark(type, event.getRightClicked().getLocation())) {
-            event.getPlayer().sendMessage(ChatColor.RED + "Dieser Händler gehört auf seine vorgesehene Map-Insel.");
+            event.getPlayer().sendMessage(UiTheme.DANGER + "Dieser Haendler steht nicht in seinem vorgesehenen Bereich.");
+            SoundFeedback.error(event.getPlayer());
             return;
         }
 
         if (!ensureExtendedShops()) {
-            event.getPlayer().sendMessage(ChatColor.RED + "Der Shop-Service ist noch nicht bereit.");
+            event.getPlayer().sendMessage(UiTheme.DANGER + "Shop-Service noch nicht bereit.");
+            SoundFeedback.error(event.getPlayer());
             return;
         }
 
@@ -99,7 +103,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         if (blacksmithShopGui == null) blacksmithShopGui = new BlacksmithShopGui(api.getGuiManager(), api.getEconomyService());
         if (enchantShopGui == null) enchantShopGui = new EnchantShopGui(api.getGuiManager(), api.getShopTransactionService());
         if (bottleRecyclerGui == null) bottleRecyclerGui = new BottleRecyclerGui(api.getGuiManager(), api.getEconomyService());
-        if (travelingMerchantGui == null) travelingMerchantGui = new TravelingMerchantGui(api.getGuiManager(), api.getShopTransactionService());
+        if (travelingMerchantGui == null) travelingMerchantGui = new TravelingMerchantGui(plugin, api.getGuiManager(), api.getShopTransactionService());
         if (jackpotGui == null) jackpotGui = new JackpotGui(plugin, api.getGuiManager(), api.getEconomyService());
         return true;
     }
@@ -107,12 +111,12 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur für Spieler verfügbar.");
+            sender.sendMessage("Dieser Befehl ist nur fuer Spieler verfuegbar.");
             return true;
         }
         Player player = (Player) sender;
         if (!player.hasPermission(ADMIN_PERMISSION)) {
-            player.sendMessage(ChatColor.RED + "Keine Berechtigung.");
+            player.sendMessage(UiTheme.DANGER + "Keine Berechtigung.");
             return true;
         }
         if (args.length == 0) {
@@ -123,56 +127,59 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         String sub = args[0].toLowerCase(Locale.ROOT);
         if ("bind".equals(sub)) {
             if (args.length < 2) {
-                player.sendMessage(ChatColor.RED + "Nutze /shopnpc bind <system|pvp|blacksmith|enchant|recycler|merchant|jackpot>.");
+                player.sendMessage(UiTheme.TEXT + "Shop-NPC binden");
+                player.sendMessage(UiTheme.WARNING + "/shopnpc bind <system|pvp|blacksmith|enchant|recycler|merchant|jackpot>");
                 return true;
             }
             Villager villager = nearestVillager(player, 6D);
             if (villager == null) {
-                player.sendMessage(ChatColor.RED + "Kein Villager innerhalb von 6 Blöcken gefunden.");
+                player.sendMessage(UiTheme.DANGER + "Kein Villager innerhalb von 6 Bloecken gefunden.");
                 return true;
             }
             Type type = parse(args[1]);
             if (type == null) {
-                player.sendMessage(ChatColor.RED + "Unbekannter Shoptyp.");
+                player.sendMessage(UiTheme.DANGER + "Unbekannter Shoptyp.");
                 return true;
             }
             if (!isAllowedAtConfiguredLandmark(type, villager.getLocation())) {
-                player.sendMessage(ChatColor.RED + "Dieser Shop muss innerhalb seiner konfigurierten Map-Insel stehen.");
+                player.sendMessage(UiTheme.DANGER + "Dieser Shop muss innerhalb seiner konfigurierten Map-Insel stehen.");
                 return true;
             }
             bindings.put(villager.getUniqueId(), type);
             save();
             villager.setCustomName(displayName(type));
             villager.setCustomNameVisible(true);
-            player.sendMessage(ChatColor.GREEN + "Villager wurde als " + type.name() + " Shop gebunden.");
+            player.sendMessage(UiTheme.SUCCESS + "Shop-NPC gebunden.");
+            SoundFeedback.success(player);
             return true;
         }
 
         if ("unbind".equals(sub) || "remove".equals(sub)) {
             Villager villager = nearestVillager(player, 6D);
             if (villager == null) {
-                player.sendMessage(ChatColor.RED + "Kein Villager innerhalb von 6 Blöcken gefunden.");
+                player.sendMessage(UiTheme.DANGER + "Kein Villager innerhalb von 6 Bloecken gefunden.");
                 return true;
             }
             Type removed = bindings.remove(villager.getUniqueId());
             if (removed == null) {
-                player.sendMessage(ChatColor.RED + "Dieser Villager ist kein SkyKings-Shop.");
+                player.sendMessage(UiTheme.DANGER + "Dieser Villager ist kein SkyKings-Shop.");
                 return true;
             }
             save();
-            player.sendMessage(ChatColor.YELLOW + "Shop-Bindung entfernt.");
+            player.sendMessage(UiTheme.WARNING + "Shop-Bindung entfernt.");
+            SoundFeedback.back(player);
             return true;
         }
 
         if ("info".equals(sub)) {
             Villager villager = nearestVillager(player, 6D);
             if (villager == null) {
-                player.sendMessage(ChatColor.RED + "Kein Villager innerhalb von 6 Blöcken gefunden.");
+                player.sendMessage(UiTheme.DANGER + "Kein Villager innerhalb von 6 Bloecken gefunden.");
                 return true;
             }
             Type type = bindings.get(villager.getUniqueId());
-            player.sendMessage(ChatColor.GRAY + "Shop: " + (type == null ? ChatColor.RED + "nicht gebunden" : ChatColor.GREEN + type.name()));
-            player.sendMessage(ChatColor.DARK_GRAY + "UUID: " + villager.getUniqueId());
+            player.sendMessage(UiTheme.TEXT + "Shop-NPC");
+            player.sendMessage(UiTheme.MUTED + "Status " + (type == null ? UiTheme.DANGER + "nicht gebunden" : UiTheme.SUCCESS + type.name()));
             return true;
         }
 
@@ -204,28 +211,22 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
     private String displayName(Type type) {
         switch (type) {
-            case SYSTEM: return ChatColor.GOLD + "Systemhändler";
+            case SYSTEM: return ChatColor.GOLD + "System Market";
             case PVP_RESTOCK: return ChatColor.LIGHT_PURPLE + "PvP Restock";
             case BLACKSMITH: return ChatColor.DARK_GRAY + "Blacksmith";
             case ENCHANT: return ChatColor.DARK_PURPLE + "Enchanter";
             case RECYCLER: return ChatColor.AQUA + "Bottle Recycler";
-            case MERCHANT: return ChatColor.RED + "Black Market";
-            case JACKPOT: return ChatColor.GOLD.toString() + ChatColor.BOLD + "Jackpot";
-            default: return ChatColor.GOLD + "Händler";
+            case MERCHANT: return ChatColor.AQUA + "Black Market";
+            case JACKPOT: return ChatColor.GOLD + "Jackpot";
+            default: return ChatColor.GOLD + "Market";
         }
     }
 
     private void sendUsage(Player player) {
-        player.sendMessage(ChatColor.GOLD + "SkyKings Shop-NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind system");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind pvp");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind blacksmith");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind enchant");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind recycler");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind merchant");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc bind jackpot");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc unbind");
-        player.sendMessage(ChatColor.YELLOW + "/shopnpc info");
+        player.sendMessage(UiTheme.TEXT + "Shop-NPCs");
+        player.sendMessage(UiTheme.WARNING + "/shopnpc bind <Typ>");
+        player.sendMessage(UiTheme.WARNING + "/shopnpc unbind");
+        player.sendMessage(UiTheme.WARNING + "/shopnpc info");
     }
 
     private Villager nearestVillager(Player player, double radius) {
@@ -266,7 +267,7 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
                 Type type = Type.valueOf(yaml.getString("shops." + key + ".type", "").toUpperCase(Locale.ROOT));
                 bindings.put(uuid, type);
             } catch (RuntimeException ignored) {
-                plugin.getLogger().warning("Ungültige Shop-NPC-Bindung in shop-npcs.yml: " + key);
+                plugin.getLogger().warning("Ungueltige Shop-NPC-Bindung in shop-npcs.yml: " + key);
             }
         }
     }
