@@ -11,6 +11,7 @@ import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
@@ -33,9 +34,7 @@ public final class MapProtectionService implements Listener {
     private final Set<String> protectedWorlds = new HashSet<String>();
     private final Set<UUID> buildMode = new HashSet<UUID>();
 
-    public MapProtectionService() {
-        protectedWorlds.add("skypvp");
-    }
+    public MapProtectionService() { protectedWorlds.add("skypvp"); }
 
     public boolean isProtected(World world) {
         return world != null && protectedWorlds.contains(world.getName().toLowerCase());
@@ -52,9 +51,7 @@ public final class MapProtectionService implements Listener {
         return true;
     }
 
-    public Set<String> getProtectedWorlds() {
-        return Collections.unmodifiableSet(protectedWorlds);
-    }
+    public Set<String> getProtectedWorlds() { return Collections.unmodifiableSet(protectedWorlds); }
 
     private boolean deny(Player player) {
         if (!isProtected(player.getWorld()) || canEdit(player)) return false;
@@ -71,18 +68,22 @@ public final class MapProtectionService implements Listener {
         if (event.getRemover() instanceof Player && deny((Player) event.getRemover())) event.setCancelled(true);
     }
 
-    @EventHandler
-    public void onExplosion(EntityExplodeEvent event) {
+    /** Spieler/Entities duerfen die Weizenfelder der Produktionsmap nicht zu Erde zertrampeln. */
+    @EventHandler(ignoreCancelled = true)
+    public void onFarmlandTrample(EntityChangeBlockEvent event) {
+        if (!isProtected(event.getBlock().getWorld())) return;
+        if (event.getBlock().getType() == Material.SOIL && event.getTo() == Material.DIRT) event.setCancelled(true);
+    }
+
+    @EventHandler public void onExplosion(EntityExplodeEvent event) {
         if (isProtected(event.getLocation().getWorld())) event.blockList().clear();
     }
 
-    @EventHandler
-    public void onBurn(BlockBurnEvent event) {
+    @EventHandler public void onBurn(BlockBurnEvent event) {
         if (isProtected(event.getBlock().getWorld())) event.setCancelled(true);
     }
 
-    @EventHandler
-    public void onIgnite(BlockIgniteEvent event) {
+    @EventHandler public void onIgnite(BlockIgniteEvent event) {
         if (isProtected(event.getBlock().getWorld())) event.setCancelled(true);
     }
 
