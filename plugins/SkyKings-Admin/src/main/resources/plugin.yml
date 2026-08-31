@@ -24,6 +24,10 @@ commands:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
     usage: /skcheck
     aliases: [systemcheck, skycheck]
+  discordtest:
+    description: Testet die ausgehende Discord-Bot-Verbindung.
+    usage: /discordtest [staff|audit|events|status]
+    permission: skykings.admin.discord
 permissions:
   skykings.admin.rang:
     description: Darf /rang verwenden.
@@ -33,6 +37,9 @@ permissions:
     default: false
   skykings.admin.systemcheck:
     description: Darf den SkyKings Runtime-Systemcheck ausführen.
+    default: false
+  skykings.admin.discord:
+    description: Darf die Discord-Bridge testen und verwalten.
     default: false
   skykings.staff.announcement:
     description: Darf Server-Ankündigungen senden.
