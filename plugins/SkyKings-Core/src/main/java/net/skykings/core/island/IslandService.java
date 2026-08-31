@@ -101,7 +101,7 @@ public final class IslandService implements IslandAccessService {
             chest.getBlockInventory().setItem(9, new ItemStack(Material.WATER_BUCKET, 1));
             chest.getBlockInventory().setItem(11, new ItemStack(Material.LAVA_BUCKET, 1));
             chest.getBlockInventory().setItem(13, new ItemStack(Material.TORCH, 16));
-            chest.getBlockInventory().setItem(15, new ItemStack(Material.BONE_MEAL, 8));
+            chest.getBlockInventory().setItem(15, new ItemStack(Material.INK_SACK, 8, (short) 15));
             chest.update(true);
         }
     }
