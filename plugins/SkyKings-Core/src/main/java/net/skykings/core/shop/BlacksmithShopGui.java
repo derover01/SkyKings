@@ -3,7 +3,7 @@ package net.skykings.core.shop;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
-import net.skykings.core.sound.SkySoundService;
+import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -37,20 +37,20 @@ public final class BlacksmithShopGui {
         gui.setItem(15, named(Material.GOLD_INGOT, ChatColor.YELLOW + "Dein Kontostand",
                 ChatColor.GRAY + format(economyService.getBalance(player.getUniqueId())) + " Coins"));
         guiManager.open(gui);
-        SkySoundService.menu(player);
+        SoundFeedback.menuOpen(player);
     }
 
     private void repair(Player player) {
         ItemStack item = player.getItemInHand();
         if (!isRepairable(item)) {
             player.sendMessage(ChatColor.RED + "Halte einen beschädigten reparierbaren Gegenstand in der Hand.");
-            SkySoundService.error(player);
+            SoundFeedback.error(player);
             return;
         }
         long price = repairPrice(item);
         if (!economyService.withdraw(player.getUniqueId(), price, player.getName(), "Blacksmith Repair")) {
             player.sendMessage(ChatColor.RED + "Dir fehlen Coins. Benötigt: " + ChatColor.YELLOW + format(price));
-            SkySoundService.error(player);
+            SoundFeedback.error(player);
             return;
         }
         item.setDurability((short) 0);
@@ -58,7 +58,7 @@ public final class BlacksmithShopGui {
         player.updateInventory();
         player.sendMessage(ChatColor.GREEN + "Der Blacksmith hat deinen Gegenstand für "
                 + ChatColor.YELLOW + format(price) + ChatColor.GREEN + " Coins repariert.");
-        SkySoundService.success(player);
+        SoundFeedback.success(player);
         open(player);
     }
 
