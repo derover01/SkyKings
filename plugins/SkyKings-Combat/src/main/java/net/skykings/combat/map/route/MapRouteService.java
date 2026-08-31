@@ -141,8 +141,8 @@ public final class MapRouteService implements Listener {
             List<Location> points = new ArrayList<Location>();
             int count = yaml.getInt("routes." + id + ".count", 0);
             for (int i = 0; i < count; i++) {
-                Location location = yaml.getLocation("routes." + id + ".points." + i);
-                if (location != null) points.add(location);
+                Object raw = yaml.get("routes." + id + ".points." + i);
+                if (raw instanceof Location) points.add((Location) raw);
             }
             routes.put(id, points);
         }
