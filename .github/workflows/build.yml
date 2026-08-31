@@ -1,0 +1,44 @@
+name: SkyKings Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Show Java and Maven versions
+        run: |
+          java -version
+          mvn -version
+
+      - name: Build all SkyKings modules
+        run: mvn -B -U -DskipTests package
+
+      - name: Upload plugin jars
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skykings-plugin-jars
+          path: |
+            plugins/SkyKings-Core/target/*.jar
+            plugins/SkyKings-Combat/target/*.jar
+            plugins/SkyKings-Crates/target/*.jar
+            plugins/SkyKings-Admin/target/*.jar
+          if-no-files-found: error
