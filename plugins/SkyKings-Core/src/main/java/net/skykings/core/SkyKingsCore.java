@@ -45,6 +45,9 @@ import net.skykings.core.integration.NoOpPermissionBridge;
 import net.skykings.core.integration.PermissionBridge;
 import net.skykings.core.integration.luckperms.LuckPermsPermissionBridge;
 import net.skykings.core.integration.vault.VaultEconomyBridge;
+import net.skykings.core.island.IslandCommand;
+import net.skykings.core.island.IslandProtectionListener;
+import net.skykings.core.island.IslandService;
 import net.skykings.core.kit.KitGrantService;
 import net.skykings.core.kit.KitGrantServiceImpl;
 import net.skykings.core.kit.KitGui;
@@ -72,11 +75,17 @@ import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.rank.RanksGui;
+import net.skykings.core.retention.DailyRewardCommand;
+import net.skykings.core.retention.DailyRewardService;
 import net.skykings.core.shop.PvpRestockShopGui;
 import net.skykings.core.shop.ShopNpcService;
 import net.skykings.core.shop.ShopPriceRegistry;
 import net.skykings.core.shop.ShopTransactionService;
 import net.skykings.core.shop.SystemShopGui;
+import net.skykings.core.shop.player.IslandShopPlacementPolicy;
+import net.skykings.core.shop.player.PlayerShopController;
+import net.skykings.core.shop.player.PlayerShopService;
+import net.skykings.core.shop.player.PlayerShopStore;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
@@ -95,7 +104,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
-/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit-, Perk- und Display-Services. */
+/** SkyKings-Core: zentrale Player-, Economy-, Rank-, Cooldown-, Kit-, Perk-, Island- und Display-Services. */
 public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     private DataStore dataStore;
@@ -118,6 +127,9 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private BuildBlockStore buildBlockStore;
     private EnderChestService enderChestService;
     private ShopTransactionService shopTransactionService;
+    private IslandService islandService;
+    private DailyRewardService dailyRewardService;
+    private PlayerShopStore playerShopStore;
 
     @Override
     public void onEnable() {
@@ -159,6 +171,13 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.buildBlockStore = new BuildBlockStore(this);
         this.enderChestService = new EnderChestService(this, rankService, economyService);
         this.shopTransactionService = new ShopTransactionService(economyService, loggingService);
+        this.islandService = new IslandService(this);
+        this.dailyRewardService = new DailyRewardService(this, economyService);
+        this.playerShopStore = new PlayerShopStore(this);
+        PlayerShopService playerShopService = new PlayerShopService(playerShopStore, economyService, loggingService);
+        playerShopService.setPlacementPolicy(new IslandShopPlacementPolicy(islandService));
+        PlayerShopController playerShopController = new PlayerShopController(playerShopService);
+
         ShopPriceRegistry shopPrices = new ShopPriceRegistry(this);
         MapProtectionService mapProtectionService = new MapProtectionService();
         TradeService tradeService = new TradeService();
@@ -192,6 +211,8 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(shopNpcService, this);
         getServer().getPluginManager().registerEvents(mapProtectionService, this);
         getServer().getPluginManager().registerEvents(tradeGuiService, this);
+        getServer().getPluginManager().registerEvents(new IslandProtectionListener(islandService), this);
+        getServer().getPluginManager().registerEvents(playerShopController, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player);
@@ -235,12 +256,20 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         shopNpcCommand.setExecutor(shopNpcService);
         shopNpcCommand.setTabCompleter(shopNpcService);
 
+        PluginCommand islandCommand = requireCommand("island");
+        if (islandCommand == null) return;
+        IslandCommand islandExecutor = new IslandCommand(islandService);
+        islandCommand.setExecutor(islandExecutor);
+        islandCommand.setTabCompleter(islandExecutor);
+
+        if (!registerCommand("playershop", playerShopController)) return;
+        if (!registerCommand("dailyrewards", new DailyRewardCommand(dailyRewardService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
         if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 5 + Trade + Custom EC + Map Protection + Speed) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 7 Islands + PlayerShops + Retention-Basis) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
@@ -260,6 +289,9 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
     @Override
     public void onDisable() {
+        if (dailyRewardService != null) dailyRewardService.save();
+        if (playerShopStore != null) playerShopStore.save();
+        if (islandService != null) islandService.save();
         if (enderChestService != null) enderChestService.shutdown();
         if (buildBlockStore != null) buildBlockStore.shutdown();
         if (freeSignStore != null) freeSignStore.shutdown();
