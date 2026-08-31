@@ -15,7 +15,12 @@ public final class VoucherItemCodec {
 
     public enum VoucherType { RANK, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
 
-    private static final String MARKER = ChatColor.BLACK + "skykings:voucher:";
+    /** Legacy-Marker bleibt lesbar, damit bereits ausgegebene Testgutscheine dekodiert werden koennen. */
+    private static final String LEGACY_MARKER = ChatColor.BLACK + "skykings:voucher:";
+    /** Neue Metadaten werden absichtlich in kurzen Lore-Zeilen gespeichert, damit 1.8 Tooltips nicht riesig werden. */
+    private static final String META_MARKER = ChatColor.BLACK + "#sv";
+    private static final int META_CHUNK = 12;
+
     private final IssuedItemStore issuedStore;
 
     /** Nutzt im laufenden Plugin automatisch das aktive Issued-Registry; in isolierten Tests null. */
@@ -34,7 +39,7 @@ public final class VoucherItemCodec {
         ItemStack item = baseItem(type, cleanTarget, true);
         ItemMeta meta = item.getItemMeta();
         List<String> lore = new ArrayList<String>(meta.getLore());
-        lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
+        addMeta(lore, type.name().toLowerCase(Locale.ROOT) + "|" + sanitize(target) + "|" + serial);
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -50,14 +55,15 @@ public final class VoucherItemCodec {
     private ItemStack baseItem(VoucherType type, String cleanTarget, boolean redeemable) {
         ItemStack item = new ItemStack(materialFor(type), 1, dataFor(type));
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type));
+        meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type)
+                + ChatColor.DARK_GRAY + " • " + colorFor(type) + shortTarget(type, cleanTarget));
         List<String> lore = new ArrayList<String>();
         if (type == VoucherType.COINS) {
             lore.add(ChatColor.GRAY + "Wert: " + ChatColor.GOLD + cleanTarget);
             lore.add(ChatColor.DARK_GRAY + "Nur fuer dich.");
         } else if (type == VoucherType.GIVEALL_COINS) {
             lore.add(ChatColor.GRAY + "Pro Spieler: " + ChatColor.GOLD + cleanTarget);
-            lore.add(ChatColor.YELLOW + "Fuer alle aktuell Online-Spieler.");
+            lore.add(ChatColor.YELLOW + "Fuer alle Online-Spieler.");
         } else {
             lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
         }
@@ -73,26 +79,66 @@ public final class VoucherItemCodec {
         if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return null;
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
+
+        // Neue kurze Metazeilen zuerst lesen.
+        StringBuilder payload = new StringBuilder();
         for (String line : meta.getLore()) {
-            if (line == null || !line.startsWith(MARKER)) continue;
-            String[] parts = line.substring(MARKER.length()).split(":", 3);
+            if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
+        }
+        if (payload.length() > 0) return decodePayload(payload.toString());
+
+        // Rueckwaertskompatibilitaet fuer alte Testitems.
+        for (String line : meta.getLore()) {
+            if (line == null || !line.startsWith(LEGACY_MARKER)) continue;
+            String[] parts = line.substring(LEGACY_MARKER.length()).split(":", 3);
             if (parts.length != 3) return null;
-            try {
-                VoucherType type = VoucherType.valueOf(parts[0].toUpperCase(Locale.ROOT));
-                String target = parts[1];
-                UUID serial = UUID.fromString(parts[2]);
-                if (issuedStore != null && !issuedStore.isIssuedVoucher(serial, type, target)) return null;
-                return new DecodedVoucher(type, target, serial);
-            } catch (IllegalArgumentException ignored) {
-                return null;
-            }
+            return decoded(parts[0], parts[1], parts[2]);
         }
         return null;
+    }
+
+    private DecodedVoucher decodePayload(String payload) {
+        String[] parts = payload.split("\\|", 3);
+        if (parts.length != 3) return null;
+        return decoded(parts[0], parts[1], parts[2]);
+    }
+
+    private DecodedVoucher decoded(String rawType, String target, String rawSerial) {
+        try {
+            VoucherType type = VoucherType.valueOf(rawType.toUpperCase(Locale.ROOT));
+            UUID serial = UUID.fromString(rawSerial);
+            if (issuedStore != null && !issuedStore.isIssuedVoucher(serial, type, target)) return null;
+            return new DecodedVoucher(type, target, serial);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private void addMeta(List<String> lore, String payload) {
+        for (int start = 0; start < payload.length(); start += META_CHUNK) {
+            int end = Math.min(payload.length(), start + META_CHUNK);
+            lore.add(META_MARKER + payload.substring(start, end));
+        }
     }
 
     private String cleanDisplay(String target, String displayTarget) {
         return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
                 displayTarget == null ? target : displayTarget));
+    }
+
+    private String shortTarget(VoucherType type, String cleanTarget) {
+        String value = cleanTarget == null ? "" : cleanTarget.trim();
+        if (type == VoucherType.RANK) value = stripSuffix(value, " Rang");
+        if (type == VoucherType.KIT) value = stripSuffix(value, " Kit");
+        if (type == VoucherType.PERMISSION) value = stripSuffix(value, " Recht");
+        if (type == VoucherType.PREFIX) value = stripSuffix(value, " Prefix");
+        if (type == VoucherType.COINS || type == VoucherType.GIVEALL_COINS) value = stripSuffix(value, " Coins");
+        if (value.length() > 22) value = value.substring(0, 22);
+        return value;
+    }
+
+    private String stripSuffix(String value, String suffix) {
+        return value.endsWith(suffix) ? value.substring(0, value.length() - suffix.length()) : value;
     }
 
     private Material materialFor(VoucherType type) {
@@ -128,7 +174,7 @@ public final class VoucherItemCodec {
             case PERMISSION: return "Rechtegutschein";
             case PREFIX: return "Prefixgutschein";
             case COINS: return "Coin-Gutschein";
-            case GIVEALL_COINS: return "GiveAll Coin-Gutschein";
+            case GIVEALL_COINS: return "GiveAll-Gutschein";
             default: return "Gutschein";
         }
     }
