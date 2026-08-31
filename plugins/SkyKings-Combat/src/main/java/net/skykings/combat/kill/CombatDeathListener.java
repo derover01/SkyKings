@@ -124,7 +124,9 @@ public final class CombatDeathListener implements Listener {
     }
 
     private boolean isEventParticipant(UUID uuid) {
-        return eventParticipationService != null && eventParticipationService.isInEvent(uuid);
+        EventParticipationService service = eventParticipationService != null
+                ? eventParticipationService : EventParticipationService.global();
+        return service.isInEvent(uuid);
     }
 
     private Player resolveKiller(Player victim, UUID victimUuid) {
