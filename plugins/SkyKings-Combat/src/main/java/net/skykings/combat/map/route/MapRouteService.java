@@ -45,6 +45,8 @@ public final class MapRouteService implements Listener {
         load();
     }
 
+    public int count() { return routes.size(); }
+
     public boolean create(String raw) {
         String id = normalize(raw);
         if (id.isEmpty() || routes.containsKey(id)) return false;
