@@ -2,28 +2,28 @@ package net.skykings.core.clan;
 
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.ConfirmationMenu;
+import net.skykings.core.ui.UiItems;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.UUID;
 
-/** /clan mit Oldschool-Funktionen und visuellem SkyKings-Menue. */
+/** Clans im zentralen SkyKings UI-System, inklusive kleinem geschuetztem Clan Hub. */
 public final class ClanCommand implements CommandExecutor {
     private final ClanService clans;
+    private final ClanBaseService bases;
 
-    public ClanCommand(ClanService clans) { this.clans = clans; }
+    public ClanCommand(ClanService clans) { this(clans, null); }
+    public ClanCommand(ClanService clans, ClanBaseService bases) { this.clans = clans; this.bases = bases; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -33,155 +33,258 @@ public final class ClanCommand implements CommandExecutor {
             open(player); return true;
         }
         String sub = args[0].toLowerCase(Locale.ROOT);
+
+        if ("base".equals(sub)) {
+            handleBase(player, args);
+            return true;
+        }
         if ("create".equals(sub) && args.length >= 3) {
             ClanService.Clan clan = clans.create(player, args[1], args[2]);
             if (clan == null) {
-                player.sendMessage(ChatColor.RED + "Clan konnte nicht erstellt werden. Name 3-16 Zeichen, Tag 2-5 Zeichen; beides muss frei sein.");
-                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+                player.sendMessage(UiTheme.DANGER + "Clan konnte nicht erstellt werden.");
+                player.sendMessage(UiTheme.MUTED + "Name 3-16 Zeichen • Tag 2-5 Zeichen • beides muss frei sein.");
+                SoundFeedback.error(player);
             } else {
-                player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "CLAN ERSTELLT! " + ChatColor.YELLOW + "[" + clan.getTag() + "] " + clan.getName());
-                player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.45F);
+                player.sendMessage(UiTheme.SUCCESS + "Clan erstellt");
+                player.sendMessage(UiTheme.TEXT + "[" + clan.getTag() + "] " + clan.getName());
+                SoundFeedback.reward(player);
             }
             return true;
         }
         if ("invite".equals(sub) && args.length >= 2) {
             Player target = Bukkit.getPlayer(args[1]);
-            if (target == null || target.equals(player)) { player.sendMessage(ChatColor.RED + "Spieler nicht gefunden."); return true; }
+            if (target == null || target.equals(player)) { error(player, "Spieler nicht gefunden."); return true; }
             if (!clans.invite(player.getUniqueId(), target.getUniqueId())) {
-                player.sendMessage(ChatColor.RED + "Einladung nicht moeglich. Du musst Clan-Owner sein, der Spieler clanlos und der Clan darf nicht voll sein.");
+                error(player, "Einladung nicht moeglich. Pruefe Owner, Clanplatz und Zielspieler.");
                 return true;
             }
             ClanService.Clan clan = clans.getClan(player.getUniqueId());
-            player.sendMessage(ChatColor.GREEN + "Einladung an " + target.getName() + " gesendet.");
-            target.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "CLAN EINLADUNG " + ChatColor.YELLOW + "[" + clan.getTag() + "] " + clan.getName());
-            target.sendMessage(ChatColor.GREEN + "/clan accept " + ChatColor.GRAY + "oder " + ChatColor.RED + "/clan deny");
-            target.playSound(target.getLocation(), Sound.NOTE_PLING, 0.8F, 1.6F);
+            player.sendMessage(UiTheme.SUCCESS + "Einladung gesendet");
+            target.sendMessage(UiTheme.PRIMARY + "Clan Einladung");
+            target.sendMessage(UiTheme.TEXT + "[" + clan.getTag() + "] " + clan.getName());
+            target.sendMessage(UiTheme.WARNING + "/clan accept" + UiTheme.MUTED + " oder " + UiTheme.WARNING + "/clan deny");
+            SoundFeedback.notify(target);
             return true;
         }
         if ("accept".equals(sub)) {
             ClanService.Clan clan = clans.accept(player.getUniqueId());
-            if (clan == null) {
-                player.sendMessage(ChatColor.RED + "Keine gueltige Clan-Einladung vorhanden.");
-                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
-            } else {
-                player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "CLAN BEIGETRETEN! " + ChatColor.YELLOW + "[" + clan.getTag() + "] " + clan.getName());
-                player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.4F);
-                broadcast(clan, ChatColor.YELLOW + player.getName() + ChatColor.GRAY + " ist dem Clan beigetreten.");
+            if (clan == null) error(player, "Keine gueltige Clan-Einladung.");
+            else {
+                player.sendMessage(UiTheme.SUCCESS + "Clan beigetreten");
+                player.sendMessage(UiTheme.TEXT + "[" + clan.getTag() + "] " + clan.getName());
+                SoundFeedback.reward(player);
+                broadcast(clan, UiTheme.TEXT + player.getName() + UiTheme.MUTED + " ist beigetreten.");
             }
             return true;
         }
         if ("deny".equals(sub)) {
-            clans.deny(player.getUniqueId()); player.sendMessage(ChatColor.YELLOW + "Clan-Einladung abgelehnt.");
-            player.playSound(player.getLocation(), Sound.CLICK, 0.6F, 0.7F); return true;
+            clans.deny(player.getUniqueId());
+            player.sendMessage(UiTheme.MUTED + "Clan-Einladung abgelehnt.");
+            SoundFeedback.back(player);
+            return true;
         }
         if ("leave".equals(sub)) {
             ClanService.Clan clan = clans.getClan(player.getUniqueId());
-            if (clan == null) { player.sendMessage(ChatColor.RED + "Du bist in keinem Clan."); return true; }
-            if (clan.isOwner(player.getUniqueId())) {
-                player.sendMessage(ChatColor.RED + "Als Owner musst du /clan disband verwenden."); return true;
-            }
-            if (clans.leave(player.getUniqueId())) {
-                broadcast(clan, ChatColor.YELLOW + player.getName() + ChatColor.GRAY + " hat den Clan verlassen.");
-                player.sendMessage(ChatColor.YELLOW + "Du hast den Clan verlassen.");
-            }
+            if (clan == null) { error(player, "Du bist in keinem Clan."); return true; }
+            if (clan.isOwner(player.getUniqueId())) { error(player, "Als Owner musst du den Clan aufloesen."); return true; }
+            ConfirmationMenu.open(player,
+                    UiItems.item(Material.WOOD_DOOR, UiTheme.TEXT + "Clan verlassen", UiTheme.MUTED + clan.getName()),
+                    "Clan verlassen",
+                    "Du verlaesst " + clan.getName(),
+                    () -> leaveConfirmed(player, clan),
+                    null);
             return true;
         }
         if ("kick".equals(sub) && args.length >= 2) {
             Player target = Bukkit.getPlayer(args[1]);
-            if (target == null) { player.sendMessage(ChatColor.RED + "Spieler muss online sein."); return true; }
+            if (target == null) { error(player, "Spieler muss online sein."); return true; }
             ClanService.Clan clan = clans.getClan(player.getUniqueId());
-            if (!clans.kick(player.getUniqueId(), target.getUniqueId())) { player.sendMessage(ChatColor.RED + "Kick nicht moeglich."); return true; }
-            target.sendMessage(ChatColor.RED + "Du wurdest aus dem Clan entfernt.");
-            player.sendMessage(ChatColor.YELLOW + target.getName() + " wurde aus dem Clan entfernt.");
-            if (clan != null) broadcast(clan, ChatColor.YELLOW + target.getName() + ChatColor.GRAY + " wurde aus dem Clan entfernt.");
+            if (!clans.kick(player.getUniqueId(), target.getUniqueId())) { error(player, "Spieler konnte nicht entfernt werden."); return true; }
+            target.sendMessage(UiTheme.DANGER + "Du wurdest aus dem Clan entfernt.");
+            player.sendMessage(UiTheme.SUCCESS + target.getName() + " wurde entfernt.");
+            if (clan != null) broadcast(clan, UiTheme.TEXT + target.getName() + UiTheme.MUTED + " wurde entfernt.");
             return true;
         }
         if ("disband".equals(sub)) {
-            ClanService.Clan clan = clans.getClan(player.getUniqueId());
-            if (clan == null || !clan.isOwner(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Nur der Clan-Owner kann den Clan aufloesen."); return true; }
-            broadcast(clan, ChatColor.RED.toString() + ChatColor.BOLD + "Der Clan wurde aufgeloest.");
-            clans.disband(player.getUniqueId());
-            player.playSound(player.getLocation(), Sound.ANVIL_BREAK, 0.6F, 0.8F);
+            final ClanService.Clan clan = clans.getClan(player.getUniqueId());
+            if (clan == null || !clan.isOwner(player.getUniqueId())) { error(player, "Nur der Clan-Owner kann den Clan aufloesen."); return true; }
+            ConfirmationMenu.open(player,
+                    UiItems.item(Material.TNT, UiTheme.DANGER + "Clan aufloesen",
+                            UiTheme.MUTED + "[" + clan.getTag() + "] " + clan.getName(),
+                            UiTheme.DANGER + "Diese Aktion ist permanent."),
+                    "Clan aufloesen",
+                    "Clan und Clan Base werden entfernt",
+                    () -> disbandConfirmed(player, clan),
+                    null);
             return true;
         }
         usage(player); return true;
     }
 
+    private void handleBase(Player player, String[] args) {
+        if (bases == null) { error(player, "Clan Base Service ist nicht bereit."); return; }
+        ClanService.Clan clan = clans.getClan(player.getUniqueId());
+        if (clan == null) { error(player, "Du bist in keinem Clan."); return; }
+        if (args.length == 1 || "menu".equalsIgnoreCase(args[1])) { openBase(player, clan); return; }
+        if ("create".equalsIgnoreCase(args[1])) {
+            if (!clan.isOwner(player.getUniqueId())) { error(player, "Nur der Clan-Owner kann eine Base erstellen."); return; }
+            if (!bases.create(player)) { error(player, "Clan Base existiert bereits oder konnte nicht erstellt werden."); return; }
+            player.sendMessage(UiTheme.SUCCESS + "Clan Base erstellt");
+            player.sendMessage(UiTheme.MUTED + "33x33 geschuetzter Hub in " + ClanBaseService.WORLD_NAME + ".");
+            return;
+        }
+        if ("home".equalsIgnoreCase(args[1]) || "tp".equalsIgnoreCase(args[1])) {
+            if (!bases.teleport(player)) error(player, "Dein Clan besitzt noch keine Base.");
+            return;
+        }
+        if ("sethome".equalsIgnoreCase(args[1])) {
+            if (!bases.setHome(player)) error(player, "Nur der Owner kann innerhalb der Clan Base das Home setzen.");
+            else { player.sendMessage(UiTheme.SUCCESS + "Clan Base Home gesetzt."); SoundFeedback.success(player); }
+            return;
+        }
+        openBase(player, clan);
+    }
+
     private void open(Player player) {
         ClanService.Clan clan = clans.getClan(player.getUniqueId());
         ClanService.Clan invite = clans.pendingInvite(player.getUniqueId());
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings " + ChatColor.GRAY + "| " + ChatColor.GOLD + "Clan", 54);
-        decorate(gui);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Clans"), 54);
+
         if (clan == null) {
-            gui.setItem(22, item(Material.BANNER, ChatColor.GOLD.toString() + ChatColor.BOLD + "DEINEN CLAN GRUENDEN",
-                    ChatColor.GRAY + "Erstelle deine eigene Gruppe im Koenigreich.", "",
-                    ChatColor.YELLOW + "/clan create <Name> <Tag>",
-                    ChatColor.DARK_GRAY + "Name: 3-16 Zeichen • Tag: 2-5 Zeichen"));
+            gui.setItem(22, UiItems.item(Material.BANNER,
+                    UiTheme.PRIMARY + "Clan gruenden",
+                    UiTheme.MUTED + "Erstelle deine eigene Gruppe.",
+                    UiTheme.TEXT + "/clan create <Name> <Tag>"));
             if (invite != null) {
-                gui.setItem(20, item(Material.EMERALD_BLOCK, ChatColor.GREEN.toString() + ChatColor.BOLD + "EINLADUNG ANNEHMEN",
-                        ChatColor.YELLOW + "[" + invite.getTag() + "] " + invite.getName(), "", ChatColor.GREEN + "Klicken"), (p,e,s) -> {
-                    p.closeInventory(); onCommand(p, null, "clan", new String[]{"accept"});
+                gui.setItem(20, UiItems.item(Material.EMERALD_BLOCK,
+                        UiTheme.SUCCESS + "Einladung annehmen",
+                        UiTheme.TEXT + "[" + invite.getTag() + "] " + invite.getName(),
+                        "",
+                        UiItems.action("Klicken zum Annehmen")), (p,e,s) -> {
+                    ClanService.Clan accepted = clans.accept(p.getUniqueId());
+                    if (accepted != null) { SoundFeedback.reward(p); open(p); }
+                    else error(p, "Einladung ist nicht mehr gueltig.");
                 });
-                gui.setItem(24, item(Material.REDSTONE_BLOCK, ChatColor.RED.toString() + ChatColor.BOLD + "EINLADUNG ABLEHNEN",
-                        ChatColor.YELLOW + "[" + invite.getTag() + "] " + invite.getName(), "", ChatColor.RED + "Klicken"), (p,e,s) -> {
-                    p.closeInventory(); onCommand(p, null, "clan", new String[]{"deny"});
+                gui.setItem(24, UiItems.item(Material.REDSTONE_BLOCK,
+                        UiTheme.DANGER + "Einladung ablehnen",
+                        UiTheme.TEXT + "[" + invite.getTag() + "] " + invite.getName()), (p,e,s) -> {
+                    clans.deny(p.getUniqueId()); SoundFeedback.back(p); open(p);
                 });
             }
         } else {
-            gui.setItem(4, item(Material.DIAMOND, ChatColor.GOLD.toString() + ChatColor.BOLD + "[" + clan.getTag() + "] " + clan.getName(),
-                    ChatColor.GRAY + "Mitglieder: " + ChatColor.WHITE + clan.getMembers().size() + "/" + ClanService.MAX_MEMBERS,
-                    ChatColor.GRAY + "Friendly Fire: " + ChatColor.RED + "AUS",
-                    ChatColor.GRAY + "Deine Rolle: " + (clan.isOwner(player.getUniqueId()) ? ChatColor.GOLD + "Owner" : ChatColor.WHITE + "Mitglied")));
+            gui.setItem(4, UiItems.item(Material.DIAMOND,
+                    UiTheme.TEXT + "[" + clan.getTag() + "] " + clan.getName(),
+                    UiTheme.MUTED + "Mitglieder " + UiTheme.TEXT + clan.getMembers().size() + " / " + ClanService.MAX_MEMBERS,
+                    UiTheme.MUTED + "Friendly Fire " + UiTheme.DANGER + "AUS",
+                    UiTheme.MUTED + "Rolle " + UiTheme.TEXT + (clan.isOwner(player.getUniqueId()) ? "Owner" : "Mitglied")));
+
             int slot = 19;
             for (UUID member : clan.getMembers()) {
                 if (slot > 34) break;
                 OfflinePlayer off = Bukkit.getOfflinePlayer(member);
                 String name = off.getName() == null ? member.toString().substring(0, 8) : off.getName();
-                gui.setItem(slot++, head(name,
-                        (member.equals(clan.getOwner()) ? ChatColor.GOLD : ChatColor.GREEN) + name,
-                        member.equals(clan.getOwner()) ? ChatColor.GOLD + "Clan-Owner" : ChatColor.GRAY + "Mitglied",
-                        off.isOnline() ? ChatColor.GREEN + "Online" : ChatColor.RED + "Offline"));
+                gui.setItem(slot++, UiItems.head(name,
+                        UiTheme.TEXT + name,
+                        member.equals(clan.getOwner()) ? UiTheme.LEGENDARY + "Owner" : UiTheme.MUTED + "Mitglied",
+                        off.isOnline() ? UiTheme.SUCCESS + "ONLINE" : UiTheme.DISABLED + "OFFLINE"));
             }
+
+            boolean hasBase = bases != null && bases.get(clan.getId()) != null;
+            gui.setItem(38, UiItems.item(Material.CHEST,
+                    UiTheme.PRIMARY + "Clan Base",
+                    hasBase ? UiTheme.STATUS_READY : UiTheme.STATUS_LOCKED,
+                    UiTheme.MUTED + (hasBase ? "Geschuetzter 33x33 Hub" : "Noch nicht erstellt"),
+                    "",
+                    UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openBase(p, clan));
+
             if (clan.isOwner(player.getUniqueId())) {
-                gui.setItem(40, item(Material.PAPER, ChatColor.YELLOW.toString() + ChatColor.BOLD + "SPIELER EINLADEN",
-                        ChatColor.AQUA + "/clan invite <Spieler>"));
+                gui.setItem(40, UiItems.item(Material.PAPER,
+                        UiTheme.PRIMARY + "Spieler einladen",
+                        UiTheme.TEXT + "/clan invite <Spieler>"));
+                gui.setItem(42, UiItems.item(Material.TNT,
+                        UiTheme.DANGER + "Clan aufloesen",
+                        UiTheme.MUTED + "Confirmation erforderlich"), (p,e,s) -> onCommand(p, null, "clan", new String[]{"disband"}));
             } else {
-                gui.setItem(40, item(Material.WOOD_DOOR, ChatColor.RED.toString() + ChatColor.BOLD + "CLAN VERLASSEN",
-                        ChatColor.GRAY + "Befehl: " + ChatColor.RED + "/clan leave"));
+                gui.setItem(42, UiItems.item(Material.WOOD_DOOR,
+                        UiTheme.DANGER + "Clan verlassen",
+                        UiTheme.MUTED + "Confirmation erforderlich"), (p,e,s) -> onCommand(p, null, "clan", new String[]{"leave"}));
             }
         }
         GuiManager.active().open(gui);
-        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void openBase(Player player, ClanService.Clan clan) {
+        if (bases == null) { error(player, "Clan Base Service ist nicht bereit."); return; }
+        ClanBaseService.BaseData base = bases.get(clan.getId());
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Clan Base"), 27);
+        if (base == null) {
+            gui.setItem(13, UiItems.item(Material.LOCKED_CHEST,
+                    UiTheme.MUTED + "Keine Clan Base",
+                    UiTheme.MUTED + "Ein kleiner geschuetzter Hub in einer offenen Welt.",
+                    UiTheme.TEXT + "33x33 Claim • gemeinsamer Vault",
+                    "",
+                    clan.isOwner(player.getUniqueId()) ? UiItems.action("Klicken zum Erstellen") : UiTheme.DISABLED + "Owner muss die Base erstellen"),
+                    clan.isOwner(player.getUniqueId()) ? (p,e,s) -> {
+                        p.closeInventory();
+                        if (!bases.create(p)) error(p, "Clan Base konnte nicht erstellt werden.");
+                    } : null);
+        } else {
+            gui.setItem(11, UiItems.item(Material.ENDER_PEARL,
+                    UiTheme.PRIMARY + "Zur Clan Base",
+                    UiTheme.MUTED + "Teleport zum Clan Hub.",
+                    "",
+                    UiItems.action("Klicken zum Teleportieren")), (p,e,s) -> { p.closeInventory(); bases.teleport(p); });
+            gui.setItem(13, UiItems.item(Material.CHEST,
+                    UiTheme.TEXT + "Clan Vault",
+                    UiTheme.STATUS_READY,
+                    UiTheme.MUTED + "Gemeinsame physische Truhe im Starterraum.",
+                    UiTheme.MUTED + "Nur Clanmitglieder haben Zugriff."));
+            gui.setItem(15, UiItems.item(Material.COMPASS,
+                    UiTheme.TEXT + "Base #" + base.getIndex(),
+                    UiTheme.MUTED + "Claim 33x33",
+                    UiTheme.MUTED + "Center " + UiTheme.TEXT + base.getCenterX() + ", " + base.getCenterZ(),
+                    UiTheme.MUTED + ClanBaseService.WORLD_NAME));
+        }
+        gui.setItem(18, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); open(p); });
+        GuiManager.active().open(gui);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void leaveConfirmed(Player player, ClanService.Clan clan) {
+        if (clans.leave(player.getUniqueId())) {
+            broadcast(clan, UiTheme.TEXT + player.getName() + UiTheme.MUTED + " hat den Clan verlassen.");
+            player.sendMessage(UiTheme.SUCCESS + "Clan verlassen.");
+            SoundFeedback.success(player);
+        } else error(player, "Clan konnte nicht verlassen werden.");
+    }
+
+    private void disbandConfirmed(Player player, ClanService.Clan clan) {
+        broadcast(clan, UiTheme.DANGER + "Clan wurde aufgeloest.");
+        if (bases != null) bases.remove(clan.getId());
+        if (clans.disband(player.getUniqueId())) {
+            player.sendMessage(UiTheme.SUCCESS + "Clan aufgeloest.");
+            SoundFeedback.warning(player);
+        } else error(player, "Clan konnte nicht aufgeloest werden.");
     }
 
     private void broadcast(ClanService.Clan clan, String message) {
         for (UUID uuid : clan.getMembers()) {
             Player online = Bukkit.getPlayer(uuid);
-            if (online != null) online.sendMessage(ChatColor.GOLD + "[Clan] " + message);
+            if (online != null) online.sendMessage(UiTheme.PRIMARY + "Clan " + message);
         }
     }
 
     private void usage(Player p) {
-        p.sendMessage(ChatColor.DARK_GRAY + "---------------- " + ChatColor.GOLD + ChatColor.BOLD + "SKYKINGS CLAN" + ChatColor.DARK_GRAY + " ----------------");
-        p.sendMessage(ChatColor.GOLD + "/clan" + ChatColor.GRAY + " - Clan-Menue");
-        p.sendMessage(ChatColor.GOLD + "/clan create <Name> <Tag>");
-        p.sendMessage(ChatColor.GOLD + "/clan invite <Spieler> | accept | deny");
-        p.sendMessage(ChatColor.GOLD + "/clan leave | kick <Spieler> | disband");
+        p.sendMessage(UiTheme.TEXT + "Clans");
+        p.sendMessage(UiTheme.WARNING + "/clan create <Name> <Tag>");
+        p.sendMessage(UiTheme.WARNING + "/clan invite <Spieler> | accept | deny");
+        p.sendMessage(UiTheme.WARNING + "/clan base [create|home|sethome]");
+        p.sendMessage(UiTheme.WARNING + "/clan leave | kick <Spieler> | disband");
     }
 
-    private void decorate(GuiSession gui) {
-        ItemStack dark = pane((short) 15, " "); ItemStack gold = pane((short) 4, ChatColor.GOLD + "Clan");
-        for (int i = 0; i < 54; i++) if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) gui.setItem(i, dark);
-        gui.setItem(0, gold); gui.setItem(8, gold); gui.setItem(45, gold); gui.setItem(53, gold);
-    }
-    private ItemStack head(String owner, String name, String... lore) {
-        ItemStack item = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
-        SkullMeta meta = (SkullMeta) item.getItemMeta(); meta.setOwner(owner); meta.setDisplayName(name); meta.setLore(Arrays.asList(lore)); item.setItemMeta(meta); return item;
-    }
-    private ItemStack pane(short data, String name) {
-        ItemStack item = new ItemStack(Material.STAINED_GLASS_PANE, 1, data); ItemMeta meta = item.getItemMeta(); meta.setDisplayName(name); item.setItemMeta(meta); return item;
-    }
-    private ItemStack item(Material material, String name, String... lore) {
-        ItemStack item = new ItemStack(material); ItemMeta meta = item.getItemMeta(); meta.setDisplayName(name); meta.setLore(Arrays.asList(lore)); item.setItemMeta(meta); return item;
+    private void error(Player player, String text) {
+        player.sendMessage(UiTheme.DANGER + text);
+        SoundFeedback.error(player);
     }
 }
