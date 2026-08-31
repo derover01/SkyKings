@@ -16,8 +16,8 @@ public final class CrateItemCodec {
     private static final String MARKER_PREFIX = ChatColor.BLACK + "skykings:crate:";
     private final IssuedItemStore issuedStore;
 
-    /** Test-/Legacy-Konstruktor ohne Issued-Pruefung. Produktion nutzt den Store-Konstruktor. */
-    public CrateItemCodec() { this(null); }
+    /** Nutzt im laufenden Plugin automatisch das aktive Issued-Registry; in isolierten Tests null. */
+    public CrateItemCodec() { this(IssuedItemStore.active()); }
 
     public CrateItemCodec(IssuedItemStore issuedStore) {
         this.issuedStore = issuedStore;
