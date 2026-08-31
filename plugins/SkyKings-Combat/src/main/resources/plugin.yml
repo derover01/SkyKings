@@ -19,6 +19,10 @@ commands:
     description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
     usage: /killeffect
     aliases: [killeffects, killeffekt]
+  mapmastery:
+    description: Zeigt deine Map-Mastery mit Hot-Zone-Kills und King-Captures.
+    usage: /mapmastery [Spieler]
+    aliases: [mastery, mapstats]
   maploot:
     description: Richtet persistente Map-Loot-Chests ein.
     usage: /maploot <set|remove|refill>
