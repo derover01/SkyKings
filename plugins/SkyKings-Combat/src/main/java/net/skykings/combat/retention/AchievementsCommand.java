@@ -37,7 +37,7 @@ public final class AchievementsCommand implements CommandExecutor {
 
     private void open(Player player) {
         PvpStatsSnapshot s = stats.getStats(player.getUniqueId());
-        GuiSession gui = GuiSession.create(player, UiTheme.title("Achievements"), 45);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Achievements"), 54);
 
         achievement(gui, 10, Material.IRON_SWORD, "First Blood", s.getKills() >= 1, "Erster PvP-Kill");
         achievement(gui, 11, Material.BLAZE_POWDER, "Unstoppable", s.getBestStreak() >= 10, "10er Killstreak");
