@@ -7,9 +7,9 @@ description: >
 authors: [SkyKings Team]
 commands:
   stats:
-    description: Zeigt deine oder die PvP-Stats eines Online-Spielers.
+    description: Öffnet das einheitliche SkyKings Spielerprofil.
     usage: /stats [Spieler]
-    aliases: [pvpstats]
+    aliases: [pvpstats, profile, profil]
   top:
     description: Öffnet die SkyKings-PvP-Toplisten.
     usage: /top
