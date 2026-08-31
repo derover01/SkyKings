@@ -49,6 +49,11 @@ commands:
     description: Serverweite Coin-Verlosung.
     usage: /verlosung <join|start|stop>
     aliases: [giveaway]
+  eventarena:
+    description: Richtet persistente Arena-Punkte für Duel, LMS, Tournament und Juggernaut ein.
+    usage: /eventarena <set|info|list|remove> [Arena] [Punkt]
+    permission: skykings.admin.event
+    aliases: [arenasetup, eventsetup]
   mapsetup:
     description: Öffnet die 6x9 Staff-Übersicht für das Map-Setup.
     usage: /mapsetup
@@ -128,7 +133,7 @@ permissions:
     description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
     default: false
   skykings.admin.event:
-    description: Darf Serverevents wie /verlosung starten und stoppen.
+    description: Darf Serverevents und Event-Arenen einrichten, starten und stoppen.
     default: false
   skykings.admin.battlepass:
     description: Darf Premium Battle Pass für Spieler aktivieren/deaktivieren.
