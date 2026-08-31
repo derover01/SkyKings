@@ -3,7 +3,7 @@ version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
 depend: [SkyKings-Core]
 description: >
-  Admin-Modul für Staff-Commands, Gutscheine, Audit, Events und Discord-Logging.
+  Admin-Modul für Staff-Commands, Gutscheine, Audit, Events, Diagnose und Discord-Logging.
 authors: [SkyKings Team]
 commands:
   rang:
@@ -20,12 +20,19 @@ commands:
     description: Leert den Chat für alle Online-Spieler.
     usage: /clearchat
     aliases: [cc]
+  skcheck:
+    description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
+    usage: /skcheck
+    aliases: [systemcheck, skycheck]
 permissions:
   skykings.admin.rang:
     description: Darf /rang verwenden.
     default: false
   skykings.admin.rechte:
     description: Darf /rechte verwenden.
+    default: false
+  skykings.admin.systemcheck:
+    description: Darf den SkyKings Runtime-Systemcheck ausführen.
     default: false
   skykings.staff.announcement:
     description: Darf Server-Ankündigungen senden.
