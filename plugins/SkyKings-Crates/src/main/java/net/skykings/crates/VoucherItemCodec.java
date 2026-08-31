@@ -16,10 +16,22 @@ public final class VoucherItemCodec {
     public enum VoucherType { RANK, KIT, PERMISSION, PREFIX }
 
     private static final String MARKER = ChatColor.BLACK + "skykings:voucher:";
+    private final IssuedItemStore issuedStore;
+
+    /** Test-/Legacy-Konstruktor ohne Issued-Pruefung. Produktion nutzt den Store-Konstruktor. */
+    public VoucherItemCodec() { this(null); }
+
+    public VoucherItemCodec(IssuedItemStore issuedStore) {
+        this.issuedStore = issuedStore;
+    }
 
     public ItemStack create(VoucherType type, String target, String displayTarget) {
         String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
                 displayTarget == null ? target : displayTarget));
+        UUID serial = UUID.randomUUID();
+        if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitize(target))) {
+            throw new IllegalStateException("Voucher-Serial konnte nicht sicher registriert werden");
+        }
         ItemStack item = new ItemStack(Material.PAPER);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type) + " " + cleanTarget);
@@ -28,7 +40,7 @@ public final class VoucherItemCodec {
         lore.add("");
         lore.add(ChatColor.YELLOW + "Rechtsklick zum Einlösen");
         lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings Gutschein");
-        lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + UUID.randomUUID());
+        lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -44,7 +56,10 @@ public final class VoucherItemCodec {
             if (parts.length != 3) return null;
             try {
                 VoucherType type = VoucherType.valueOf(parts[0].toUpperCase(Locale.ROOT));
-                return new DecodedVoucher(type, parts[1], UUID.fromString(parts[2]));
+                String target = parts[1];
+                UUID serial = UUID.fromString(parts[2]);
+                if (issuedStore != null && !issuedStore.isIssuedVoucher(serial, type, target)) return null;
+                return new DecodedVoucher(type, target, serial);
             } catch (IllegalArgumentException ignored) {
                 return null;
             }
