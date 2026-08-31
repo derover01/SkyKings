@@ -45,6 +45,10 @@ commands:
     description: Gegenseitiges Peace-System für SkyPvP.
     usage: /peace <Spieler|accept|deny|remove|list>
     aliases: [friede, friend]
+  duel:
+    description: Fordert einen Spieler zu einem sicheren 1v1 ohne Itemverlust heraus.
+    usage: /duel <Spieler> [Arena]
+    aliases: [1v1]
   verlosung:
     description: Serverweite Coin-Verlosung.
     usage: /verlosung <join|start|stop>
@@ -134,6 +138,9 @@ permissions:
     default: false
   skykings.admin.event:
     description: Darf Serverevents und Event-Arenen einrichten, starten und stoppen.
+    default: false
+  skykings.admin.event.bypass:
+    description: Darf Event-Sicherheitsbeschränkungen als Staff umgehen.
     default: false
   skykings.admin.battlepass:
     description: Darf Premium Battle Pass für Spieler aktivieren/deaktivieren.
