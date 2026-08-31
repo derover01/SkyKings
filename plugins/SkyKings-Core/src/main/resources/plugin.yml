@@ -36,9 +36,25 @@ commands:
     description: Repariert das gehaltene Item für Exile+.
     usage: /repair
   enderchest:
-    description: Öffnet die eigene Enderchest für Gold+.
+    description: Öffnet die eigene mehrseitige Enderchest für Gold+.
     usage: /enderchest
     aliases: [ec]
+  anvil:
+    description: Öffnet einen portablen Amboss.
+    usage: /anvil
+    aliases: [amboss]
+  workbench:
+    description: Öffnet eine portable Werkbank.
+    usage: /workbench
+    aliases: [wb, craft]
+  enchantmenttable:
+    description: Öffnet einen portablen Verzauberungstisch.
+    usage: /enchantmenttable
+    aliases: [etable, enchanting]
+  buildmode:
+    description: Aktiviert/deaktiviert den Staff-Baumodus auf geschützten Maps.
+    usage: /buildmode
+    aliases: [bm]
   shop:
     description: Öffnet den zentralen SkyKings-Systemshop.
     usage: /shop
@@ -72,6 +88,18 @@ permissions:
   skykings.admin.shopnpc:
     description: Darf Villager an SkyKings-Shoptypen binden.
     default: false
+  skykings.admin.buildmode:
+    description: Darf den Map-Schutz mit /buildmode persönlich umgehen.
+    default: false
   skykings.staff.gamemode:
     description: Darf /gm verwenden.
+    default: false
+  skykings.perk.anvil:
+    description: Darf /anvil verwenden.
+    default: false
+  skykings.perk.workbench:
+    description: Darf /workbench verwenden.
+    default: false
+  skykings.perk.enchantmenttable:
+    description: Darf /enchantmenttable verwenden.
     default: false
