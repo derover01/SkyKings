@@ -25,7 +25,7 @@ commands:
   achievements:
     description: Zeigt deine PvP- und Map-Achievements.
     usage: /achievements
-    aliases: [achievements, erfolge]
+    aliases: [erfolge]
   season:
     description: Zeigt Season-XP und PvP-Level.
     usage: /season
@@ -33,6 +33,14 @@ commands:
     description: Zeigt dein PvP-Level 1-100.
     usage: /pvplevel
     aliases: [level, pvplvl]
+  battlepass:
+    description: Öffnet den Season Battle Pass mit Free- und Premium-Track.
+    usage: /battlepass
+    aliases: [bp]
+  quests:
+    description: Zeigt Daily- und Weekly-PvP-Quests.
+    usage: /quests
+    aliases: [quest, aufgaben]
   peace:
     description: Gegenseitiges Peace-System für SkyPvP.
     usage: /peace <Spieler|accept|deny|remove|list>
@@ -121,4 +129,7 @@ permissions:
     default: false
   skykings.admin.event:
     description: Darf Serverevents wie /verlosung starten und stoppen.
+    default: false
+  skykings.admin.battlepass:
+    description: Darf Premium Battle Pass für Spieler aktivieren/deaktivieren.
     default: false
