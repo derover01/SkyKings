@@ -22,6 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Crate UX: Preview, Auswahlmenü, Animation/Sofort und Open-All. */
@@ -253,7 +254,7 @@ public final class CrateInteractionListener implements Listener {
                     core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case NETHERSTARS:
-                    core.getNetherstarService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
+                    givePhysicalNetherstars(player, reward.getAmount());
                     return true;
                 case ITEM:
                     if (!hasSpace(player, reward)) return false;
@@ -276,6 +277,20 @@ public final class CrateInteractionListener implements Listener {
         }
     }
 
+    private void givePhysicalNetherstars(Player player, long amount) {
+        long remaining = amount;
+        while (remaining > 0L) {
+            int stackSize = (int) Math.min(64L, remaining);
+            ItemStack stack = new ItemStack(Material.NETHER_STAR, stackSize);
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(stack);
+            for (ItemStack leftover : leftovers.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+            }
+            remaining -= stackSize;
+        }
+        player.updateInventory();
+    }
+
     private ItemStack rewardIcon(CrateRegistry.RewardDefinition reward) {
         ItemStack icon;
         switch (reward.getType()) {
@@ -294,7 +309,7 @@ public final class CrateInteractionListener implements Listener {
     private String rewardText(CrateRegistry.RewardDefinition reward) {
         switch (reward.getType()) {
             case COINS: return reward.getAmount() + " Coins";
-            case NETHERSTARS: return reward.getAmount() + " Nethersterne";
+            case NETHERSTARS: return reward.getAmount() + " physische Nethersterne";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
             case VOUCHER: return ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
             default: return reward.getId();
