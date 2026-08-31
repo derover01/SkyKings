@@ -1,5 +1,6 @@
 package net.skykings.core.gui;
 
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -18,7 +19,7 @@ import java.util.Objects;
  * ohne laufenden Server mit einem Test-Double fuer {@code Inventory}/{@code Player} instanziiert
  * werden kann. {@link #create(Player, String, int)} ist die normale Produktions-Abkuerzung.
  *
- * <p>Enthaelt bewusst KEINE konkrete GUI (kein /kit, kein /raenge) - nur das generische Framework.
+ * <p>Enthaelt bewusst KEINE konkrete GUI - nur das generische Framework.
  */
 public final class GuiSession {
 
@@ -30,7 +31,7 @@ public final class GuiSession {
 
     private final Player player;
     private final Inventory inventory;
-    private final Map<Integer, GuiClickHandler> handlers = new HashMap<>();
+    private final Map<Integer, GuiClickHandler> handlers = new HashMap<Integer, GuiClickHandler>();
     private Runnable onClose;
 
     public GuiSession(Player player, Inventory inventory) {
@@ -38,49 +39,50 @@ public final class GuiSession {
         this.inventory = Objects.requireNonNull(inventory, "inventory");
     }
 
-    public Player getPlayer() {
-        return player;
-    }
-
-    public Inventory getInventory() {
-        return inventory;
-    }
+    public Player getPlayer() { return player; }
+    public Inventory getInventory() { return inventory; }
 
     public GuiSession setItem(int slot, ItemStack item) {
-        inventory.setItem(slot, item);
+        inventory.setItem(resolveSlot(slot), item);
         return this;
     }
 
     public GuiSession setItem(int slot, ItemStack item, GuiClickHandler handler) {
-        inventory.setItem(slot, item);
-        if (handler != null) {
-            handlers.put(slot, handler);
-        } else {
-            handlers.remove(slot);
-        }
+        int resolved = resolveSlot(slot);
+        inventory.setItem(resolved, item);
+        if (handler != null) handlers.put(resolved, handler);
+        else handlers.remove(resolved);
         return this;
     }
 
-    /** Optionaler Cleanup-Hook, der beim Schliessen der Session aufgerufen wird (siehe {@link GuiManager}). */
+    /**
+     * UiTheme-Navigation ist fuer 54 Slots definiert. Kleinere Menues bekommen dieselben relativen
+     * Positionen automatisch in ihre letzte Reihe gemappt. Dadurch kann ein NAV_BACK nie wieder
+     * ein 27er/45er Inventar mit ArrayIndexOutOfBounds crashen.
+     */
+    private int resolveSlot(int requested) {
+        int size = inventory.getSize();
+        if (requested >= 0 && requested < size) return requested;
+        if (requested == UiTheme.NAV_BACK) return size - 9;
+        if (requested == UiTheme.NAV_HOME) return size - 5;
+        if (requested == UiTheme.NAV_NEXT) return size - 1;
+        throw new IllegalArgumentException("GUI-Slot " + requested + " liegt ausserhalb von " + size + " Slots");
+    }
+
+    /** Optionaler Cleanup-Hook, der beim Schliessen der Session aufgerufen wird. */
     public GuiSession onClose(Runnable onClose) {
         this.onClose = onClose;
         return this;
     }
 
-    public void open() {
-        player.openInventory(inventory);
-    }
+    public void open() { player.openInventory(inventory); }
 
     void handleClick(Player clicker, InventoryClickEvent event, int slot) {
         GuiClickHandler handler = handlers.get(slot);
-        if (handler != null) {
-            handler.onClick(clicker, event, slot);
-        }
+        if (handler != null) handler.onClick(clicker, event, slot);
     }
 
     void handleClose() {
-        if (onClose != null) {
-            onClose.run();
-        }
+        if (onClose != null) onClose.run();
     }
 }
