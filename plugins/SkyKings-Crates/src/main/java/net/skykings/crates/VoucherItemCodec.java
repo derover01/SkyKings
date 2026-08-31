@@ -13,7 +13,7 @@ import java.util.UUID;
 /** Kodiert Gutschein-Typ, Ziel und eindeutige Seriennummer persistent in Lore (1.8-kompatibel). */
 public final class VoucherItemCodec {
 
-    public enum VoucherType { RANK, KIT, PERMISSION, PREFIX }
+    public enum VoucherType { RANK, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
 
     private static final String MARKER = ChatColor.BLACK + "skykings:voucher:";
     private final IssuedItemStore issuedStore;
@@ -36,9 +36,17 @@ public final class VoucherItemCodec {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type) + " " + cleanTarget);
         List<String> lore = new ArrayList<String>();
-        lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
+        if (type == VoucherType.COINS) {
+            lore.add(ChatColor.GRAY + "Wert: " + ChatColor.GOLD + cleanTarget);
+            lore.add(ChatColor.DARK_GRAY + "Die Coins werden deinem Konto gutgeschrieben.");
+        } else if (type == VoucherType.GIVEALL_COINS) {
+            lore.add(ChatColor.GRAY + "GiveAll: " + ChatColor.GOLD + cleanTarget + ChatColor.GRAY + " pro Spieler");
+            lore.add(ChatColor.YELLOW + "Alle aktuell Online-Spieler erhalten die Coins.");
+        } else {
+            lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
+        }
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Rechtsklick zum Einlösen");
+        lore.add(ChatColor.YELLOW + "Rechtsklick zum Einloesen");
         lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings Gutschein");
         lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
         meta.setLore(lore);
@@ -77,6 +85,8 @@ public final class VoucherItemCodec {
             case KIT: return "Kitgutschein";
             case PERMISSION: return "Rechtegutschein";
             case PREFIX: return "Prefixgutschein";
+            case COINS: return "Coin-Gutschein";
+            case GIVEALL_COINS: return "GiveAll Coin-Gutschein";
             default: return "Gutschein";
         }
     }
@@ -87,6 +97,8 @@ public final class VoucherItemCodec {
             case KIT: return ChatColor.GREEN;
             case PERMISSION: return ChatColor.LIGHT_PURPLE;
             case PREFIX: return ChatColor.YELLOW;
+            case COINS: return ChatColor.GOLD;
+            case GIVEALL_COINS: return ChatColor.YELLOW;
             default: return ChatColor.WHITE;
         }
     }
