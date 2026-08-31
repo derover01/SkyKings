@@ -25,6 +25,9 @@ commands:
   fly:
     description: Schaltet den Flugmodus für Knight+ um.
     usage: /fly
+  speed:
+    description: Stellt die persönliche Fluggeschwindigkeit ein.
+    usage: /speed <1-10|reset>
   stack:
     description: Verdichtet stackbare Inventar-Items für Knight+.
     usage: /stack
@@ -97,6 +100,9 @@ permissions:
     default: false
   skykings.staff.gamemode:
     description: Darf /gm verwenden.
+    default: false
+  skykings.perk.speed:
+    description: Darf die persönliche Fluggeschwindigkeit mit /speed ändern.
     default: false
   skykings.perk.anvil:
     description: Darf /anvil verwenden.
