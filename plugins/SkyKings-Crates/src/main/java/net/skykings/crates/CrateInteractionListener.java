@@ -2,12 +2,14 @@ package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.gui.GuiSession;
+import net.skykings.core.item.SkyKingsCurrencyItems;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -22,10 +24,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
-/** Crate UX: Preview, Auswahlmenü, Animation/Sofort und Open-All. */
+/** Crate UX: Preview, Auswahlmenue, laengere Roulette-Animation/Sofort und Open-All. */
 public final class CrateInteractionListener implements Listener {
 
     public static final String OPEN_ALL_PERMISSION = "skykings.perk.crate.openall";
@@ -55,7 +56,7 @@ public final class CrateInteractionListener implements Listener {
         CrateRegistry.CrateDefinition crate = registry.get(decoded.getCrateId());
         if (crate == null) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(ChatColor.RED + "Diese Crate ist nicht mehr gültig.");
+            event.getPlayer().sendMessage(ChatColor.RED + "Diese Crate ist nicht mehr gueltig.");
             return;
         }
 
@@ -83,25 +84,26 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private void openChoice(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Crate öffnen", 27);
-        gui.setItem(11, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE + "Mit Animation",
-                ChatColor.GRAY + "Öffnet eine Crate mit Roulette-Animation.", ChatColor.YELLOW + "Klicken"),
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Crate oeffnen", 27);
+        gui.setItem(11, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "MIT ANIMATION",
+                ChatColor.GRAY + "Ca. 6 Sekunden Roulette mit Sounds.", ChatColor.YELLOW + "Klicken"),
                 (p,e,s) -> startAnimation(p, crate, decoded));
-        gui.setItem(15, named(Material.ENDER_CHEST, ChatColor.GREEN + "Sofort öffnen",
+        gui.setItem(15, named(Material.ENDER_CHEST, ChatColor.GREEN.toString() + ChatColor.BOLD + "SOFORT OEFFNEN",
                 ChatColor.GRAY + "Zeigt dir den Gewinn direkt.", ChatColor.YELLOW + "Klicken"),
                 (p,e,s) -> {
                     p.closeInventory();
-                    openSerial(p, crate, decoded.getSerial(), decoded.getMaxClaims(), null);
+                    openSerial(p, crate, decoded.getSerial(), decoded.getMaxClaims(), null, null);
                 });
         if (canOpenAll(player)) {
-            gui.setItem(22, named(Material.CHEST, ChatColor.GOLD + "Alle sofort öffnen",
-                    ChatColor.GRAY + "Öffnet alle Crates dieses Typs nacheinander.", ChatColor.YELLOW + "Klicken"),
+            gui.setItem(22, named(Material.CHEST, ChatColor.GOLD.toString() + ChatColor.BOLD + "ALLE SOFORT OEFFNEN",
+                    ChatColor.GRAY + "Oeffnet alle Crates dieses Typs nacheinander.", ChatColor.YELLOW + "Klicken"),
                     (p,e,s) -> {
                         p.closeInventory();
                         openAll(p, crate);
                     });
         }
         core.getGuiManager().open(gui);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.3F);
     }
 
     private boolean canOpenAll(Player player) {
@@ -110,23 +112,54 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private void startAnimation(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Öffnung", 27);
-        for (int i = 0; i < 27; i++) gui.setItem(i, named(Material.STAINED_GLASS_PANE, ChatColor.DARK_GRAY + "•"));
+        final CrateRegistry.RewardDefinition finalReward = registry.draw(crate);
+        if (finalReward == null) {
+            player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
+            return;
+        }
+        if ((finalReward.getType() == CrateRegistry.RewardType.ITEM || finalReward.getType() == CrateRegistry.RewardType.VOUCHER)
+                && !hasSpace(player, finalReward)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den Gewinn.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+            return;
+        }
+
+        final GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | " + ChatColor.LIGHT_PURPLE + "Crate Roulette", 27);
+        for (int i = 0; i < 27; i++) gui.setItem(i, named(Material.STAINED_GLASS_PANE, ChatColor.DARK_GRAY + " "));
+        gui.setItem(4, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "SKYKINGS CRATE",
+                ChatColor.GRAY + "Dein Gewinn wird gezogen..."));
+        gui.setItem(12, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + ">>>"));
+        gui.setItem(14, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + "<<<"));
         core.getGuiManager().open(gui);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.6F, 1.0F);
+
         final int[] step = {0};
         final int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
             if (!player.isOnline()) return;
+            int current = step[0]++;
+            if (current >= 24) return;
             CrateRegistry.RewardDefinition preview = registry.draw(crate);
             if (preview != null) gui.getInventory().setItem(13, rewardIcon(preview));
+            float pitch = Math.min(1.9F, 0.75F + current * 0.045F);
+            player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.55F, pitch);
             player.updateInventory();
-            step[0]++;
-        }, 0L, 3L);
+        }, 0L, 4L);
+
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Bukkit.getScheduler().cancelTask(taskId);
             if (!player.isOnline()) return;
+            gui.getInventory().setItem(13, rewardIcon(finalReward));
+            gui.getInventory().setItem(4, named(Material.DIAMOND, ChatColor.GOLD.toString() + ChatColor.BOLD + "DEIN GEWINN",
+                    ChatColor.YELLOW + rewardText(finalReward)));
+            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.9F, 1.45F);
+            player.updateInventory();
+        }, 96L);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
             player.closeInventory();
-            openSerial(player, crate, decoded.getSerial(), decoded.getMaxClaims(), null);
-        }, 30L);
+            openSerial(player, crate, decoded.getSerial(), decoded.getMaxClaims(), null, finalReward);
+        }, 120L);
     }
 
     private void openPreview(Player player, CrateRegistry.CrateDefinition crate) {
@@ -147,6 +180,7 @@ public final class CrateInteractionListener implements Listener {
             inventory.setItem(slot++, icon);
         }
         player.openInventory(inventory);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.2F);
         player.sendMessage(ChatColor.GRAY + "Expected Value: " + ChatColor.GOLD
                 + Math.round(crate.getExpectedValue()) + ChatColor.GRAY + " Coins-Wert");
     }
@@ -156,16 +190,14 @@ public final class CrateInteractionListener implements Listener {
         for (ItemStack item : player.getInventory().getContents()) {
             CrateItemCodec.DecodedCrate decoded = codec.decode(item);
             if (decoded == null || !crate.getId().equalsIgnoreCase(decoded.getCrateId())) continue;
-            for (int i = 0; i < item.getAmount(); i++) {
-                claims.add(new Claim(decoded.getSerial(), decoded.getMaxClaims()));
-            }
+            for (int i = 0; i < item.getAmount(); i++) claims.add(new Claim(decoded.getSerial(), decoded.getMaxClaims()));
         }
         if (claims.isEmpty()) {
             player.sendMessage(ChatColor.RED + "Du besitzt keine Crates dieses Typs.");
             return;
         }
         player.sendMessage(ChatColor.GOLD + "Open-All: " + ChatColor.YELLOW + claims.size()
-                + ChatColor.GRAY + " Crates werden nacheinander geöffnet...");
+                + ChatColor.GRAY + " Crates werden nacheinander geoeffnet...");
         openAllNext(player, crate, claims, 0);
     }
 
@@ -173,23 +205,25 @@ public final class CrateInteractionListener implements Listener {
         if (!player.isOnline()) return;
         if (index >= claims.size()) {
             player.sendMessage(ChatColor.GREEN + "Open-All abgeschlossen.");
+            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.65F, 1.35F);
             return;
         }
         Claim claim = claims.get(index);
         openSerial(player, crate, claim.serial, claim.maxClaims,
-                () -> openAllNext(player, crate, claims, index + 1));
+                () -> openAllNext(player, crate, claims, index + 1), null);
     }
 
-    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial, int maxClaims, Runnable onFinished) {
-        CrateRegistry.RewardDefinition reward = registry.draw(crate);
+    private void openSerial(Player player, CrateRegistry.CrateDefinition crate, UUID serial, int maxClaims,
+                            Runnable onFinished, CrateRegistry.RewardDefinition selectedReward) {
+        final CrateRegistry.RewardDefinition reward = selectedReward != null ? selectedReward : registry.draw(crate);
         if (reward == null) {
-            player.sendMessage(ChatColor.RED + "Diese Crate hat keine gültigen Rewards.");
+            player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
             finish(onFinished);
             return;
         }
         if ((reward.getType() == CrateRegistry.RewardType.ITEM || reward.getType() == CrateRegistry.RewardType.VOUCHER)
                 && !hasSpace(player, reward)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz für den nächsten Reward.");
+            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den naechsten Reward.");
             return;
         }
 
@@ -198,7 +232,7 @@ public final class CrateInteractionListener implements Listener {
                     if (!player.isOnline()) return;
                     if (!firstRedemption) {
                         removeOne(player, serial);
-                        player.sendMessage(ChatColor.RED + "Eine bereits vollständig eingelöste Crate-Batch wurde bereinigt.");
+                        player.sendMessage(ChatColor.RED + "Eine bereits vollstaendig eingeloeste Crate-Batch wurde bereinigt.");
                         finish(onFinished);
                         return;
                     }
@@ -208,7 +242,8 @@ public final class CrateInteractionListener implements Listener {
                         return;
                     }
                     removeOne(player, serial);
-                    player.sendMessage(ChatColor.GOLD + "Gewinn: " + ChatColor.YELLOW + rewardText(reward));
+                    player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "CRATE GEWINN: " + ChatColor.YELLOW + rewardText(reward));
+                    player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.5F);
                     finish(onFinished);
                 }));
     }
@@ -235,6 +270,9 @@ public final class CrateInteractionListener implements Listener {
         ItemStack rewardItem;
         if (reward.getType() == CrateRegistry.RewardType.VOUCHER) {
             rewardItem = voucherCodec.create(reward.getVoucherType(), reward.getVoucherTarget(), reward.getVoucherDisplay());
+        } else if (reward.getType() == CrateRegistry.RewardType.NETHERSTARS) {
+            if (reward.getAmount() > 64L) return false;
+            rewardItem = SkyKingsCurrencyItems.star((int) reward.getAmount());
         } else {
             if (reward.getAmount() > 64L) return false;
             rewardItem = new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData());
@@ -254,7 +292,7 @@ public final class CrateInteractionListener implements Listener {
                     core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case NETHERSTARS:
-                    givePhysicalNetherstars(player, reward.getAmount());
+                    SkyKingsCurrencyItems.give(player, reward.getAmount());
                     return true;
                 case ITEM:
                     if (!hasSpace(player, reward)) return false;
@@ -272,30 +310,16 @@ public final class CrateInteractionListener implements Listener {
                 default: return false;
             }
         } catch (RuntimeException ex) {
-            plugin.getLogger().warning("Crate-Reward fehlgeschlagen für " + player.getName() + ": " + ex.getMessage());
+            plugin.getLogger().warning("Crate-Reward fehlgeschlagen fuer " + player.getName() + ": " + ex.getMessage());
             return false;
         }
-    }
-
-    private void givePhysicalNetherstars(Player player, long amount) {
-        long remaining = amount;
-        while (remaining > 0L) {
-            int stackSize = (int) Math.min(64L, remaining);
-            ItemStack stack = new ItemStack(Material.NETHER_STAR, stackSize);
-            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(stack);
-            for (ItemStack leftover : leftovers.values()) {
-                player.getWorld().dropItemNaturally(player.getLocation(), leftover);
-            }
-            remaining -= stackSize;
-        }
-        player.updateInventory();
     }
 
     private ItemStack rewardIcon(CrateRegistry.RewardDefinition reward) {
         ItemStack icon;
         switch (reward.getType()) {
             case COINS: icon = new ItemStack(Material.GOLD_INGOT); break;
-            case NETHERSTARS: icon = new ItemStack(Material.NETHER_STAR); break;
+            case NETHERSTARS: icon = SkyKingsCurrencyItems.star(1); break;
             case VOUCHER: icon = new ItemStack(Material.PAPER); break;
             case ITEM:
             default: icon = new ItemStack(reward.getMaterial(), 1, reward.getData()); break;
@@ -309,7 +333,7 @@ public final class CrateInteractionListener implements Listener {
     private String rewardText(CrateRegistry.RewardDefinition reward) {
         switch (reward.getType()) {
             case COINS: return reward.getAmount() + " Coins";
-            case NETHERSTARS: return reward.getAmount() + " physische Nethersterne";
+            case NETHERSTARS: return reward.getAmount() + " SkyKings Sterne";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
             case VOUCHER: return ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
             default: return reward.getId();
