@@ -15,7 +15,7 @@ import java.util.Set;
 public final class RankDisplayConfig {
 
     private final YamlConfiguration config;
-    private final Set<String> ownerNames = new HashSet<>();
+    private final Set<String> ownerNames = new HashSet<String>();
 
     public RankDisplayConfig(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), "rank-display.yml");
@@ -36,7 +36,12 @@ public final class RankDisplayConfig {
     }
 
     public String getOwnerPrefix() {
-        return color(config.getString("owner-prefix", "&4&lOwner"));
+        String configured = color(config.getString("owner-prefix", "&4&lOwner"));
+        String plain = ChatColor.stripColor(configured);
+        if (plain != null && plain.equalsIgnoreCase("owner")) {
+            return ChatColor.DARK_RED.toString() + ChatColor.BOLD + "Owner";
+        }
+        return configured;
     }
 
     public String getRankPrefix(Rank rank) {
