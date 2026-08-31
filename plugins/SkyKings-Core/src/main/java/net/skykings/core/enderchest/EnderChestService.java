@@ -6,6 +6,7 @@ import net.skykings.core.rank.RankService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -77,6 +78,7 @@ public final class EnderChestService implements Listener {
     public void open(Player player, int requestedPage) {
         if (!hasAccess(player)) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Gold oder das Enderchest-Recht.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.75F);
             return;
         }
 
@@ -93,6 +95,7 @@ public final class EnderChestService implements Listener {
         }
         decorate(player, inventory, page, unlocked);
         player.openInventory(inventory);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.55F, 1.15F);
     }
 
     public int getUnlockedPages(UUID uuid) {
@@ -180,27 +183,34 @@ public final class EnderChestService implements Listener {
 
         int unlocked = getUnlockedPages(holder.owner);
         if (raw == 45 && holder.page > 1) {
+            player.playSound(player.getLocation(), Sound.CLICK, 0.45F, 0.9F);
             open(player, holder.page - 1);
             return;
         }
         if (raw != 53) return;
 
         if (holder.page < unlocked) {
+            player.playSound(player.getLocation(), Sound.CLICK, 0.45F, 1.25F);
             open(player, holder.page + 1);
             return;
         }
-        if (unlocked >= MAX_PAGES) return;
+        if (unlocked >= MAX_PAGES) {
+            player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.35F, 1.6F);
+            return;
+        }
 
         int target = unlocked + 1;
         long price = PAGE_PRICES[target];
         if (!economyService.withdraw(holder.owner, price, player.getName(), "Enderchest Seite " + target)) {
             player.sendMessage(ChatColor.RED + "Dir fehlen Coins fuer Enderchest-Seite " + target + ". Preis: "
                     + ChatColor.YELLOW + format(price) + " Coins");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.7F);
             return;
         }
 
         setPurchasedPageCap(holder.owner, target);
         player.sendMessage(ChatColor.GREEN + "Enderchest-Seite " + target + " wurde permanent freigeschaltet.");
+        player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.7F, 1.45F);
         open(player, target);
     }
 
@@ -220,6 +230,10 @@ public final class EnderChestService implements Listener {
         if (!(event.getInventory().getHolder() instanceof PageHolder)) return;
         PageHolder holder = (PageHolder) event.getInventory().getHolder();
         saveInventory(holder.owner, holder.page, event.getInventory());
+        if (event.getPlayer() instanceof Player) {
+            Player player = (Player) event.getPlayer();
+            player.playSound(player.getLocation(), Sound.CHEST_CLOSE, 0.45F, 1.1F);
+        }
     }
 
     private ItemStack[] loadPage(UUID uuid, int page) {
