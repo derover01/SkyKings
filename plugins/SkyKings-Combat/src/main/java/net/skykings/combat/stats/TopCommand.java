@@ -1,5 +1,6 @@
 package net.skykings.combat.stats;
 
+import net.skykings.combat.kill.BountyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.pvp.PvpStatsSnapshot;
@@ -23,7 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** Gemeinsame Leaderboard-Oberflaeche fuer Kills, Beststreak und K/D. */
+/** Gemeinsame Leaderboard-Oberflaeche fuer Kills, Beststreak, K/D und aktive Kopfgelder. */
 public final class TopCommand implements CommandExecutor, Listener {
     private final PvpStatsService statsService;
 
@@ -37,31 +38,41 @@ public final class TopCommand implements CommandExecutor, Listener {
             sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
             return true;
         }
-        openRoot((Player) sender);
+        Player player = (Player) sender;
+        if (label.equalsIgnoreCase("kopfgeld") || label.equalsIgnoreCase("bounty")) {
+            openBounties(player);
+        } else {
+            openRoot(player);
+        }
         return true;
     }
 
     private void openRoot(Player player) {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Leaderboards"), 27);
-        gui.setItem(11, UiItems.item(Material.DIAMOND_SWORD,
+        gui.setItem(10, UiItems.item(Material.DIAMOND_SWORD,
                 UiTheme.PRIMARY + "Kills",
                 UiTheme.MUTED + "Die meisten legitimen PvP-Kills.",
                 "",
                 UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.KILLS));
-        gui.setItem(13, UiItems.item(Material.BLAZE_POWDER,
+        gui.setItem(12, UiItems.item(Material.BLAZE_POWDER,
                 UiTheme.PRIMARY + "Beststreak",
-                UiTheme.MUTED + "Die hoechsten permanenten Killstreaks.",
+                UiTheme.MUTED + "Die hoechsten Killstreaks.",
                 "",
                 UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.STREAK));
-        gui.setItem(15, UiItems.item(Material.NETHER_STAR,
+        gui.setItem(14, UiItems.item(Material.NETHER_STAR,
                 UiTheme.PRIMARY + "K/D",
-                UiTheme.MUTED + "Die staerksten Kill/Death-Werte.",
+                UiTheme.MUTED + "Die staerksten K/D-Werte.",
                 "",
                 UiItems.action("Klicken zum Oeffnen")), (p,e,s) -> openLeaderboard(p, Metric.KD));
-        gui.setItem(22, UiItems.item(Material.COMPASS,
+        gui.setItem(16, UiItems.item(Material.SKULL_ITEM, (short) 3,
+                UiTheme.WARNING + "Kopfgelder",
+                UiTheme.MUTED + "Aktive Streak-Ziele auf dem Server.",
+                "",
+                UiItems.action("Bounty Board oeffnen")), (p,e,s) -> openBounties(p));
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> Bukkit.dispatchCommand(p, "profile"));
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS,
                 UiTheme.TEXT + "Leaderboards",
-                UiTheme.MUTED + "Einheitliche Combat-Ranglisten",
-                UiTheme.MUTED + "Klick auf einen Spieler fuer sein Profile."));
+                UiTheme.MUTED + "Combat-Ranglisten und Bounties"));
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
     }
@@ -79,12 +90,52 @@ public final class TopCommand implements CommandExecutor, Listener {
             gui.setItem(i, playerHead(entry.getKey(), entry.getValue(), i + 1, metric),
                     (p,e,s) -> Bukkit.dispatchCommand(p, "profile " + selected));
         }
-        if (entries.isEmpty()) gui.setItem(22, UiItems.empty("Keine Daten", "Noch wurden keine PvP-Stats aufgezeichnet."));
+        if (entries.isEmpty()) gui.setItem(22, UiItems.empty("Keine Daten", "Noch keine PvP-Stats vorhanden."));
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); openRoot(p); });
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.PAPER,
                 UiTheme.PRIMARY + metric.label,
                 UiTheme.MUTED + "Sortiert nach " + metric.description,
                 UiTheme.TEXT.toString() + entries.size() + UiTheme.MUTED + " Spieler gewertet"));
+        GuiManager.active().open(gui);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void openBounties(Player player) {
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Kopfgelder"), 54);
+        List<Player> targets = new ArrayList<Player>();
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            PvpStatsSnapshot value = statsService.getStats(online.getUniqueId());
+            if (BountyService.getCoinBounty(value.getCurrentStreak()) > 0L) targets.add(online);
+        }
+        targets.sort((a, b) -> Integer.compare(
+                statsService.getStats(b.getUniqueId()).getCurrentStreak(),
+                statsService.getStats(a.getUniqueId()).getCurrentStreak()));
+
+        int slot = 0;
+        for (Player target : targets) {
+            if (slot >= 45) break;
+            PvpStatsSnapshot value = statsService.getStats(target.getUniqueId());
+            int streak = value.getCurrentStreak();
+            long coins = BountyService.getCoinBounty(streak);
+            long stars = BountyService.getStarBounty(streak);
+            final String name = target.getName();
+            gui.setItem(slot++, UiItems.head(name,
+                    UiTheme.WARNING + name,
+                    UiTheme.MUTED + "Aktuelle Streak " + UiTheme.TEXT + streak,
+                    UiTheme.MUTED + "Kopfgeld " + UiTheme.TEXT + UiFormat.coins(coins),
+                    UiTheme.MUTED + "+ " + UiTheme.TEXT + UiFormat.number(stars) + UiTheme.MUTED + " SkyKings Sterne",
+                    "",
+                    UiTheme.STATUS_READY,
+                    UiItems.action("Profile oeffnen")), (p,e,s) -> Bukkit.dispatchCommand(p, "profile " + name));
+        }
+        if (targets.isEmpty()) {
+            gui.setItem(22, UiItems.empty("Keine aktiven Kopfgelder", "Noch hat niemand eine 5er Streak."));
+        }
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); openRoot(p); });
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.GOLD_INGOT,
+                UiTheme.WARNING + "Bounty Board",
+                UiTheme.MUTED + "Nur aktuell jagdbare Online-Ziele.",
+                UiTheme.TEXT.toString() + targets.size() + UiTheme.MUTED + " aktive Kopfgelder"));
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
     }
