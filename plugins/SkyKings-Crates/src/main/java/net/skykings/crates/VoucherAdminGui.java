@@ -9,13 +9,12 @@ import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import net.skykings.core.permission.VoucherPermission;
 import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiItems;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.Arrays;
 
 /** Owner/Admin-GUI zum sicheren Erzeugen eindeutig serialisierter Gutscheine. */
 public final class VoucherAdminGui {
@@ -33,37 +32,37 @@ public final class VoucherAdminGui {
     }
 
     public void open(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Gutscheine", 27);
-        gui.setItem(10, icon(Material.DIAMOND, ChatColor.AQUA + "Ranggutscheine", "Free- und Paid-Raenge"), (p,e,s) -> openRanks(p));
-        gui.setItem(11, icon(Material.CHEST, ChatColor.GREEN + "Kitgutscheine", "Einmalige Kit-Ausgabe"), (p,e,s) -> openKits(p));
-        gui.setItem(12, icon(Material.PAPER, ChatColor.LIGHT_PURPLE + "Rechtegutscheine", "Freigegebene Feature-Rechte"), (p,e,s) -> openPermissions(p));
-        gui.setItem(14, icon(Material.NAME_TAG, ChatColor.YELLOW + "Prefixgutscheine", "Kosmetische Prefixe"), (p,e,s) -> openPrefixes(p));
-        gui.setItem(15, icon(Material.GOLD_INGOT, ChatColor.GOLD + "Coin-Gutscheine", "Coins fuer den Einloeser"), (p,e,s) -> openCoins(p));
-        gui.setItem(16, icon(Material.GOLD_BLOCK, ChatColor.YELLOW + "GiveAll Coin-Gutscheine", "Coins fuer alle Online-Spieler"), (p,e,s) -> openGiveAllCoins(p));
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Gutscheine"), 27);
+        gui.setItem(10, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Ranggutscheine", UiTheme.MUTED + "Free- und Paid-Raenge"), (p,e,s) -> openRanks(p));
+        gui.setItem(11, UiItems.item(Material.PAPER, UiTheme.SUCCESS + "Kitgutscheine", UiTheme.MUTED + "Einmalige Kit-Ausgabe"), (p,e,s) -> openKits(p));
+        gui.setItem(12, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Rechtegutscheine", UiTheme.MUTED + "Freigeschaltete Features"), (p,e,s) -> openPermissions(p));
+        gui.setItem(14, UiItems.item(Material.NAME_TAG, UiTheme.WARNING + "Prefixgutscheine", UiTheme.MUTED + "Kosmetische Prefixe"), (p,e,s) -> openPrefixes(p));
+        gui.setItem(15, UiItems.item(Material.DOUBLE_PLANT, UiTheme.WARNING + "Coin-Gutscheine", UiTheme.MUTED + "Coins fuer den Einloeser"), (p,e,s) -> openCoins(p));
+        gui.setItem(16, UiItems.item(Material.DOUBLE_PLANT, UiTheme.LEGENDARY + "GiveAll Coins", UiTheme.MUTED + "Coins fuer alle Online-Spieler"), (p,e,s) -> openGiveAllCoins(p));
         guiManager.open(gui);
     }
 
     private void openRanks(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Raenge", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Ranggutscheine"), 27);
         int slot = 0;
         for (Rank rank : Rank.values()) {
             final Rank selected = rank;
-            gui.setItem(slot++, icon(Material.DIAMOND, ChatColor.AQUA + display(rank), "Klicken: Gutschein erzeugen"),
+            gui.setItem(slot++, UiItems.item(Material.BOOK, UiTheme.PRIMARY + display(rank), UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.RANK,
-                            selected.name().toLowerCase(), display(selected).toUpperCase()));
+                            selected.name().toLowerCase(), display(selected)));
         }
         back(gui);
         guiManager.open(gui);
     }
 
     private void openKits(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Kits", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Kitgutscheine"), 27);
         int slot = 0;
         for (KitDefinition kit : core.getKitRegistry().getAll()) {
             if (slot >= 18) break;
             final KitDefinition selected = kit;
             String pretty = translate(selected.getDisplayName());
-            gui.setItem(slot++, icon(Material.CHEST, pretty, "Klicken: einmaligen Kitgutschein erzeugen"),
+            gui.setItem(slot++, UiItems.item(Material.PAPER, pretty, UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.KIT,
                             selected.getId(), ChatColor.stripColor(pretty)));
         }
@@ -72,11 +71,11 @@ public final class VoucherAdminGui {
     }
 
     private void openPermissions(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Rechte", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Rechtegutscheine"), 27);
         int slot = 0;
         for (VoucherPermission permission : core.getVoucherPermissionService().getAll()) {
             final VoucherPermission selected = permission;
-            gui.setItem(slot++, icon(Material.PAPER, selected.getDisplayName(), "Klicken: Rechtegutschein erzeugen"),
+            gui.setItem(slot++, UiItems.item(Material.BOOK, selected.getDisplayName(), UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PERMISSION,
                             selected.getId(), ChatColor.stripColor(selected.getDisplayName())));
         }
@@ -85,7 +84,7 @@ public final class VoucherAdminGui {
     }
 
     private void openPrefixes(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Prefixe", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Prefixgutscheine"), 27);
         addPrefix(gui, 10, "fighter", "Fighter", ChatColor.RED);
         addPrefix(gui, 11, "hunter", "Hunter", ChatColor.DARK_AQUA);
         addPrefix(gui, 12, "lucky", "Lucky", ChatColor.GREEN);
@@ -97,11 +96,11 @@ public final class VoucherAdminGui {
     }
 
     private void openCoins(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | Coins", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Coin-Gutscheine"), 27);
         for (int i = 0; i < COIN_VALUES.length; i++) {
             final long amount = COIN_VALUES[i];
-            gui.setItem(i, icon(Material.GOLD_INGOT, ChatColor.GOLD + UiFormat.coins(amount),
-                    "Nur der Einloeser erhaelt die Coins.", "Klicken: Gutschein erzeugen"),
+            gui.setItem(i, UiItems.item(Material.DOUBLE_PLANT, UiTheme.WARNING + UiFormat.coins(amount),
+                    UiTheme.MUTED + "Nur fuer dich.", UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.COINS,
                             Long.toString(amount), UiFormat.coins(amount)));
         }
@@ -110,11 +109,11 @@ public final class VoucherAdminGui {
     }
 
     private void openGiveAllCoins(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutscheine | GiveAll", 27);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("GiveAll Coins"), 27);
         for (int i = 0; i < GIVEALL_VALUES.length; i++) {
             final long amount = GIVEALL_VALUES[i];
-            gui.setItem(i, icon(Material.GOLD_BLOCK, ChatColor.YELLOW + "GiveAll " + UiFormat.coins(amount),
-                    "Jeder aktuell Online-Spieler erhaelt den Betrag.", "Klicken: Gutschein erzeugen"),
+            gui.setItem(i, UiItems.item(Material.DOUBLE_PLANT, UiTheme.LEGENDARY + "GiveAll " + UiFormat.coins(amount),
+                    UiTheme.MUTED + "Pro Online-Spieler.", UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.GIVEALL_COINS,
                             Long.toString(amount), UiFormat.coins(amount)));
         }
@@ -123,7 +122,7 @@ public final class VoucherAdminGui {
     }
 
     private void addPrefix(GuiSession gui, int slot, String id, String name, ChatColor color) {
-        gui.setItem(slot, icon(Material.NAME_TAG, color + name, "Klicken: Prefixgutschein erzeugen"),
+        gui.setItem(slot, UiItems.item(Material.NAME_TAG, color + name, UiItems.action("Klicken: erzeugen")),
                 (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PREFIX, id, name));
     }
 
@@ -143,16 +142,7 @@ public final class VoucherAdminGui {
     }
 
     private void back(GuiSession gui) {
-        gui.setItem(22, icon(Material.ARROW, ChatColor.YELLOW + "Zurueck", "Zur Gutschein-Uebersicht"), (p,e,s) -> open(p));
-    }
-
-    private ItemStack icon(Material material, String name, String... lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(name);
-        meta.setLore(Arrays.asList(lore));
-        item.setItemMeta(meta);
-        return item;
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p));
     }
 
     private String translate(String raw) {
