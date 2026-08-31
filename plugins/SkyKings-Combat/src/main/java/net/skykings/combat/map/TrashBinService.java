@@ -35,6 +35,8 @@ public final class TrashBinService implements Listener, CommandExecutor {
         load();
     }
 
+    public int count() { return bins.size(); }
+
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null) return;
