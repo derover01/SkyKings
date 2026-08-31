@@ -15,6 +15,7 @@ public class SkyKingsCrates extends JavaPlugin {
     private CrateItemCodec crateItemCodec;
     private CrateRedemptionStore redemptionStore;
     private VoucherRedemptionStore voucherStore;
+    private IssuedItemStore issuedItemStore;
 
     @Override
     public void onEnable() {
@@ -26,6 +27,9 @@ public class SkyKingsCrates extends JavaPlugin {
         }
 
         this.crateRegistry = new CrateRegistry(this);
+        // Muss vor allen Codecs entstehen: Default-Codecs binden sich im laufenden Plugin an
+        // dieses Registry und akzeptieren danach nur serverseitig ausgegebene Serials.
+        this.issuedItemStore = new IssuedItemStore(new File(getDataFolder(), "issued-items.txt"), getLogger());
         this.crateItemCodec = new CrateItemCodec();
         this.redemptionStore = new CrateRedemptionStore(new File(getDataFolder(), "redeemed-crates.txt"), getLogger());
         this.voucherStore = new VoucherRedemptionStore(new File(getDataFolder(), "redeemed-vouchers.txt"), getLogger());
@@ -64,7 +68,7 @@ public class SkyKingsCrates extends JavaPlugin {
         VoucherAdminGui voucherGui = new VoucherAdminGui(core.getGuiManager(), core, voucherCodec);
         vouchersCommand.setExecutor(new VouchersCommand(voucherGui));
 
-        getLogger().info("SkyKings-Crates (Phase 4 Crates + Anti-Dupe + Open-All + CrateRewards + Voucher-System) aktiviert.");
+        getLogger().info("SkyKings-Crates (Phase 4 Crates + Issued-Serials + Anti-Dupe + Open-All + CrateRewards + Voucher-System) aktiviert.");
     }
 
     private void disableMissing(String command) {
