@@ -1,5 +1,7 @@
 package net.skykings.core.shop;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -39,6 +41,18 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
     private final EnchantShopGui enchantShopGui;
     private final File file;
     private final Map<UUID, Type> bindings = new LinkedHashMap<UUID, Type>();
+
+    public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui) {
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        if (api == null) throw new IllegalStateException("SkyKingsCoreAPI nicht verfügbar");
+        this.plugin = plugin;
+        this.systemShopGui = systemShopGui;
+        this.pvpRestockShopGui = pvpRestockShopGui;
+        this.blacksmithShopGui = new BlacksmithShopGui(api.getGuiManager(), api.getEconomyService());
+        this.enchantShopGui = new EnchantShopGui(api.getGuiManager(), api.getShopTransactionService());
+        this.file = new File(plugin.getDataFolder(), "shop-npcs.yml");
+        load();
+    }
 
     public ShopNpcService(JavaPlugin plugin, SystemShopGui systemShopGui, PvpRestockShopGui pvpRestockShopGui,
                           BlacksmithShopGui blacksmithShopGui, EnchantShopGui enchantShopGui) {
