@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /** Persistiert platzierte kostenlose /blöcke-Blöcke, damit die No-Sell-Herkunft erhalten bleibt. */
@@ -60,7 +61,17 @@ public final class BuildBlockStore {
         if (changed) saveAsync();
     }
 
-    public void shutdown() { writer.shutdown(); }
+    public void shutdown() {
+        writer.shutdown();
+        try {
+            if (!writer.awaitTermination(5, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("BuildBlock-Store hatte beim Shutdown noch ausstehende Writes.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            plugin.getLogger().warning("Warten auf BuildBlock-Store wurde unterbrochen.");
+        }
+    }
 
     private void load() {
         if (!file.exists()) return;
