@@ -4,11 +4,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
+import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,7 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Persistente private Islands mit Owner, Trust-Liste, Home und fester Schutzregion. */
+/** Persistente private Islands mit Owner, Trust-Liste, Home, Welcome-Punkt und fester Schutzregion. */
 public final class IslandService implements IslandAccessService {
     public static final String WORLD_NAME = "SkyIslands";
     public static final int SPACING = 256;
@@ -68,11 +72,12 @@ public final class IslandService implements IslandAccessService {
         int centerX = gridX * SPACING;
         int centerZ = gridZ * SPACING;
         Location home = new Location(world, centerX + 0.5D, Y + 1D, centerZ + 0.5D);
-        IslandData data = new IslandData(uuid, index, centerX, centerZ, home, new HashSet<UUID>());
+        IslandData data = new IslandData(uuid, index, centerX, centerZ, home, null, new HashSet<UUID>());
         islands.put(uuid, data);
         generateStarterIsland(world, centerX, centerZ);
         save();
         player.teleport(home);
+        player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.25F);
         return true;
     }
 
@@ -84,16 +89,28 @@ public final class IslandService implements IslandAccessService {
             }
         }
         world.getBlockAt(cx, Y - 3, cz).setType(Material.BEDROCK);
-        world.getBlockAt(cx + 2, Y, cz).setType(Material.CHEST);
+        Block chestBlock = world.getBlockAt(cx + 2, Y, cz);
+        chestBlock.setType(Material.CHEST);
+        if (chestBlock.getState() instanceof Chest) {
+            Chest chest = (Chest) chestBlock.getState();
+            chest.getBlockInventory().clear();
+            chest.getBlockInventory().setItem(0, new ItemStack(Material.COBBLESTONE, 32));
+            chest.getBlockInventory().setItem(2, new ItemStack(Material.LOG, 16));
+            chest.getBlockInventory().setItem(4, new ItemStack(Material.SAPLING, 4));
+            chest.getBlockInventory().setItem(6, new ItemStack(Material.BREAD, 16));
+            chest.getBlockInventory().setItem(9, new ItemStack(Material.WATER_BUCKET, 1));
+            chest.getBlockInventory().setItem(11, new ItemStack(Material.LAVA_BUCKET, 1));
+            chest.getBlockInventory().setItem(13, new ItemStack(Material.TORCH, 16));
+            chest.getBlockInventory().setItem(15, new ItemStack(Material.BONE_MEAL, 8));
+            chest.update(true);
+        }
     }
 
     public synchronized IslandData get(UUID owner) { return islands.get(owner); }
 
     public synchronized IslandData findAt(Location location) {
         if (!isIslandWorld(location)) return null;
-        for (IslandData island : islands.values()) {
-            if (island.contains(location)) return island;
-        }
+        for (IslandData island : islands.values()) if (island.contains(location)) return island;
         return null;
     }
 
@@ -118,6 +135,54 @@ public final class IslandService implements IslandAccessService {
         if (island == null || !island.contains(location)) return false;
         island.home = location.clone();
         save();
+        return true;
+    }
+
+    public synchronized boolean setWelcome(UUID owner, Location signLocation, float yaw, float pitch) {
+        IslandData island = islands.get(owner);
+        if (island == null || signLocation == null || !island.contains(signLocation)) return false;
+        Location welcome = signLocation.clone().add(0.5D, 0.2D, 0.5D);
+        welcome.setYaw(yaw);
+        welcome.setPitch(pitch);
+        island.welcome = welcome;
+        save();
+        return true;
+    }
+
+    public synchronized boolean clearWelcomeAt(UUID owner, Location blockLocation) {
+        IslandData island = islands.get(owner);
+        if (island == null || island.welcome == null || blockLocation == null) return false;
+        if (island.welcome.getWorld() == null || blockLocation.getWorld() == null
+                || !island.welcome.getWorld().getName().equals(blockLocation.getWorld().getName())) return false;
+        int wx = island.welcome.getBlockX();
+        int wy = island.welcome.getBlockY();
+        int wz = island.welcome.getBlockZ();
+        if (wx != blockLocation.getBlockX() || wy != blockLocation.getBlockY() || wz != blockLocation.getBlockZ()) return false;
+        island.welcome = null;
+        save();
+        return true;
+    }
+
+    public synchronized boolean hasWelcome(UUID owner) {
+        IslandData island = islands.get(owner);
+        return island != null && validateWelcome(island);
+    }
+
+    public synchronized Location getWelcome(UUID owner) {
+        IslandData island = islands.get(owner);
+        if (island == null || !validateWelcome(island)) return null;
+        return island.welcome.clone();
+    }
+
+    private boolean validateWelcome(IslandData island) {
+        if (island.welcome == null || island.welcome.getWorld() == null) return false;
+        Block block = island.welcome.getBlock();
+        Material type = block.getType();
+        if (type != Material.SIGN_POST && type != Material.WALL_SIGN) {
+            island.welcome = null;
+            save();
+            return false;
+        }
         return true;
     }
 
@@ -150,6 +215,25 @@ public final class IslandService implements IslandAccessService {
             return;
         }
         player.teleport(island.home.clone());
+        player.playSound(player.getLocation(), Sound.ENDERMAN_TELEPORT, 0.7F, 1.2F);
+    }
+
+    public boolean visit(Player player, UUID owner) {
+        IslandData island = get(owner);
+        if (island == null) {
+            player.sendMessage(ChatColor.RED + "Dieser Spieler besitzt keine Insel.");
+            return false;
+        }
+        Location welcome = getWelcome(owner);
+        if (welcome == null) {
+            player.sendMessage(ChatColor.RED + "Diese Insel ist privat. " + ChatColor.GRAY + "Der Owner hat kein [Welcome]-Schild gesetzt.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+            return false;
+        }
+        player.teleport(welcome);
+        player.playSound(player.getLocation(), Sound.ENDERMAN_TELEPORT, 0.8F, 1.35F);
+        player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS ISLANDS " + ChatColor.GRAY + "Du besuchst eine öffentliche Insel.");
+        return true;
     }
 
     private void load() {
@@ -172,11 +256,17 @@ public final class IslandService implements IslandAccessService {
                 double hz = yaml.getDouble(base + ".home.z", cz + 0.5D);
                 float yaw = (float) yaml.getDouble(base + ".home.yaw", 0D);
                 float pitch = (float) yaml.getDouble(base + ".home.pitch", 0D);
+                Location welcome = null;
+                if (yaml.contains(base + ".welcome.x")) {
+                    welcome = new Location(world,
+                            yaml.getDouble(base + ".welcome.x"), yaml.getDouble(base + ".welcome.y"), yaml.getDouble(base + ".welcome.z"),
+                            (float) yaml.getDouble(base + ".welcome.yaw", 0D), (float) yaml.getDouble(base + ".welcome.pitch", 0D));
+                }
                 Set<UUID> trusted = new HashSet<UUID>();
                 for (String id : yaml.getStringList(base + ".trusted")) {
                     try { trusted.add(UUID.fromString(id)); } catch (IllegalArgumentException ignored) { }
                 }
-                islands.put(owner, new IslandData(owner, index, cx, cz, new Location(world, hx, hy, hz, yaw, pitch), trusted));
+                islands.put(owner, new IslandData(owner, index, cx, cz, new Location(world, hx, hy, hz, yaw, pitch), welcome, trusted));
                 if (index >= nextIndex) nextIndex = index + 1;
             } catch (IllegalArgumentException ignored) { }
         }
@@ -195,6 +285,13 @@ public final class IslandService implements IslandAccessService {
             yaml.set(base + ".home.z", island.home.getZ());
             yaml.set(base + ".home.yaw", island.home.getYaw());
             yaml.set(base + ".home.pitch", island.home.getPitch());
+            if (island.welcome != null) {
+                yaml.set(base + ".welcome.x", island.welcome.getX());
+                yaml.set(base + ".welcome.y", island.welcome.getY());
+                yaml.set(base + ".welcome.z", island.welcome.getZ());
+                yaml.set(base + ".welcome.yaw", island.welcome.getYaw());
+                yaml.set(base + ".welcome.pitch", island.welcome.getPitch());
+            }
             List<String> trust = new ArrayList<String>();
             for (UUID uuid : island.trusted) trust.add(uuid.toString());
             yaml.set(base + ".trusted", trust);
@@ -213,13 +310,21 @@ public final class IslandService implements IslandAccessService {
         public final int centerX;
         public final int centerZ;
         private Location home;
+        private Location welcome;
         private final Set<UUID> trusted;
 
-        IslandData(UUID owner, int index, int centerX, int centerZ, Location home, Set<UUID> trusted) {
-            this.owner = owner; this.index = index; this.centerX = centerX; this.centerZ = centerZ; this.home = home; this.trusted = trusted;
+        IslandData(UUID owner, int index, int centerX, int centerZ, Location home, Location welcome, Set<UUID> trusted) {
+            this.owner = owner;
+            this.index = index;
+            this.centerX = centerX;
+            this.centerZ = centerZ;
+            this.home = home;
+            this.welcome = welcome;
+            this.trusted = trusted;
         }
 
         public Location getHome() { return home.clone(); }
+        public Location getWelcome() { return welcome == null ? null : welcome.clone(); }
         public Set<UUID> getTrusted() { return Collections.unmodifiableSet(trusted); }
         public boolean contains(Location location) {
             if (location == null || location.getWorld() == null || !WORLD_NAME.equals(location.getWorld().getName())) return false;
