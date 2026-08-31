@@ -58,7 +58,7 @@ public final class SeasonProgressService implements Listener {
         save();
         if (after > before) {
             player.sendMessage(UiTheme.PRIMARY + "Level Up");
-            player.sendMessage(UiTheme.TEXT + before + UiTheme.MUTED + " → " + UiTheme.TEXT + after);
+            player.sendMessage(UiTheme.TEXT.toString() + before + UiTheme.MUTED + " → " + UiTheme.TEXT + after);
             SoundFeedback.levelUp(player);
         }
     }
