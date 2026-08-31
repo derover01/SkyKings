@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class EventParticipationService {
 
+    private static final EventParticipationService GLOBAL = new EventParticipationService();
+
     public enum Type {
         DUEL,
         LMS,
@@ -34,6 +36,9 @@ public final class EventParticipationService {
     }
 
     private final Map<UUID, Participation> active = new ConcurrentHashMap<UUID, Participation>();
+
+    /** Gemeinsame Runtime-Instanz fuer alle Event-Controller und Open-World-Guards. */
+    public static EventParticipationService global() { return GLOBAL; }
 
     public boolean join(UUID player, Type type, String sessionId) {
         if (player == null || type == null || sessionId == null || sessionId.trim().isEmpty()) return false;
