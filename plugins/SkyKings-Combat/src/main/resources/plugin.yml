@@ -4,7 +4,7 @@ main: net.skykings.combat.SkyKingsCombat
 depend: [SkyKings-Core]
 description: >
   Combat-Modul für klassisches 1.8-SkyPvP, Combat Tag, physische Nethersterne,
-  PvP-Stats, Map-Gameplay, King Altar, Hot Zones, End Zone, Secrets und globalen Spawn.
+  PvP-Stats, Map-Gameplay, King Altar, Hot Zones, End Zone, Secrets, Routes und globalen Spawn.
 authors: [SkyKings Team]
 commands:
   stats:
@@ -50,6 +50,11 @@ commands:
     usage: /secret <add|remove|list> [Name] [Radius]
     permission: skykings.admin.map
     aliases: [secrets]
+  route:
+    description: Erstellt Jump- und Pearl-Routen mit Checkpoints.
+    usage: /route <create|addpoint|remove|list> [Name]
+    permission: skykings.admin.map
+    aliases: [maproute, pearlroute, jumproute]
   skymap:
     description: Lädt die Produktionsmap oder generiert die Legacy-Testmap.
     usage: /skymap <load|generate> [Weltname]
@@ -75,5 +80,5 @@ permissions:
     description: Schaltet den Ender-Kill-Effect frei.
     default: false
   skykings.admin.map:
-    description: Darf Map-Gameplay, Spawn, Zonen, Secrets und Map-Import einrichten.
+    description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen und Map-Import einrichten.
     default: false
