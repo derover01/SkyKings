@@ -94,7 +94,7 @@ public final class LegacyHallService {
         if (list.isEmpty()) gui.setItem(22, UiItems.empty("Noch keine Legacy", "Die erste abgeschlossene Season erscheint hier."));
         if (current > 1) gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p, current - 1));
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Legacy Hall",
-                UiTheme.MUTED + "Permanente Season-Historie", UiTheme.TEXT + list.size() + UiTheme.MUTED + " Eintraege"));
+                UiTheme.MUTED + "Permanente Season-Historie", UiTheme.TEXT.toString() + list.size() + UiTheme.MUTED + " Eintraege"));
         if (current < pages) gui.setItem(UiTheme.NAV_NEXT, UiItems.next(), (p,e,s) -> open(p, current + 1));
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
