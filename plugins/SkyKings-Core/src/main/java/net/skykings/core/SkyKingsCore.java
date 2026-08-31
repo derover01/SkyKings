@@ -11,6 +11,7 @@ import net.skykings.core.command.KitCommand;
 import net.skykings.core.command.RanksCommand;
 import net.skykings.core.command.RankupCommand;
 import net.skykings.core.command.RepairCommand;
+import net.skykings.core.command.ShopCommand;
 import net.skykings.core.command.StackCommand;
 import net.skykings.core.command.TrashCommand;
 import net.skykings.core.config.ConfigService;
@@ -63,6 +64,8 @@ import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.rank.RanksGui;
+import net.skykings.core.shop.ShopTransactionService;
+import net.skykings.core.shop.SystemShopGui;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
@@ -101,6 +104,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private FreeSignStore freeSignStore;
     private BuildBlockStore buildBlockStore;
     private EnderChestService enderChestService;
+    private ShopTransactionService shopTransactionService;
 
     @Override
     public void onEnable() {
@@ -141,6 +145,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.freeSignStore = new FreeSignStore(this);
         this.buildBlockStore = new BuildBlockStore(this);
         this.enderChestService = new EnderChestService(this, rankService, economyService);
+        this.shopTransactionService = new ShopTransactionService(economyService, loggingService);
 
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
         PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
@@ -150,6 +155,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         BuildBlocksGui buildBlocksGui = new BuildBlocksGui(guiManager);
         PaidRankHologramListener paidRankHolograms = new PaidRankHologramListener(this, rankService);
         CommandsGui commandsGui = new CommandsGui(guiManager);
+        SystemShopGui systemShopGui = new SystemShopGui(guiManager, shopTransactionService);
 
         this.economyBridge = createEconomyBridge();
 
@@ -191,12 +197,13 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("bloecke", new BlocksCommand(rankService, buildBlocksGui))) return;
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
         if (!registerCommand("enderchest", new EnderChestCommand(enderChestService))) return;
+        if (!registerCommand("shop", new ShopCommand(systemShopGui))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
         if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 3/4 Hardening + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 5: Economy/Shop-Engine + Commands + Free-Signs + Scoreboard) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
@@ -276,4 +283,5 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     @Override public KitGrantService getKitGrantService() { return kitGrantService; }
     @Override public GuiManager getGuiManager() { return guiManager; }
     @Override public VoucherPermissionService getVoucherPermissionService() { return voucherPermissionService; }
+    @Override public ShopTransactionService getShopTransactionService() { return shopTransactionService; }
 }
