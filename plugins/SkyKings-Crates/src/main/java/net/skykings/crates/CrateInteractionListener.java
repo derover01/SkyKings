@@ -6,6 +6,7 @@ import net.skykings.core.item.SkyKingsCurrencyItems;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
+import net.skykings.core.shop.player.PlayerShopEgg;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -36,6 +37,7 @@ public final class CrateInteractionListener implements Listener {
     private final CrateRegistry registry;
     private final CrateItemCodec codec;
     private final VoucherItemCodec voucherCodec = new VoucherItemCodec();
+    private final PlayerShopEgg playerShopEgg = new PlayerShopEgg();
     private final CrateRedemptionStore redemptionStore;
     private final SkyKingsCoreAPI core;
 
@@ -117,8 +119,7 @@ public final class CrateInteractionListener implements Listener {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
             return;
         }
-        if ((finalReward.getType() == CrateRegistry.RewardType.ITEM || finalReward.getType() == CrateRegistry.RewardType.VOUCHER)
-                && !hasSpace(player, finalReward)) {
+        if (requiresSpace(finalReward) && !hasSpace(player, finalReward)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den Gewinn.");
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
             return;
@@ -221,8 +222,7 @@ public final class CrateInteractionListener implements Listener {
             finish(onFinished);
             return;
         }
-        if ((reward.getType() == CrateRegistry.RewardType.ITEM || reward.getType() == CrateRegistry.RewardType.VOUCHER)
-                && !hasSpace(player, reward)) {
+        if (requiresSpace(reward) && !hasSpace(player, reward)) {
             player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den naechsten Reward.");
             return;
         }
@@ -246,6 +246,12 @@ public final class CrateInteractionListener implements Listener {
                     player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.5F);
                     finish(onFinished);
                 }));
+    }
+
+    private boolean requiresSpace(CrateRegistry.RewardDefinition reward) {
+        return reward.getType() == CrateRegistry.RewardType.ITEM
+                || reward.getType() == CrateRegistry.RewardType.VOUCHER
+                || reward.getType() == CrateRegistry.RewardType.PLAYER_SHOP_EGG;
     }
 
     private void finish(Runnable onFinished) { if (onFinished != null) onFinished.run(); }
@@ -273,6 +279,8 @@ public final class CrateInteractionListener implements Listener {
         } else if (reward.getType() == CrateRegistry.RewardType.NETHERSTARS) {
             if (reward.getAmount() > 64L) return false;
             rewardItem = SkyKingsCurrencyItems.star((int) reward.getAmount());
+        } else if (reward.getType() == CrateRegistry.RewardType.PLAYER_SHOP_EGG) {
+            rewardItem = playerShopEgg.create();
         } else {
             if (reward.getAmount() > 64L) return false;
             rewardItem = new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData());
@@ -294,6 +302,9 @@ public final class CrateInteractionListener implements Listener {
                 case NETHERSTARS:
                     SkyKingsCurrencyItems.give(player, reward.getAmount());
                     return true;
+                case PLAYER_SHOP_EGG:
+                    if (!hasSpace(player, reward)) return false;
+                    return player.getInventory().addItem(playerShopEgg.create()).isEmpty();
                 case ITEM:
                     if (!hasSpace(player, reward)) return false;
                     return player.getInventory().addItem(new ItemStack(reward.getMaterial(), (int) reward.getAmount(), reward.getData())).isEmpty();
@@ -320,6 +331,7 @@ public final class CrateInteractionListener implements Listener {
         switch (reward.getType()) {
             case COINS: icon = new ItemStack(Material.GOLD_INGOT); break;
             case NETHERSTARS: icon = SkyKingsCurrencyItems.star(1); break;
+            case PLAYER_SHOP_EGG: icon = playerShopEgg.create(); break;
             case VOUCHER: icon = new ItemStack(Material.PAPER); break;
             case ITEM:
             default: icon = new ItemStack(reward.getMaterial(), 1, reward.getData()); break;
@@ -334,6 +346,7 @@ public final class CrateInteractionListener implements Listener {
         switch (reward.getType()) {
             case COINS: return reward.getAmount() + " Coins";
             case NETHERSTARS: return reward.getAmount() + " SkyKings Sterne";
+            case PLAYER_SHOP_EGG: return "1x SkyKings Haendler-Ei";
             case ITEM: return reward.getAmount() + "x " + reward.getMaterial().name();
             case VOUCHER: return ChatColor.translateAlternateColorCodes('&', reward.getVoucherDisplay());
             default: return reward.getId();
