@@ -2,7 +2,9 @@ package net.skykings.core.shop.player;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -11,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 
 import java.util.Locale;
@@ -79,6 +82,17 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             } catch (NumberFormatException ex) { player.sendMessage(ChatColor.RED + "Ungueltige Menge."); }
             return true;
         }
+        if (("withdraw".equals(sub) || "take".equals(sub)) && args.length >= 2) {
+            try {
+                int amount = Integer.parseInt(args[1]);
+                if (!service.withdrawStock(player, shop.getId(), amount)) {
+                    player.sendMessage(ChatColor.RED + "Stock konnte nicht entnommen werden. Pruefe Menge und Inventarplatz.");
+                    return true;
+                }
+                player.sendMessage(ChatColor.GREEN + amount + " Item(s) aus dem Shop entnommen. Rest: " + shop.getStock());
+            } catch (NumberFormatException ex) { player.sendMessage(ChatColor.RED + "Ungueltige Menge."); }
+            return true;
+        }
         if ("claim".equals(sub)) {
             long amount = service.claimRevenue(player, shop.getId());
             player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + amount + " Coins Shop-Einnahmen abgeholt."
@@ -97,7 +111,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         }
         if ("remove".equals(sub)) {
             if (shop.getStock() > 0 || shop.getPendingRevenue() > 0) {
-                player.sendMessage(ChatColor.RED + "Leere zuerst Stock und hole Einnahmen ab. Stock-Rueckgabe folgt spaeter als GUI-Funktion.");
+                player.sendMessage(ChatColor.RED + "Leere zuerst den Stock mit /playershop withdraw und hole Einnahmen ab.");
                 return true;
             }
             removeVillager(shop.getVillagerUuid());
@@ -116,6 +130,10 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         if (shop == null) return;
         event.setCancelled(true);
         Player player = event.getPlayer();
+        if (!isNearStoredLocation(shop, event.getRightClicked().getLocation())) {
+            player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist aus Sicherheitsgruenden deaktiviert.");
+            return;
+        }
         if (player.getUniqueId().equals(shop.getOwner())) {
             player.sendMessage(ChatColor.GOLD + "Dein PlayerShop: " + ChatColor.GRAY + shop.getStock() + " Stock, "
                     + shop.getPendingRevenue() + " Coins Einnahmen. /playershop info");
@@ -130,6 +148,20 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.sendMessage(ChatColor.RED + "Kauf nicht moeglich: " + readable(result));
             player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.45F, 0.8F);
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Villager)) return;
+        if (store.getByVillager(event.getEntity().getUniqueId()) != null) event.setCancelled(true);
+    }
+
+    private boolean isNearStoredLocation(PlayerShop shop, Location current) {
+        if (shop.getWorld() == null || current == null || current.getWorld() == null || !shop.getWorld().equals(current.getWorld().getName())) return false;
+        double dx = current.getX() - shop.getX();
+        double dy = current.getY() - shop.getY();
+        double dz = current.getZ() - shop.getZ();
+        return dx * dx + dy * dy + dz * dz <= 16D;
     }
 
     private PlayerShop nearestOwned(Player player, double radius) {
@@ -147,7 +179,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
 
     private void removeVillager(UUID uuid) {
         if (uuid == null) return;
-        for (org.bukkit.World world : Bukkit.getWorlds()) {
+        for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntities()) if (uuid.equals(entity.getUniqueId())) { entity.remove(); return; }
         }
     }
@@ -167,6 +199,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         player.sendMessage(ChatColor.YELLOW + "/playershop create");
         player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>");
         player.sendMessage(ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " - Item in Hand");
+        player.sendMessage(ChatColor.YELLOW + "/playershop withdraw <Menge>");
         player.sendMessage(ChatColor.YELLOW + "/playershop claim");
         player.sendMessage(ChatColor.YELLOW + "/playershop info");
         player.sendMessage(ChatColor.YELLOW + "/playershop remove");
