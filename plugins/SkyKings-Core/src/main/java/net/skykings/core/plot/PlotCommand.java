@@ -12,38 +12,51 @@ import org.bukkit.entity.Player;
 import java.util.Locale;
 import java.util.UUID;
 
-/** /plot create|home|sethome|trust|untrust|visit|info */
+/** PlotSquared-inspirierte /plot Bedienung auf dem eigenen SkyKings-Claim-System. */
 public final class PlotCommand implements CommandExecutor {
     private final PlotService plots;
-    public PlotCommand(PlotService plots) { this.plots = plots; }
+    private final PlotMenu menu;
+
+    public PlotCommand(PlotService plots) {
+        this.plots = plots;
+        this.menu = new PlotMenu(plots);
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) { sender.sendMessage("Nur ingame."); return true; }
         Player p = (Player) sender;
-        if (args.length == 0) { if (plots.hasPlot(p.getUniqueId())) plots.teleportHome(p, p.getUniqueId()); else usage(p); return true; }
+        if (args.length == 0 || "menu".equalsIgnoreCase(args[0])) { menu.open(p); return true; }
         String sub = args[0].toLowerCase(Locale.ROOT);
-        if ("create".equals(sub)) {
+
+        if ("create".equals(sub) || "auto".equals(sub) || "claim".equals(sub)) {
             if (plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt bereits einen Plot."); return true; }
             if (!plots.create(p)) { p.sendMessage(ChatColor.RED + "Plot konnte nicht erstellt werden."); return true; }
-            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT ERSTELLT"); p.playSound(p.getLocation(), Sound.LEVEL_UP, 0.6F, 1.3F); return true;
+            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT GECLAIMT! " + ChatColor.GRAY + "Willkommen auf deinem SkyKings Plot.");
+            p.playSound(p.getLocation(), Sound.LEVEL_UP, 0.8F, 1.3F); return true;
         }
-        if ("home".equals(sub)) { plots.teleportHome(p, p.getUniqueId()); return true; }
-        if ("sethome".equals(sub)) { p.sendMessage(plots.setHome(p.getUniqueId(), p.getLocation()) ? ChatColor.GREEN + "Plot-Home gesetzt." : ChatColor.RED + "Du musst auf deinem Plot stehen."); return true; }
-        if ("info".equals(sub)) {
-            PlotService.PlotData d = plots.get(p.getUniqueId()); if (d == null) { p.sendMessage(ChatColor.RED + "Kein Plot. /plot create"); return true; }
-            p.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "DEIN PLOT");
-            p.sendMessage(ChatColor.GRAY + "Region: " + ChatColor.WHITE + (PlotService.RADIUS * 2 + 1) + "x" + (PlotService.RADIUS * 2 + 1));
-            p.sendMessage(ChatColor.GRAY + "Trusted: " + ChatColor.WHITE + d.getTrusted().size()); return true;
+        if ("home".equals(sub) || "h".equals(sub)) { plots.teleportHome(p, p.getUniqueId()); return true; }
+        if ("sethome".equals(sub) || "seth".equals(sub)) {
+            boolean ok = plots.setHome(p.getUniqueId(), p.getLocation());
+            p.sendMessage(ok ? ChatColor.GREEN + "Plot-Home gesetzt." : ChatColor.RED + "Du musst auf deinem Plot stehen.");
+            p.playSound(p.getLocation(), ok ? Sound.ORB_PICKUP : Sound.VILLAGER_NO, 0.7F, ok ? 1.4F : 1F); return true;
         }
-        if (("trust".equals(sub) || "untrust".equals(sub)) && args.length >= 2) {
-            Player target = Bukkit.getPlayer(args[1]); if (target == null) { p.sendMessage(ChatColor.RED + "Spieler muss online sein."); return true; }
-            boolean changed = "trust".equals(sub) ? plots.trust(p.getUniqueId(), target.getUniqueId()) : plots.untrust(p.getUniqueId(), target.getUniqueId());
-            p.sendMessage(changed ? ChatColor.GREEN + "Plot-Rechte aktualisiert." : ChatColor.YELLOW + "Keine Aenderung."); return true;
+        if ("info".equals(sub) || "i".equals(sub)) { menu.open(p); return true; }
+        if (("trust".equals(sub) || "add".equals(sub) || "untrust".equals(sub) || "remove".equals(sub)) && args.length >= 2) {
+            Player target = Bukkit.getPlayer(args[1]);
+            if (target == null) { p.sendMessage(ChatColor.RED + "Spieler muss online sein."); return true; }
+            boolean adding = "trust".equals(sub) || "add".equals(sub);
+            boolean changed = adding ? plots.trust(p.getUniqueId(), target.getUniqueId()) : plots.untrust(p.getUniqueId(), target.getUniqueId());
+            if (changed) {
+                p.sendMessage(ChatColor.GREEN + target.getName() + (adding ? " darf jetzt auf deinem Plot bauen." : " wurde von deinem Plot entfernt."));
+                p.playSound(p.getLocation(), adding ? Sound.ORB_PICKUP : Sound.CLICK, 0.7F, adding ? 1.4F : 0.8F);
+            } else p.sendMessage(ChatColor.YELLOW + "Keine Aenderung.");
+            return true;
         }
-        if ("visit".equals(sub) && args.length >= 2) {
+        if (("visit".equals(sub) || "v".equals(sub)) && args.length >= 2) {
             Player online = Bukkit.getPlayer(args[1]); UUID owner;
-            if (online != null) owner = online.getUniqueId(); else { @SuppressWarnings("deprecation") OfflinePlayer off = Bukkit.getOfflinePlayer(args[1]); owner = off.getUniqueId(); }
+            if (online != null) owner = online.getUniqueId();
+            else { @SuppressWarnings("deprecation") OfflinePlayer off = Bukkit.getOfflinePlayer(args[1]); owner = off.getUniqueId(); }
             if (!plots.hasPlot(owner)) { p.sendMessage(ChatColor.RED + "Dieser Spieler besitzt keinen Plot."); return true; }
             plots.teleportHome(p, owner); return true;
         }
@@ -51,9 +64,12 @@ public final class PlotCommand implements CommandExecutor {
     }
 
     private void usage(Player p) {
-        p.sendMessage(ChatColor.GOLD + "SkyKings Plots");
-        p.sendMessage(ChatColor.YELLOW + "/plot create | home | sethome | info");
-        p.sendMessage(ChatColor.YELLOW + "/plot trust <Spieler> | untrust <Spieler>");
-        p.sendMessage(ChatColor.YELLOW + "/plot visit <Spieler>");
+        p.sendMessage(ChatColor.DARK_GRAY + "---------------- " + ChatColor.GREEN + ChatColor.BOLD + "SKYKINGS PLOTS" + ChatColor.DARK_GRAY + " ----------------");
+        p.sendMessage(ChatColor.GREEN + "/plot" + ChatColor.GRAY + " - Plot-Menue");
+        p.sendMessage(ChatColor.GREEN + "/plot auto" + ChatColor.GRAY + " - freien Plot claimen");
+        p.sendMessage(ChatColor.GREEN + "/plot h" + ChatColor.GRAY + " - Plot-Home");
+        p.sendMessage(ChatColor.GREEN + "/plot sethome" + ChatColor.GRAY + " - Home setzen");
+        p.sendMessage(ChatColor.GREEN + "/plot trust <Spieler>" + ChatColor.GRAY + " - Baurechte geben");
+        p.sendMessage(ChatColor.GREEN + "/plot visit <Spieler>" + ChatColor.GRAY + " - Plot besuchen");
     }
 }
