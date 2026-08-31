@@ -9,6 +9,8 @@ import net.skykings.combat.config.CombatConfig;
 import net.skykings.combat.cosmetic.KillCosmeticService;
 import net.skykings.combat.cosmetic.KillEffectCommand;
 import net.skykings.combat.cosmetic.KillEffectGui;
+import net.skykings.combat.event.EventArenaCommand;
+import net.skykings.combat.event.EventArenaService;
 import net.skykings.combat.falldamage.FallDamageListener;
 import net.skykings.combat.kill.BountyService;
 import net.skykings.combat.kill.CombatDeathListener;
@@ -101,6 +103,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     private PeaceService peaceService;
     private BattlePassService battlePassService;
     private QuestService questService;
+    private EventArenaService eventArenaService;
 
     @Override
     public void onEnable() {
@@ -144,6 +147,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         this.peaceService = new PeaceService(this);
         this.battlePassService = new BattlePassService(this, seasonProgressService, coreApi.getEconomyService());
         this.questService = new QuestService(this, coreApi.getEconomyService());
+        this.eventArenaService = new EventArenaService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
         CombatKillService combatKillService = new CombatKillServiceImpl(killstreakService, antiFarmService,
@@ -190,6 +194,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand questsCommand = getCommand("quests");
         PluginCommand peaceCommand = getCommand("peace");
         PluginCommand giveawayCommand = getCommand("verlosung");
+        PluginCommand eventArenaCommand = getCommand("eventarena");
         PluginCommand mapSetupCommand = getCommand("mapsetup");
         PluginCommand mapLootCommand = getCommand("maploot");
         PluginCommand supplyDropCommand = getCommand("supplydrop");
@@ -206,10 +211,10 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand setSpawnCommand = getCommand("setspawn");
         if (statsCommand == null || topCommand == null || killEffectCommand == null || mapMasteryCommand == null
                 || achievementsCommand == null || seasonCommand == null || pvpLevelCommand == null || battlePassCommand == null
-                || questsCommand == null || peaceCommand == null || giveawayCommand == null || mapSetupCommand == null
-                || mapLootCommand == null || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
-                || endZoneCommand == null || secretCommand == null || routeCommand == null || landmarkCommand == null
-                || trashBinCommand == null || mapDisplayCommand == null || skyMapCommand == null
+                || questsCommand == null || peaceCommand == null || giveawayCommand == null || eventArenaCommand == null
+                || mapSetupCommand == null || mapLootCommand == null || supplyDropCommand == null || kingAltarCommand == null
+                || hotZoneCommand == null || endZoneCommand == null || secretCommand == null || routeCommand == null
+                || landmarkCommand == null || trashBinCommand == null || mapDisplayCommand == null || skyMapCommand == null
                 || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
@@ -230,6 +235,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         questsCommand.setExecutor(new QuestCommand(questService));
         peaceCommand.setExecutor(new PeaceCommand(peaceService));
         giveawayCommand.setExecutor(new GiveawayCommand(this, coreApi.getEconomyService()));
+        eventArenaCommand.setExecutor(new EventArenaCommand(eventArenaService));
         mapSetupCommand.setExecutor(new MapSetupCommand(kingAltarService, hotZoneService, endZoneService,
                 secretDiscoveryService, mapLandmarkService, mapRouteService, trashBinService, mapDisplayService));
         mapLootCommand.setExecutor(mapGameplayService);
@@ -247,11 +253,12 @@ public final class SkyKingsCombat extends JavaPlugin {
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 6-9: Map + Retention + Community) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 6-9: Map + Retention + Community + Event Arenas) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (eventArenaService != null) eventArenaService.save();
         if (questService != null) questService.save();
         if (battlePassService != null) battlePassService.save();
         if (peaceService != null) peaceService.save();
