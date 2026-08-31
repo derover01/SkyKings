@@ -11,9 +11,9 @@ commands:
     usage: /stats [Spieler]
     aliases: [pvpstats, profile, profil]
   top:
-    description: Öffnet die SkyKings-PvP-Toplisten.
+    description: Öffnet die SkyKings-PvP-Toplisten und das Bounty Board.
     usage: /top
-    aliases: [leaderboard, leaderboards]
+    aliases: [leaderboard, leaderboards, kopfgeld, bounty]
   killeffect:
     description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
     usage: /killeffect
