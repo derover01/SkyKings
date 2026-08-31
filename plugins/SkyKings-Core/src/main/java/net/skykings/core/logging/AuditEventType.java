@@ -13,5 +13,6 @@ public enum AuditEventType {
     VOUCHER_GENERATED,
     VOUCHER_REDEEMED,
     SHOP_PURCHASE,
+    TRADE_COMPLETE,
     PROFILE_CREATED
 }
