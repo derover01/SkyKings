@@ -8,8 +8,10 @@ import net.skykings.admin.command.RightsAdminCommand;
 import net.skykings.admin.command.SystemCheckCommand;
 import net.skykings.admin.discord.DiscordBridge;
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.discord.DiscordNotifier;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.RegisteredServiceProvider;
+import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /** SkyKings-Admin: Staff- und Verwaltungsfunktionen. */
@@ -28,6 +30,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         }
         SkyKingsCoreAPI core = registration.getProvider();
         this.discordBridge = new DiscordBridge(this);
+        getServer().getServicesManager().register(DiscordNotifier.class, discordBridge, this, ServicePriority.Normal);
 
         PluginCommand rankCommand = getCommand("rang");
         PluginCommand rightsCommand = getCommand("rechte");
@@ -63,6 +66,7 @@ public class SkyKingsAdmin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        getServer().getServicesManager().unregisterAll(this);
         if (discordBridge != null) {
             if (discordBridge.isConfigured("status")) discordBridge.send("status", "🔴 SkyKings-Admin wird beendet.");
             discordBridge.shutdown();
