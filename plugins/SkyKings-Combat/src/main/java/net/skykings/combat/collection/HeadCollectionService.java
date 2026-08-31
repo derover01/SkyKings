@@ -12,11 +12,11 @@ import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -138,7 +138,7 @@ public final class HeadCollectionService implements Listener {
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.BOOK,
                 UiTheme.PRIMARY + "Collection",
                 UiTheme.MUTED + "Freigeschaltet",
-                UiTheme.TEXT + collectedCount(player.getUniqueId()) + UiTheme.DISABLED + " / " + players.size(),
+                UiTheme.TEXT.toString() + collectedCount(player.getUniqueId()) + UiTheme.DISABLED + " / " + players.size(),
                 "",
                 UiTheme.MUTED + "Seite " + current + " / " + pages));
         if (current < pages) gui.setItem(UiTheme.NAV_NEXT, UiItems.next(), (p,e,s) -> open(p, current + 1));
