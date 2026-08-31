@@ -1,8 +1,9 @@
 package net.skykings.combat.retention;
 
 import net.skykings.combat.event.EventParticipationService;
-import org.bukkit.ChatColor;
-import org.bukkit.Sound;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiTheme;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,7 +13,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,7 +25,7 @@ public final class SeasonProgressService implements Listener {
     private final JavaPlugin plugin;
     private final File file;
     private final YamlConfiguration data;
-    private final Map<String, Long> pairCooldown = new HashMap<String, Long>();
+    private final Map<String, Long> pairCooldown = new LinkedHashMap<String, Long>();
 
     public SeasonProgressService(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -55,9 +57,9 @@ public final class SeasonProgressService implements Listener {
         int after = getLevel(uuid);
         save();
         if (after > before) {
-            player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "PVP LEVEL UP " + ChatColor.WHITE + after
-                    + ChatColor.GRAY + " - " + reason);
-            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.65F, 1.55F);
+            player.sendMessage(UiTheme.PRIMARY + "Level Up");
+            player.sendMessage(UiTheme.TEXT + before + UiTheme.MUTED + " → " + UiTheme.TEXT + after);
+            SoundFeedback.levelUp(player);
         }
     }
 
@@ -77,6 +79,30 @@ public final class SeasonProgressService implements Listener {
         int level = getLevel(uuid);
         if (level >= 100) return 0;
         return Math.max(0, xpForLevel(level + 1) - getXp(uuid));
+    }
+
+    /** Unveraenderlicher Snapshot fuer Season-Finish/Hall-of-Fame. */
+    public Map<UUID, Integer> getAllXp() {
+        Map<UUID, Integer> snapshot = new LinkedHashMap<UUID, Integer>();
+        ConfigurationSection root = data.getConfigurationSection("players");
+        if (root == null) return Collections.unmodifiableMap(snapshot);
+        for (String raw : root.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(raw);
+                snapshot.put(uuid, Math.max(0, data.getInt("players." + raw + ".xp", 0)));
+            } catch (IllegalArgumentException ignored) { }
+        }
+        return Collections.unmodifiableMap(snapshot);
+    }
+
+    /** Nur fuer den expliziten Season-Finish-Pfad verwenden. Lifetime-Stats bleiben erhalten. */
+    public int advanceSeasonAndResetXp() {
+        int previous = getSeason();
+        data.set("players", null);
+        data.set("season", previous + 1);
+        pairCooldown.clear();
+        save();
+        return previous + 1;
     }
 
     private String path(UUID uuid, String key) { return "players." + uuid + "." + key; }
