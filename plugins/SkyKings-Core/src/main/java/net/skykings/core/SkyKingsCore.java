@@ -15,6 +15,7 @@ import net.skykings.core.command.RankupCommand;
 import net.skykings.core.command.RepairCommand;
 import net.skykings.core.command.SellCommand;
 import net.skykings.core.command.ShopCommand;
+import net.skykings.core.command.SpeedCommand;
 import net.skykings.core.command.StackCommand;
 import net.skykings.core.command.TradeCommand;
 import net.skykings.core.command.TrashCommand;
@@ -215,6 +216,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         ranksCommand.setExecutor(new RanksCommand(ranksGui));
 
         if (!registerCommand("fly", new FlyCommand(rankService))) return;
+        if (!registerCommand("speed", new SpeedCommand())) return;
         if (!registerCommand("stack", new StackCommand(rankService))) return;
         if (!registerCommand("bloecke", new BlocksCommand(rankService, buildBlocksGui))) return;
         if (!registerCommand("repair", new RepairCommand(rankService))) return;
@@ -238,7 +240,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Phase 5 + Trade + Custom EC + Map Protection) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Phase 5 + Trade + Custom EC + Map Protection + Speed) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
