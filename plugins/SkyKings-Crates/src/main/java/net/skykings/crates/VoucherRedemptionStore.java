@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,7 +52,7 @@ public final class VoucherRedemptionStore {
     public boolean isReady() { return ready; }
 
     public CompletableFuture<Boolean> redeem(UUID serial) {
-        if (!ready) return CompletableFuture.completedFuture(false);
+        if (!ready || serial == null) return CompletableFuture.completedFuture(false);
         synchronized (redeemed) {
             if (redeemed.contains(serial)) return CompletableFuture.completedFuture(false);
             redeemed.add(serial);
@@ -70,8 +71,21 @@ public final class VoucherRedemptionStore {
         }, executor);
     }
 
+    /**
+     * Neue Redemptions werden zuerst gesperrt. Bereits eingereihte Datei-Writes bekommen
+     * bis zu fünf Sekunden Zeit, sauber zu Ende zu laufen, damit ein Restart keinen
+     * bereits vergebenen Gutschein wieder einloesbar macht.
+     */
     public void shutdown() {
         ready = false;
         executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                logger.warning("Voucher-Anti-Dupe-Store hatte beim Shutdown noch ausstehende Writes.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            logger.warning("Warten auf Voucher-Anti-Dupe-Store wurde unterbrochen.");
+        }
     }
 }
