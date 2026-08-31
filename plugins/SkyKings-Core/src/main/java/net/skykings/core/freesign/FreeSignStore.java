@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /** Persistente Source of Truth fuer echte SkyKings-Free-Signs. */
@@ -49,31 +50,30 @@ public final class FreeSignStore {
         load();
     }
 
-    public synchronized FreeItem get(Location location) {
-        return signs.get(key(location));
-    }
-
-    public synchronized boolean contains(Location location) {
-        return signs.containsKey(key(location));
-    }
+    public synchronized FreeItem get(Location location) { return signs.get(key(location)); }
+    public synchronized boolean contains(Location location) { return signs.containsKey(key(location)); }
 
     public void put(Location location, FreeItem item) {
-        synchronized (this) {
-            signs.put(key(location), item);
-        }
+        synchronized (this) { signs.put(key(location), item); }
         saveAsync();
     }
 
     public void remove(Location location) {
         boolean changed;
-        synchronized (this) {
-            changed = signs.remove(key(location)) != null;
-        }
+        synchronized (this) { changed = signs.remove(key(location)) != null; }
         if (changed) saveAsync();
     }
 
     public void shutdown() {
         writer.shutdown();
+        try {
+            if (!writer.awaitTermination(5, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("FreeSign-Store hatte beim Shutdown noch ausstehende Writes.");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            plugin.getLogger().warning("Warten auf FreeSign-Store wurde unterbrochen.");
+        }
     }
 
     private void load() {
@@ -94,9 +94,7 @@ public final class FreeSignStore {
 
     private void saveAsync() {
         final Map<String, FreeItem> snapshot;
-        synchronized (this) {
-            snapshot = new HashMap<String, FreeItem>(signs);
-        }
+        synchronized (this) { snapshot = new HashMap<String, FreeItem>(signs); }
         writer.submit(() -> save(snapshot));
     }
 
@@ -122,11 +120,6 @@ public final class FreeSignStore {
         return location.getWorld().getName() + ":" + location.getBlockX() + ":" + location.getBlockY() + ":" + location.getBlockZ();
     }
 
-    private String encodeKey(String key) {
-        return key.replace(".", "%2E");
-    }
-
-    private String decodeKey(String key) {
-        return key.replace("%2E", ".");
-    }
+    private String encodeKey(String key) { return key.replace(".", "%2E"); }
+    private String decodeKey(String key) { return key.replace("%2E", "."); }
 }
