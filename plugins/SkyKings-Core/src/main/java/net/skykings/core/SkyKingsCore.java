@@ -1,6 +1,7 @@
 package net.skykings.core;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.clan.ClanBaseService;
 import net.skykings.core.clan.ClanCommand;
 import net.skykings.core.clan.ClanService;
 import net.skykings.core.command.BlocksCommand;
@@ -135,6 +136,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private IslandService islandService;
     private PlotService plotService;
     private ClanService clanService;
+    private ClanBaseService clanBaseService;
     private DailyRewardService dailyRewardService;
     private PlayerShopStore playerShopStore;
     private SpawnerStackService spawnerStackService;
@@ -173,6 +175,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.islandService = new IslandService(this);
         this.plotService = new PlotService(this);
         this.clanService = new ClanService(this);
+        this.clanBaseService = new ClanBaseService(this, clanService);
         this.dailyRewardService = new DailyRewardService(this, economyService);
         this.playerShopStore = new PlayerShopStore(this);
         PlayerShopService playerShopService = new PlayerShopService(playerShopStore, economyService, loggingService);
@@ -214,6 +217,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(new IslandProtectionListener(islandService), this);
         getServer().getPluginManager().registerEvents(new PlotProtectionListener(plotService), this);
         getServer().getPluginManager().registerEvents(clanService, this);
+        getServer().getPluginManager().registerEvents(clanBaseService, this);
         getServer().getPluginManager().registerEvents(playerShopController, this);
         getServer().getPluginManager().registerEvents(spawnerStackService, this);
 
@@ -245,7 +249,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         PluginCommand islandCommand = requireCommand("island"); if (islandCommand == null) return;
         IslandCommand islandExecutor = new IslandCommand(islandService); islandCommand.setExecutor(islandExecutor); islandCommand.setTabCompleter(islandExecutor);
         if (!registerCommand("plot", new PlotCommand(plotService))) return;
-        if (!registerCommand("clan", new ClanCommand(clanService))) return;
+        if (!registerCommand("clan", new ClanCommand(clanService, clanBaseService))) return;
         if (!registerCommand("playershop", playerShopController)) return;
         if (!registerCommand("spawnerstack", spawnerStackService)) return;
         if (!registerCommand("dailyrewards", new DailyRewardCommand(dailyRewardService))) return;
@@ -254,7 +258,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Claims + Plots + Clans + PlayerShops + SpawnerStacking + Retention) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Claims + Plots + Clans/ClanBase + PlayerShops + SpawnerStacking + Retention) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
@@ -270,6 +274,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     public void onDisable() {
         if (spawnerStackService != null) spawnerStackService.save();
         if (dailyRewardService != null) dailyRewardService.save();
+        if (clanBaseService != null) clanBaseService.save();
         if (clanService != null) clanService.save();
         if (playerShopStore != null) playerShopStore.save();
         if (plotService != null) plotService.save();
