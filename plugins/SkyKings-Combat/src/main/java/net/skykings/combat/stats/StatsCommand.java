@@ -105,6 +105,10 @@ public final class StatsCommand implements CommandExecutor {
                 "",
                 UiItems.action("Legacy Hall oeffnen")), (p,e,s) -> Bukkit.dispatchCommand(p, "legacyhall"));
 
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
+            SoundFeedback.back(p);
+            Bukkit.dispatchCommand(p, "commands");
+        });
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS,
                 UiTheme.PRIMARY + "Profile",
                 UiTheme.MUTED + "Overview  •  Combat  •  Progression",
