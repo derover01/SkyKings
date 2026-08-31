@@ -81,7 +81,7 @@ public final class PlayerDisplayListener implements Listener {
                 UiTheme.PRIMARY + "Aktiver Prefix",
                 UiTheme.TEXT + cosmetic,
                 UiTheme.MUTED + "Kosmetisch und permanent."));
-        gui.setItem(15, UiItems.item(showRank ? Material.LIME_DYE : Material.INK_SACK,
+        gui.setItem(15, UiItems.item(showRank ? Material.EMERALD : Material.REDSTONE,
                 showRank ? UiTheme.SUCCESS + "Rang anzeigen: AN" : UiTheme.DANGER + "Rang anzeigen: AUS",
                 UiTheme.MUTED + "Nur fuer die Chat-Anzeige.",
                 "",
