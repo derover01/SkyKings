@@ -6,6 +6,9 @@ import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import net.skykings.core.permission.VoucherPermissionService;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiFormat;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,6 +25,8 @@ import java.util.UUID;
 
 /** Rechtsklick auf Gutschein = einmalige, persistente Einloesung. */
 public final class VoucherRedeemListener implements Listener {
+    private static final long MAX_COIN_VOUCHER = 1_000_000_000L;
+
     private final SkyKingsCrates plugin;
     private final VoucherItemCodec codec;
     private final VoucherRedemptionStore store;
@@ -45,6 +50,7 @@ public final class VoucherRedeemListener implements Listener {
         Player player = event.getPlayer();
         if (!store.isReady()) {
             player.sendMessage(ChatColor.RED + "Gutschein-System startet noch. Bitte gleich erneut versuchen.");
+            SoundFeedback.error(player);
             return;
         }
         if (!canRedeem(player, voucher)) return;
@@ -53,10 +59,12 @@ public final class VoucherRedeemListener implements Listener {
         store.redeem(serial).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!marked) {
                 player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits eingeloest oder konnte nicht sicher gespeichert werden.");
+                SoundFeedback.error(player);
                 return;
             }
             if (!grant(player, voucher)) {
                 player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + serial);
+                SoundFeedback.error(player);
                 return;
             }
 
@@ -70,7 +78,10 @@ public final class VoucherRedeemListener implements Listener {
             core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
                     player.getUniqueId(), player.getName(), null,
                     "serial=" + serial + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
-            player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
+            if (voucher.getType() != VoucherItemCodec.VoucherType.GIVEALL_COINS) {
+                player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
+            }
+            SoundFeedback.reward(player);
         }));
     }
 
@@ -82,6 +93,7 @@ public final class VoucherRedeemListener implements Listener {
                 Rank current = core.getRankService().getRank(player.getUniqueId());
                 if (current.isAtLeast(rank)) {
                     player.sendMessage(ChatColor.YELLOW + "Du besitzt diesen oder einen hoeheren Rang bereits.");
+                    SoundFeedback.warning(player);
                     return false;
                 }
                 return true;
@@ -94,6 +106,9 @@ public final class VoucherRedeemListener implements Listener {
                 return true;
             case PREFIX:
                 return voucher.getTarget().matches("[a-zA-Z0-9_-]{1,32}") || invalid(player);
+            case COINS:
+            case GIVEALL_COINS:
+                return parseCoinAmount(voucher.getTarget()) > 0L || invalid(player);
             default:
                 return invalid(player);
         }
@@ -122,6 +137,30 @@ public final class VoucherRedeemListener implements Listener {
             case PREFIX:
                 return core.getVoucherPermissionService().grantPrefix(player.getUniqueId(), voucher.getTarget(),
                         "VOUCHER:" + voucher.getSerial()) == VoucherPermissionService.GrantStatus.GRANTED;
+            case COINS:
+                long amount = parseCoinAmount(voucher.getTarget());
+                if (amount <= 0L) return false;
+                core.getEconomyService().deposit(player.getUniqueId(), amount, "VOUCHER",
+                        "Coin-Gutschein " + voucher.getSerial());
+                player.sendMessage(ChatColor.GOLD + "+" + UiFormat.coins(amount));
+                return true;
+            case GIVEALL_COINS:
+                long giveAllAmount = parseCoinAmount(voucher.getTarget());
+                if (giveAllAmount <= 0L) return false;
+                int recipients = 0;
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    core.getEconomyService().deposit(online.getUniqueId(), giveAllAmount, "VOUCHER_GIVEALL",
+                            "GiveAll von " + player.getName() + " / " + voucher.getSerial());
+                    online.sendMessage(ChatColor.GOLD + "+" + UiFormat.coins(giveAllAmount)
+                            + ChatColor.GRAY + " durch einen GiveAll-Gutschein von " + ChatColor.WHITE + player.getName());
+                    SoundFeedback.notify(online);
+                    recipients++;
+                }
+                Bukkit.broadcastMessage(ChatColor.YELLOW.toString() + ChatColor.BOLD + "GIVEALL "
+                        + ChatColor.GRAY + "| " + ChatColor.WHITE + player.getName()
+                        + ChatColor.GRAY + " hat " + ChatColor.GOLD + UiFormat.coins(giveAllAmount)
+                        + ChatColor.GRAY + " an alle " + ChatColor.WHITE + recipients + ChatColor.GRAY + " Online-Spieler verteilt.");
+                return true;
             default:
                 return false;
         }
@@ -150,6 +189,7 @@ public final class VoucherRedeemListener implements Listener {
                 for (int i = 0; i < simulation.length; i++) if (simulation[i] == null) { free = i; break; }
                 if (free < 0) {
                     player.sendMessage(ChatColor.RED + "Du brauchst mehr freien Inventarplatz fuer dieses Kit.");
+                    SoundFeedback.error(player);
                     return false;
                 }
                 int amount = Math.min(remaining.getMaxStackSize(), remaining.getAmount());
@@ -167,8 +207,18 @@ public final class VoucherRedeemListener implements Listener {
         catch (IllegalArgumentException ex) { return null; }
     }
 
+    private long parseCoinAmount(String raw) {
+        try {
+            long amount = Long.parseLong(raw);
+            return amount > 0L && amount <= MAX_COIN_VOUCHER ? amount : -1L;
+        } catch (NumberFormatException ex) {
+            return -1L;
+        }
+    }
+
     private boolean invalid(Player player) {
         player.sendMessage(ChatColor.RED + "Dieser Gutschein enthaelt ein ungueltiges Ziel.");
+        SoundFeedback.error(player);
         return false;
     }
 
