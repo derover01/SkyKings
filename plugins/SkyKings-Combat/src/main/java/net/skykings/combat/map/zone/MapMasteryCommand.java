@@ -11,9 +11,7 @@ import org.bukkit.entity.Player;
 public final class MapMasteryCommand implements CommandExecutor {
     private final MapMasteryService mastery;
 
-    public MapMasteryCommand(MapMasteryService mastery) {
-        this.mastery = mastery;
-    }
+    public MapMasteryCommand(MapMasteryService mastery) { this.mastery = mastery; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -35,6 +33,8 @@ public final class MapMasteryCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "MAP MASTERY " + ChatColor.YELLOW + target.getName());
         sender.sendMessage(ChatColor.GRAY + "Hot-Zone-Kills: " + ChatColor.WHITE + mastery.getHotZoneKills(target.getUniqueId()));
         sender.sendMessage(ChatColor.GRAY + "King-Altar-Captures: " + ChatColor.WHITE + mastery.getKingCaptures(target.getUniqueId()));
+        sender.sendMessage(ChatColor.GRAY + "End-Zone-Kills: " + ChatColor.WHITE + mastery.getEndKills(target.getUniqueId()));
+        sender.sendMessage(ChatColor.GRAY + "Secrets gefunden: " + ChatColor.WHITE + mastery.getSecrets(target.getUniqueId()));
         sender.sendMessage(ChatColor.GRAY + "Titel: " + ChatColor.AQUA + mastery.getTitle(target.getUniqueId()));
         return true;
     }
