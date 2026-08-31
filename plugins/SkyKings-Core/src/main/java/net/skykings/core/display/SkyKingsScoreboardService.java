@@ -106,17 +106,14 @@ public final class SkyKingsScoreboardService {
     /** Team-Prefixe sind in Minecraft 1.8 hart auf 16 Zeichen begrenzt. */
     private String nametagPrefix(String raw) {
         String plain = ChatColor.stripColor(raw == null ? "" : raw);
+        if ("Test-Supporter".equalsIgnoreCase(plain)) plain = "Test-Sup";
+
         ChatColor color = firstColor(raw);
         if (color == null) color = ChatColor.GRAY;
 
-        String withSpace = color.toString() + plain + " ";
-        if (withSpace.length() <= 16) return withSpace;
-
-        String exact = color.toString() + plain;
-        if (exact.length() <= 16) return exact;
-
-        int maxPlain = 14; // 2 Zeichen fuer den §-Farbcode.
-        return color.toString() + plain.substring(0, Math.min(maxPlain, plain.length()));
+        // Immer Platz zwischen Rang und Name reservieren: 2 Farbcode + max. 13 Text + 1 Leerzeichen.
+        if (plain.length() > 13) plain = plain.substring(0, 13);
+        return color.toString() + plain + " ";
     }
 
     private ChatColor firstColor(String raw) {
