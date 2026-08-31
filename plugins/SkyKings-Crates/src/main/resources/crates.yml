@@ -1,3 +1,5 @@
+balance-version: 2
+
 # SkyKings Crates - Economy-balanced default tables
 # Jede Crate hat exakt 1000 Weight-Punkte. Damit entspricht weight=10 genau 1,0 %.
 # Coin-, Rechte-, Rank-, Kit- und Prefix-Rewards werden als echte Gutscheine ausgegeben.
