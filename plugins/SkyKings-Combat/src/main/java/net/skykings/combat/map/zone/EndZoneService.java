@@ -1,22 +1,20 @@
 package net.skykings.combat.map.zone;
 
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.item.SkyKingsCurrencyItems;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /** Persistente End-Zone mit eigenen Kill-Rewards und Anti-Farm-Cooldown. */
 public final class EndZoneService implements Listener {
@@ -67,12 +65,10 @@ public final class EndZoneService implements Listener {
         pairCooldowns.put(key, now + SAME_VICTIM_COOLDOWN);
 
         economy.deposit(killer.getUniqueId(), COIN_REWARD, "END_ZONE", "End Zone Kill");
-        java.util.Map<Integer, ItemStack> left = killer.getInventory().addItem(new ItemStack(Material.NETHER_STAR, STAR_REWARD));
-        for (ItemStack stack : left.values()) killer.getWorld().dropItemNaturally(killer.getLocation(), stack);
+        SkyKingsCurrencyItems.give(killer, STAR_REWARD);
         mastery.addEndKill(killer.getUniqueId());
-        killer.updateInventory();
         killer.sendMessage(ChatColor.DARK_PURPLE.toString() + ChatColor.BOLD + "END ZONE " + ChatColor.LIGHT_PURPLE
-                + "+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " Nethersterne");
+                + "+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " SkyKings Sterne");
         killer.playSound(killer.getLocation(), Sound.ENDERMAN_TELEPORT, 0.7F, 1.35F);
     }
 
