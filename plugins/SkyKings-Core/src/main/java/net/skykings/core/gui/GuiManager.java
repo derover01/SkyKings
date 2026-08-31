@@ -13,17 +13,21 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Technisches GUI-Framework (Phase 1B): verwaltet, welche {@link GuiSession} pro Spieler aktuell
- * geoeffnet ist, cancelt saemtliche Inventar-Interaktionen waehrend eine Session offen ist (kein
- * versehentliches Verschieben/Duplizieren von Items) und raeumt Sessions beim Schliessen sowie
- * beim Verlassen des Servers auf, um Memory-Leaks zu vermeiden.
- *
- * <p>Enthaelt bewusst KEINE konkrete GUI (kein /kit, kein /raenge) - nur das generische Framework.
- */
+/** Zentrales, Anti-Dupe-sicheres GUI-Framework fuer alle SkyKings-Menues. */
 public final class GuiManager implements Listener {
 
-    private final Map<UUID, GuiSession> openSessions = new ConcurrentHashMap<>();
+    private static volatile GuiManager active;
+    private final Map<UUID, GuiSession> openSessions = new ConcurrentHashMap<UUID, GuiSession>();
+
+    public GuiManager() {
+        active = this;
+    }
+
+    /** Aktive Core-GUI-Instanz. Core erzeugt diese vor allen Feature-Services. */
+    public static GuiManager active() {
+        if (active == null) throw new IllegalStateException("GuiManager ist noch nicht initialisiert");
+        return active;
+    }
 
     public void open(GuiSession session) {
         openSessions.put(session.getPlayer().getUniqueId(), session);
@@ -37,16 +41,10 @@ public final class GuiManager implements Listener {
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         HumanEntity clicker = event.getWhoClicked();
-        if (!(clicker instanceof Player)) {
-            return;
-        }
+        if (!(clicker instanceof Player)) return;
         GuiSession session = openSessions.get(clicker.getUniqueId());
-        if (session == null) {
-            return;
-        }
-
+        if (session == null) return;
         event.setCancelled(true);
-
         if (event.getClickedInventory() != null && session.getInventory().equals(event.getClickedInventory())) {
             SoundFeedback.click((Player) clicker);
             session.handleClick((Player) clicker, event, event.getRawSlot());
@@ -56,9 +54,7 @@ public final class GuiManager implements Listener {
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
         HumanEntity closer = event.getPlayer();
-        if (!(closer instanceof Player)) {
-            return;
-        }
+        if (!(closer instanceof Player)) return;
         UUID uuid = closer.getUniqueId();
         GuiSession session = openSessions.get(uuid);
         if (session != null && session.getInventory().equals(event.getInventory())) {
