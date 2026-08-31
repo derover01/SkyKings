@@ -1,8 +1,10 @@
 package net.skykings.core.command;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.model.Rank;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.sound.SoundFeedback;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,6 +18,10 @@ public final class SpeedCommand implements CommandExecutor {
 
     private final RankService rankService;
 
+    public SpeedCommand() {
+        this.rankService = null;
+    }
+
     public SpeedCommand(RankService rankService) {
         this.rankService = rankService;
     }
@@ -27,8 +33,9 @@ public final class SpeedCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
-        if (!player.hasPermission(PERMISSION)
-                && !rankService.hasAtLeast(player.getUniqueId(), Rank.KNIGHT)) {
+        RankService ranks = resolveRankService();
+        boolean knightPlus = ranks != null && ranks.hasAtLeast(player.getUniqueId(), Rank.KNIGHT);
+        if (!player.hasPermission(PERMISSION) && !knightPlus) {
             player.sendMessage(ChatColor.RED + "Du benoetigst mindestens Knight oder das Speed-Recht.");
             SoundFeedback.error(player);
             return true;
@@ -60,5 +67,11 @@ public final class SpeedCommand implements CommandExecutor {
         player.sendMessage(ChatColor.GREEN + "Fluggeschwindigkeit: " + ChatColor.YELLOW + level + "/10");
         SoundFeedback.confirm(player);
         return true;
+    }
+
+    private RankService resolveRankService() {
+        if (rankService != null) return rankService;
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        return api == null ? null : api.getRankService();
     }
 }
