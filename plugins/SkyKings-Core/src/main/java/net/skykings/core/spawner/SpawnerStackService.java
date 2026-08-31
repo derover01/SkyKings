@@ -84,9 +84,11 @@ public final class SpawnerStackService implements Listener, CommandExecutor {
         if (block.getType() != Material.MOB_SPAWNER || !inClaimWorld(block.getLocation()) || !canBuild(event.getPlayer(), block.getLocation())) return;
         event.setCancelled(true);
         String key = key(block.getLocation());
-        int count = Math.max(1, stacks.remove(key) == null ? 1 : stacks.remove(key));
+        Integer stored = stacks.remove(key);
+        int count = Math.max(1, stored == null ? 1 : stored.intValue());
+        Location dropLocation = block.getLocation().clone().add(0.5D, 0.5D, 0.5D);
         block.setType(Material.AIR);
-        dropSpawnerItems(block.getLocation(), count);
+        dropSpawnerItems(dropLocation, count);
         save();
         event.getPlayer().sendMessage(ChatColor.YELLOW + "Spawner-Stack abgebaut: " + count + " Spawner.");
     }
