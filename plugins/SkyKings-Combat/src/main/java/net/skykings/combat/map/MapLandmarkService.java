@@ -41,6 +41,11 @@ public final class MapLandmarkService implements Listener {
 
     public boolean remove(Type type) { boolean removed = entries.remove(type) != null; if (removed) save(); return removed; }
     public Map<Type, Entry> list() { return new LinkedHashMap<Type, Entry>(entries); }
+    public Type getTypeAt(Location location) { return find(location); }
+    public boolean isInside(Type type, Location location) {
+        Entry entry = entries.get(type);
+        return entry != null && entry.contains(location);
+    }
 
     @EventHandler
     public void onMove(PlayerMoveEvent event) {
