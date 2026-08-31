@@ -4,6 +4,7 @@ import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /** Baut Chat-Prefixe und die bewusst reduzierte Tab-Anzeige. */
 public final class PlayerDisplayService {
@@ -19,17 +20,36 @@ public final class PlayerDisplayService {
 
     private final PlayerProfileService profileService;
     private final RankDisplayConfig displayConfig;
+    private final ChatDisplayPreferenceStore preferences;
 
     public PlayerDisplayService(PlayerProfileService profileService, RankDisplayConfig displayConfig) {
         this.profileService = profileService;
         this.displayConfig = displayConfig;
+        this.preferences = new ChatDisplayPreferenceStore(JavaPlugin.getProvidingPlugin(PlayerDisplayService.class));
     }
 
-    /** Chat darf kosmetische Prefixe anzeigen. */
+    /** Chat darf kosmetische Prefixe anzeigen. Rang daneben ist pro Spieler optional. */
     public String prefixFor(Player player) {
         String rankPrefix = rankPrefixFor(player);
         String cosmetic = cosmeticPrefix(player);
-        return cosmetic == null ? rankPrefix : ChatColor.DARK_GRAY + "[" + cosmetic + ChatColor.DARK_GRAY + "] " + rankPrefix;
+        if (cosmetic == null) return rankPrefix;
+        String cosmeticBlock = ChatColor.DARK_GRAY + "[" + cosmetic + ChatColor.DARK_GRAY + "]";
+        return preferences.showRankWithCosmeticPrefix(player.getUniqueId())
+                ? cosmeticBlock + " " + rankPrefix
+                : cosmeticBlock;
+    }
+
+    public String cosmeticPrefixFor(Player player) {
+        String cosmetic = cosmeticPrefix(player);
+        return cosmetic == null ? null : cosmetic;
+    }
+
+    public boolean isRankShownWithCosmetic(Player player) {
+        return preferences.showRankWithCosmeticPrefix(player.getUniqueId());
+    }
+
+    public void setRankShownWithCosmetic(Player player, boolean show) {
+        preferences.setShowRankWithCosmeticPrefix(player.getUniqueId(), show);
     }
 
     /** Tab bleibt absichtlich clean: nur Rang + Spielername, keine kosmetischen Prefixe. */
