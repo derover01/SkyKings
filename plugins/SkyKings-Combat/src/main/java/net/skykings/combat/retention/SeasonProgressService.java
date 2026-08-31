@@ -1,5 +1,6 @@
 package net.skykings.combat.retention;
 
+import net.skykings.combat.event.EventParticipationService;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -15,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Season-XP/PvP-Level 1-100. Kills geben XP; Same-Victim-Farming wird zeitlich gedrosselt. */
+/** Season-XP/PvP-Level 1-100. Nur Open-World-Kills geben XP. */
 public final class SeasonProgressService implements Listener {
     private static final int XP_PER_KILL = 100;
     private static final long SAME_VICTIM_COOLDOWN = 10L * 60L * 1000L;
@@ -36,6 +37,8 @@ public final class SeasonProgressService implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) return;
+        if (EventParticipationService.global().isInEvent(victim.getUniqueId())
+                || EventParticipationService.global().isInEvent(killer.getUniqueId())) return;
         String key = killer.getUniqueId() + ":" + victim.getUniqueId();
         long now = System.currentTimeMillis();
         Long until = pairCooldown.get(key);
