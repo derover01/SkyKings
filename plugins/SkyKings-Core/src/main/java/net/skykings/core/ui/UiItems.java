@@ -7,11 +7,12 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /** Kleine zentrale Item-Factory fuer konsistente Menues. */
 public final class UiItems {
+    private static final int LORE_WIDTH = 32;
+
     private UiItems() {}
 
     public static ItemStack item(Material material, String name, String... lore) {
@@ -23,9 +24,7 @@ public final class UiItems {
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(name);
-            List<String> lines = new ArrayList<String>();
-            if (lore != null) lines.addAll(Arrays.asList(lore));
-            meta.setLore(lines);
+            meta.setLore(wrapLore(lore));
             stack.setItemMeta(meta);
         }
         return stack;
@@ -36,9 +35,49 @@ public final class UiItems {
         SkullMeta meta = (SkullMeta) stack.getItemMeta();
         meta.setOwner(playerName);
         meta.setDisplayName(name);
-        if (lore != null) meta.setLore(Arrays.asList(lore));
+        meta.setLore(wrapLore(lore));
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    /**
+     * Tooltips werden in 1.8 nicht automatisch sinnvoll umgebrochen. Sehr lange Lore-Zeilen
+     * koennen deshalb bei kleinen Aufloesungen aus dem Bildschirm laufen. Diese Methode haelt
+     * sichtbare Lore-Zeilen kompakt und uebernimmt den letzten Farbcode in die Folgezeile.
+     */
+    public static List<String> wrapLore(String... lore) {
+        List<String> result = new ArrayList<String>();
+        if (lore == null) return result;
+        for (String raw : lore) {
+            if (raw == null || raw.isEmpty()) {
+                result.add("");
+                continue;
+            }
+            if (visibleLength(raw) <= LORE_WIDTH) {
+                result.add(raw);
+                continue;
+            }
+            String[] words = raw.split(" ");
+            String current = "";
+            for (String word : words) {
+                if (word.isEmpty()) continue;
+                String candidate = current.isEmpty() ? word : current + " " + word;
+                if (!current.isEmpty() && visibleLength(candidate) > LORE_WIDTH) {
+                    result.add(current);
+                    String carry = ChatColor.getLastColors(current);
+                    current = carry + word;
+                } else {
+                    current = candidate;
+                }
+            }
+            if (!current.isEmpty()) result.add(current);
+        }
+        return result;
+    }
+
+    private static int visibleLength(String text) {
+        String stripped = ChatColor.stripColor(text);
+        return stripped == null ? 0 : stripped.length();
     }
 
     public static ItemStack back() {
