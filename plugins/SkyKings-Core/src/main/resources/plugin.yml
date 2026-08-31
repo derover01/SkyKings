@@ -78,15 +78,20 @@ commands:
     description: Bindet Villager persistent an SkyKings-Shops.
     usage: /shopnpc <bind|unbind|info> [system|pvp|blacksmith|enchant|recycler|merchant|jackpot]
   island:
-    description: Private SkyKings-Islands mit Trust- und Schutzsystem.
-    usage: /is <create|home|sethome|trust|untrust|visit|info>
+    description: Private SkyKings-Islands mit Trust-, Welcome- und Schutzsystem.
+    usage: /is [menu|create|home|sethome|trust|untrust|visit|info]
     aliases: [is]
   plot:
-    description: Private SkyKings-Plots mit Trust- und Schutzsystem.
-    usage: /plot <create|home|sethome|trust|untrust|visit|info>
+    description: PlotSquared-inspirierte private SkyKings-Plots.
+    usage: /plot [menu|auto|home|sethome|trust|untrust|visit|info]
+    aliases: [p, plots]
+  clan:
+    description: Erstellt und verwaltet deinen SkyKings-Clan.
+    usage: /clan [create|invite|accept|leave|kick|disband|info]
+    aliases: [clans, c]
   playershop:
-    description: Villager-PlayerShops auf eigener Insel oder eigenem Plot.
-    usage: /playershop <create|set|stock|withdraw|claim|info|remove>
+    description: Händler-Ei-basierte Villager-PlayerShops auf eigener Insel oder eigenem Plot.
+    usage: /playershop <kaufen|set|stock|withdraw|claim|info|remove>
     aliases: [pshop]
   spawnerstack:
     description: Zeigt die Größe des angesehenen Spawner-Stacks.
