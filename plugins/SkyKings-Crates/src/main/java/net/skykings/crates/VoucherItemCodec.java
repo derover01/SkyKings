@@ -18,8 +18,8 @@ public final class VoucherItemCodec {
     private static final String MARKER = ChatColor.BLACK + "skykings:voucher:";
     private final IssuedItemStore issuedStore;
 
-    /** Test-/Legacy-Konstruktor ohne Issued-Pruefung. Produktion nutzt den Store-Konstruktor. */
-    public VoucherItemCodec() { this(null); }
+    /** Nutzt im laufenden Plugin automatisch das aktive Issued-Registry; in isolierten Tests null. */
+    public VoucherItemCodec() { this(IssuedItemStore.active()); }
 
     public VoucherItemCodec(IssuedItemStore issuedStore) {
         this.issuedStore = issuedStore;
