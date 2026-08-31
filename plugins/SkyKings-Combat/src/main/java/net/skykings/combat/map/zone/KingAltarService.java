@@ -1,9 +1,12 @@
 package net.skykings.combat.map.zone;
 
+import net.skykings.combat.event.KingAltarCaptureEvent;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.item.SkyKingsCurrencyItems;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -15,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** King Altar / KOTH mit Reward, Cooldown und Map-Mastery. */
+/** King Altar / KOTH mit Reward, Cooldown, Mastery und zentralem Capture-Event. */
 public final class KingAltarService {
     private static final int CAPTURE_SECONDS = 60;
     private static final int COOLDOWN_SECONDS = 300;
@@ -31,9 +34,7 @@ public final class KingAltarService {
     private int progress;
     private int cooldown;
 
-    public KingAltarService(JavaPlugin plugin, EconomyService economy) {
-        this(plugin, economy, null);
-    }
+    public KingAltarService(JavaPlugin plugin, EconomyService economy) { this(plugin, economy, null); }
 
     public KingAltarService(JavaPlugin plugin, EconomyService economy, MapMasteryService mastery) {
         this.plugin = plugin;
@@ -56,33 +57,21 @@ public final class KingAltarService {
         save();
     }
 
-    public void removeZone() {
-        zone = null;
-        resetRound();
-        save();
-    }
-
-    public boolean isInside(Player player) {
-        return zone != null && zone.contains(player.getLocation());
-    }
+    public void removeZone() { zone = null; resetRound(); save(); }
+    public boolean isInside(Player player) { return zone != null && zone.contains(player.getLocation()); }
 
     private void tick() {
         if (zone == null) return;
-        if (cooldown > 0) {
-            cooldown--;
-            return;
-        }
+        if (cooldown > 0) { cooldown--; return; }
 
         List<Player> inside = new ArrayList<Player>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!player.isDead() && zone.contains(player.getLocation())) inside.add(player);
-        }
+        for (Player player : Bukkit.getOnlinePlayers()) if (!player.isDead() && zone.contains(player.getLocation())) inside.add(player);
 
         if (inside.size() != 1) {
             if (inside.size() > 1 && capturing != null && progress > 0 && progress % 10 == 0) {
                 for (Player player : inside) {
-                    player.sendMessage(ChatColor.RED + "King Altar umkaempft - Capture wurde zurueckgesetzt!");
-                    player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.8F);
+                    player.sendMessage(UiTheme.DANGER + "KOTH " + UiTheme.MUTED + "CONTESTED • Fortschritt zurueckgesetzt");
+                    SoundFeedback.warning(player);
                 }
             }
             capturing = null;
@@ -94,15 +83,16 @@ public final class KingAltarService {
         if (!player.getUniqueId().equals(capturing)) {
             capturing = player.getUniqueId();
             progress = 0;
-            player.sendMessage(ChatColor.GOLD + "Du kontrollierst den King Altar. Halte ihn " + CAPTURE_SECONDS + " Sekunden!");
-            player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.8F, 1.0F);
+            player.sendMessage(UiTheme.PRIMARY + "KOTH " + UiTheme.MUTED + "ACTIVE");
+            player.sendMessage(UiTheme.TEXT + UiFormat.durationSeconds(CAPTURE_SECONDS) + UiTheme.MUTED + " halten.");
+            SoundFeedback.notify(player);
         }
 
         progress++;
         int remaining = Math.max(0, CAPTURE_SECONDS - progress);
         if (remaining == 30 || remaining == 15 || remaining <= 5) {
-            player.sendMessage(ChatColor.GOLD + "King Altar: " + ChatColor.YELLOW + remaining + " Sekunden verbleibend.");
-            player.playSound(player.getLocation(), Sound.CLICK, 0.45F, 1.25F);
+            player.sendMessage(UiTheme.MUTED + "KOTH " + UiTheme.WARNING + UiFormat.durationSeconds(remaining));
+            SoundFeedback.click(player);
         }
         if (progress >= CAPTURE_SECONDS) capture(player);
     }
@@ -111,24 +101,18 @@ public final class KingAltarService {
         economy.deposit(player.getUniqueId(), COIN_REWARD, "KING_ALTAR", "King Altar Capture");
         SkyKingsCurrencyItems.give(player, STAR_REWARD);
         if (mastery != null) mastery.addKingCapture(player.getUniqueId());
+        Bukkit.getPluginManager().callEvent(new KingAltarCaptureEvent(player.getUniqueId()));
 
-        String masterySuffix = mastery == null ? "" : ChatColor.DARK_GRAY + " [" + mastery.getTitle(player.getUniqueId()) + "]";
-        Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "KING ALTAR " + ChatColor.YELLOW
-                + player.getName() + ChatColor.GOLD + " hat den Altar erobert! " + ChatColor.GRAY
-                + "(+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " SkyKings Sterne)" + masterySuffix);
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            online.playSound(online.getLocation(), Sound.ENDERDRAGON_GROWL, 0.55F, 1.25F);
-        }
+        Bukkit.broadcastMessage(UiTheme.LEGENDARY + "KOTH Captured");
+        Bukkit.broadcastMessage(UiTheme.TEXT + player.getName() + UiTheme.MUTED + " • +" + UiFormat.coins(COIN_REWARD)
+                + " • +" + STAR_REWARD + " SkyKings Sterne");
+        for (Player online : Bukkit.getOnlinePlayers()) online.playSound(online.getLocation(), Sound.ENDERDRAGON_GROWL, 0.4F, 1.25F);
         capturing = null;
         progress = 0;
         cooldown = COOLDOWN_SECONDS;
     }
 
-    private void resetRound() {
-        capturing = null;
-        progress = 0;
-        cooldown = 0;
-    }
+    private void resetRound() { capturing = null; progress = 0; cooldown = 0; }
 
     private void load() {
         if (!file.exists()) return;
@@ -144,9 +128,7 @@ public final class KingAltarService {
         YamlConfiguration yaml = new YamlConfiguration();
         if (zone != null) {
             yaml.set("zone.world", zone.getWorld());
-            yaml.set("zone.x", zone.getX());
-            yaml.set("zone.y", zone.getY());
-            yaml.set("zone.z", zone.getZ());
+            yaml.set("zone.x", zone.getX()); yaml.set("zone.y", zone.getY()); yaml.set("zone.z", zone.getZ());
             yaml.set("zone.radius", zone.getRadius());
         }
         try {
