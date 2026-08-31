@@ -17,7 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 
-/** Lädt Crate- und Reward-Tabellen und ergänzt neue Standard-Tiers automatisch. */
+/** Lädt Crate- und Reward-Tabellen und migriert versionierte Economy-Defaults kontrolliert. */
 public final class CrateRegistry {
 
     public enum RewardType { COINS, NETHERSTARS, ITEM, VOUCHER, PLAYER_SHOP_EGG }
@@ -108,17 +108,29 @@ public final class CrateRegistry {
     public CrateRegistry(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), "crates.yml");
         if (!file.exists()) plugin.saveResource("crates.yml", false);
+
         YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
         try {
             if (plugin.getResource("crates.yml") != null) {
                 YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
                         new InputStreamReader(plugin.getResource("crates.yml"), StandardCharsets.UTF_8));
-                yaml.setDefaults(defaults);
-                yaml.options().copyDefaults(true);
-                yaml.save(file);
+                int currentVersion = yaml.getInt("balance-version", 0);
+                int targetVersion = defaults.getInt("balance-version", 0);
+
+                if (targetVersion > currentVersion) {
+                    // Pre-Release-Migration: bewusst die komplette Reward-Tabelle auf den neuen
+                    // Economy-Stand setzen, statt alte Gewichte still weiterzuverwenden.
+                    plugin.saveResource("crates.yml", true);
+                    yaml = YamlConfiguration.loadConfiguration(file);
+                    plugin.getLogger().info("Crate-Balance migriert: v" + currentVersion + " -> v" + targetVersion);
+                } else {
+                    yaml.setDefaults(defaults);
+                    yaml.options().copyDefaults(true);
+                    yaml.save(file);
+                }
             }
         } catch (Exception ex) {
-            plugin.getLogger().warning("Neue Crate-Defaults konnten nicht vollständig gemerged werden: " + ex.getMessage());
+            plugin.getLogger().warning("Crate-Defaults konnten nicht sauber geladen/migriert werden: " + ex.getMessage());
         }
         load(yaml, plugin);
     }
