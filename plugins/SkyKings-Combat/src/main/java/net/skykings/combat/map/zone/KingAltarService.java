@@ -1,13 +1,12 @@
 package net.skykings.combat.map.zone;
 
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.item.SkyKingsCurrencyItems;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -82,7 +81,7 @@ public final class KingAltarService {
         if (inside.size() != 1) {
             if (inside.size() > 1 && capturing != null && progress > 0 && progress % 10 == 0) {
                 for (Player player : inside) {
-                    player.sendMessage(ChatColor.RED + "King Altar umkämpft - Capture pausiert!");
+                    player.sendMessage(ChatColor.RED + "King Altar umkaempft - Capture wurde zurueckgesetzt!");
                     player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.8F);
                 }
             }
@@ -110,16 +109,13 @@ public final class KingAltarService {
 
     private void capture(Player player) {
         economy.deposit(player.getUniqueId(), COIN_REWARD, "KING_ALTAR", "King Altar Capture");
-        ItemStack stars = new ItemStack(Material.NETHER_STAR, STAR_REWARD);
-        java.util.Map<Integer, ItemStack> left = player.getInventory().addItem(stars);
-        for (ItemStack item : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), item);
-        player.updateInventory();
+        SkyKingsCurrencyItems.give(player, STAR_REWARD);
         if (mastery != null) mastery.addKingCapture(player.getUniqueId());
 
         String masterySuffix = mastery == null ? "" : ChatColor.DARK_GRAY + " [" + mastery.getTitle(player.getUniqueId()) + "]";
         Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "KING ALTAR " + ChatColor.YELLOW
                 + player.getName() + ChatColor.GOLD + " hat den Altar erobert! " + ChatColor.GRAY
-                + "(+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " Nethersterne)" + masterySuffix);
+                + "(+" + COIN_REWARD + " Coins, +" + STAR_REWARD + " SkyKings Sterne)" + masterySuffix);
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.playSound(online.getLocation(), Sound.ENDERDRAGON_GROWL, 0.55F, 1.25F);
         }
