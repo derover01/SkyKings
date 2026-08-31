@@ -49,6 +49,10 @@ commands:
     description: Fordert einen Spieler zu einem sicheren 1v1 ohne Itemverlust heraus.
     usage: /duel <Spieler> [Arena]
     aliases: [1v1]
+  lms:
+    description: Last-Man-Standing Queue und Serverevent.
+    usage: /lms <join|leave|start|stop>
+    aliases: [lastmanstanding]
   verlosung:
     description: Serverweite Coin-Verlosung.
     usage: /verlosung <join|start|stop>
