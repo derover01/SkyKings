@@ -21,6 +21,8 @@ import net.skykings.combat.loot.LootProtectionService;
 import net.skykings.combat.loot.LootProtectionServiceImpl;
 import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.map.builder.SkyMapCommand;
+import net.skykings.combat.map.route.MapRouteCommand;
+import net.skykings.combat.map.route.MapRouteService;
 import net.skykings.combat.map.secret.SecretCommand;
 import net.skykings.combat.map.secret.SecretDiscoveryService;
 import net.skykings.combat.map.zone.EndZoneCommand;
@@ -73,6 +75,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     private MapMasteryService mapMasteryService;
     private EndZoneService endZoneService;
     private SecretDiscoveryService secretDiscoveryService;
+    private MapRouteService mapRouteService;
 
     @Override
     public void onEnable() {
@@ -106,6 +109,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         this.hotZoneService = new HotZoneService(this);
         this.endZoneService = new EndZoneService(this, coreApi.getEconomyService(), mapMasteryService);
         this.secretDiscoveryService = new SecretDiscoveryService(this, coreApi.getEconomyService(), mapMasteryService);
+        this.mapRouteService = new MapRouteService(this, coreApi.getEconomyService());
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
@@ -129,6 +133,7 @@ public final class SkyKingsCombat extends JavaPlugin {
                 coreApi.getEconomyService(), mapMasteryService), this);
         getServer().getPluginManager().registerEvents(endZoneService, this);
         getServer().getPluginManager().registerEvents(secretDiscoveryService, this);
+        getServer().getPluginManager().registerEvents(mapRouteService, this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
         getServer().getPluginManager().registerEvents(mapGameplayService, this);
@@ -145,12 +150,13 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand hotZoneCommand = getCommand("hotzone");
         PluginCommand endZoneCommand = getCommand("endzone");
         PluginCommand secretCommand = getCommand("secret");
+        PluginCommand routeCommand = getCommand("route");
         PluginCommand skyMapCommand = getCommand("skymap");
         PluginCommand spawnCommand = getCommand("spawn");
         PluginCommand setSpawnCommand = getCommand("setspawn");
         if (statsCommand == null || topCommand == null || killEffectCommand == null || mapMasteryCommand == null
                 || mapLootCommand == null || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
-                || endZoneCommand == null || secretCommand == null || skyMapCommand == null
+                || endZoneCommand == null || secretCommand == null || routeCommand == null || skyMapCommand == null
                 || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
@@ -169,16 +175,18 @@ public final class SkyKingsCombat extends JavaPlugin {
         hotZoneCommand.setExecutor(new HotZoneCommand(hotZoneService));
         endZoneCommand.setExecutor(new EndZoneCommand(endZoneService));
         secretCommand.setExecutor(new SecretCommand(secretDiscoveryService));
+        routeCommand.setExecutor(new MapRouteCommand(mapRouteService));
         skyMapCommand.setExecutor(new SkyMapCommand(this, spawnService));
         spawnCommand.setExecutor(spawnService);
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 6: King Altar + Hot Zones + End Zone + Secrets + Mastery) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 6: King Altar + Hot Zones + End Zone + Secrets + Routes + Mastery) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (mapRouteService != null) mapRouteService.save();
         if (secretDiscoveryService != null) secretDiscoveryService.save();
         if (endZoneService != null) endZoneService.save();
         if (mapMasteryService != null) mapMasteryService.save();
