@@ -3,7 +3,7 @@ version: ${project.version}
 main: net.skykings.core.SkyKingsCore
 description: >
   Zentrales SkyKings-Modul für Player-Profile, Ränge, Economy, Cooldowns, Rank-Kits,
-  Persistenz und gemeinsame APIs für andere SkyKings-Module.
+  Persistenz, Islands und gemeinsame APIs für andere SkyKings-Module.
 authors: [SkyKings Team]
 commands:
   commands:
@@ -76,7 +76,19 @@ commands:
     aliases: [verkaufen]
   shopnpc:
     description: Bindet Villager persistent an SkyKings-Shops.
-    usage: /shopnpc <bind|unbind|info> [system|pvp]
+    usage: /shopnpc <bind|unbind|info> [system|pvp|blacksmith|enchant|recycler|merchant|jackpot]
+  island:
+    description: Private SkyKings-Islands mit Trust- und Schutzsystem.
+    usage: /is <create|home|sethome|trust|untrust|visit|info>
+    aliases: [is]
+  playershop:
+    description: Erstellt und verwaltet Villager-PlayerShops auf der eigenen Insel.
+    usage: /playershop <create|set|stock|claim|info|remove>
+    aliases: [pshop]
+  dailyrewards:
+    description: Holt den täglichen SkyKings-Reward ab.
+    usage: /dailyrewards
+    aliases: [daily, dailyreward]
   gm:
     description: Staff-Gamemode-Befehl.
     usage: /gm <0|1|2|3> [Spieler]
@@ -97,6 +109,9 @@ permissions:
     default: false
   skykings.admin.buildmode:
     description: Darf den Map-Schutz mit /buildmode persönlich umgehen.
+    default: false
+  skykings.admin.island.bypass:
+    description: Darf den Besitzschutz in der privaten Island-Welt umgehen.
     default: false
   skykings.staff.gamemode:
     description: Darf /gm verwenden.
