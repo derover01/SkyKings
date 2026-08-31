@@ -5,7 +5,6 @@ import net.skykings.core.item.SkyKingsCurrencyItems;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiFormat;
 import net.skykings.core.ui.UiTheme;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -22,7 +21,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,7 +100,7 @@ public final class SecretLootRoomService implements Listener {
         save();
         player.updateInventory();
         player.sendMessage(UiTheme.PRIMARY + "Secret Cache");
-        player.sendMessage(UiTheme.TEXT + rewards + UiTheme.MUTED + " Loot-Stacks gefunden. "
+        player.sendMessage(UiTheme.TEXT.toString() + rewards + UiTheme.MUTED + " Loot-Stacks gefunden. "
                 + UiTheme.DISABLED + "Respawn in " + UiFormat.durationSeconds(room.cooldownMs / 1000L));
         SoundFeedback.reward(player);
     }
