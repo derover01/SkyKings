@@ -11,6 +11,10 @@ import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -25,7 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Dynamische 1.8-Map-Hologramme fuer Top-Kills, King Altar und Hot-Zones. */
-public final class MapDisplayService {
+public final class MapDisplayService implements Listener {
     public enum Type { TOP_KILLS, KING, HOT_ZONES }
 
     private final JavaPlugin plugin;
@@ -44,6 +48,7 @@ public final class MapDisplayService {
         this.hotZones = hotZones;
         this.file = new File(plugin.getDataFolder(), "map-displays.yml");
         load();
+        Bukkit.getPluginManager().registerEvents(this, plugin);
         this.taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this::refreshAll, 40L, 20L * 10L);
     }
 
@@ -71,6 +76,21 @@ public final class MapDisplayService {
         if (taskId != -1) Bukkit.getScheduler().cancelTask(taskId);
         for (Type type : Type.values()) removeSpawned(type);
         save();
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDamage(EntityDamageEvent event) {
+        if (isSpawned(event.getEntity().getUniqueId())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onManipulate(PlayerArmorStandManipulateEvent event) {
+        if (isSpawned(event.getRightClicked().getUniqueId())) event.setCancelled(true);
+    }
+
+    private boolean isSpawned(UUID uuid) {
+        for (List<UUID> ids : spawned.values()) if (ids.contains(uuid)) return true;
+        return false;
     }
 
     private void refreshAll() {
