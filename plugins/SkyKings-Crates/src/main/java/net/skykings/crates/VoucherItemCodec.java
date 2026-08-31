@@ -26,12 +26,28 @@ public final class VoucherItemCodec {
     }
 
     public ItemStack create(VoucherType type, String target, String displayTarget) {
-        String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
-                displayTarget == null ? target : displayTarget));
+        String cleanTarget = cleanDisplay(target, displayTarget);
         UUID serial = UUID.randomUUID();
         if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitize(target))) {
             throw new IllegalStateException("Voucher-Serial konnte nicht sicher registriert werden");
         }
+        ItemStack item = baseItem(type, cleanTarget, true);
+        ItemMeta meta = item.getItemMeta();
+        List<String> lore = new ArrayList<String>(meta.getLore());
+        lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
+        meta.setLore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Nur fuer GUI-Preview/Inventar-Simulation. Erzeugt absichtlich keine gueltige Serial. */
+    public ItemStack preview(VoucherType type, String displayTarget) {
+        String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                displayTarget == null ? "" : displayTarget));
+        return baseItem(type, cleanTarget, false);
+    }
+
+    private ItemStack baseItem(VoucherType type, String cleanTarget, boolean redeemable) {
         ItemStack item = new ItemStack(materialFor(type), 1, dataFor(type));
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(colorFor(type) + ChatColor.BOLD.toString() + nameFor(type));
@@ -46,9 +62,8 @@ public final class VoucherItemCodec {
             lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
         }
         lore.add("");
-        lore.add(ChatColor.YELLOW + "Rechtsklick: einloesen");
-        lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings");
-        lore.add(MARKER + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target) + ":" + serial);
+        lore.add(redeemable ? ChatColor.YELLOW + "Rechtsklick: einloesen" : ChatColor.GRAY + "Crate-Reward Preview");
+        if (redeemable) lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings");
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -73,6 +88,11 @@ public final class VoucherItemCodec {
             }
         }
         return null;
+    }
+
+    private String cleanDisplay(String target, String displayTarget) {
+        return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
+                displayTarget == null ? target : displayTarget));
     }
 
     private Material materialFor(VoucherType type) {
