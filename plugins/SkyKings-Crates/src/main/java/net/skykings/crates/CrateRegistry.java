@@ -20,7 +20,7 @@ import java.util.Random;
 /** Lädt Crate- und Reward-Tabellen und ergänzt neue Standard-Tiers automatisch. */
 public final class CrateRegistry {
 
-    public enum RewardType { COINS, NETHERSTARS, ITEM, VOUCHER }
+    public enum RewardType { COINS, NETHERSTARS, ITEM, VOUCHER, PLAYER_SHOP_EGG }
 
     public static final class RewardDefinition {
         private final String id;
