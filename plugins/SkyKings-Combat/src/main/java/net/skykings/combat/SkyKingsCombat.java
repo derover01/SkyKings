@@ -22,9 +22,12 @@ import net.skykings.combat.loot.LootProtectionServiceImpl;
 import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.map.builder.SkyMapCommand;
 import net.skykings.combat.map.zone.HotZoneCommand;
+import net.skykings.combat.map.zone.HotZoneRewardListener;
 import net.skykings.combat.map.zone.HotZoneService;
 import net.skykings.combat.map.zone.KingAltarCommand;
 import net.skykings.combat.map.zone.KingAltarService;
+import net.skykings.combat.map.zone.MapMasteryCommand;
+import net.skykings.combat.map.zone.MapMasteryService;
 import net.skykings.combat.newbie.NewbieProtectionService;
 import net.skykings.combat.newbie.NewbieProtectionServiceImpl;
 import net.skykings.combat.pearl.EnderpearlCooldownListener;
@@ -63,6 +66,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     private SpawnService spawnService;
     private KingAltarService kingAltarService;
     private HotZoneService hotZoneService;
+    private MapMasteryService mapMasteryService;
 
     @Override
     public void onEnable() {
@@ -91,7 +95,8 @@ public final class SkyKingsCombat extends JavaPlugin {
         KillMessageService killMessageService = new KillMessageService();
         this.mapGameplayService = new MapGameplayService(this);
         this.spawnService = new SpawnService(this, combatTagService);
-        this.kingAltarService = new KingAltarService(this, coreApi.getEconomyService());
+        this.mapMasteryService = new MapMasteryService(this);
+        this.kingAltarService = new KingAltarService(this, coreApi.getEconomyService(), mapMasteryService);
         this.hotZoneService = new HotZoneService(this);
         this.pvpStatsService = new PvpStatsService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
@@ -112,6 +117,8 @@ public final class SkyKingsCombat extends JavaPlugin {
                 config.getEnderpearlCooldownMillis(), pearlFeedbackCooldown), this);
         getServer().getPluginManager().registerEvents(new CombatDeathListener(combatKillService, combatTagService,
                 lastAttackerService, killMessageService, killCosmeticService, getLogger()), this);
+        getServer().getPluginManager().registerEvents(new HotZoneRewardListener(hotZoneService,
+                coreApi.getEconomyService(), mapMasteryService), this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
         getServer().getPluginManager().registerEvents(mapGameplayService, this);
@@ -121,6 +128,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand statsCommand = getCommand("stats");
         PluginCommand topCommand = getCommand("top");
         PluginCommand killEffectCommand = getCommand("killeffect");
+        PluginCommand mapMasteryCommand = getCommand("mapmastery");
         PluginCommand mapLootCommand = getCommand("maploot");
         PluginCommand supplyDropCommand = getCommand("supplydrop");
         PluginCommand kingAltarCommand = getCommand("kingaltar");
@@ -128,8 +136,8 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand skyMapCommand = getCommand("skymap");
         PluginCommand spawnCommand = getCommand("spawn");
         PluginCommand setSpawnCommand = getCommand("setspawn");
-        if (statsCommand == null || topCommand == null || killEffectCommand == null || mapLootCommand == null
-                || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
+        if (statsCommand == null || topCommand == null || killEffectCommand == null || mapMasteryCommand == null
+                || mapLootCommand == null || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
                 || skyMapCommand == null || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
@@ -141,6 +149,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         topCommand.setExecutor(topExecutor);
         getServer().getPluginManager().registerEvents(topExecutor, this);
         killEffectCommand.setExecutor(new KillEffectCommand(new KillEffectGui(coreApi.getGuiManager(), killCosmeticService)));
+        mapMasteryCommand.setExecutor(new MapMasteryCommand(mapMasteryService));
         mapLootCommand.setExecutor(mapGameplayService);
         supplyDropCommand.setExecutor(mapGameplayService);
         kingAltarCommand.setExecutor(new KingAltarCommand(kingAltarService));
@@ -150,11 +159,12 @@ public final class SkyKingsCombat extends JavaPlugin {
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (PvP + Phase 6 Map Gameplay + King Altar + Hot Zones) aktiviert.");
+        getLogger().info("SkyKings-Combat (PvP + Phase 6 Map Gameplay + King Altar + Hot Zones + Mastery) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (mapMasteryService != null) mapMasteryService.save();
         if (kingAltarService != null) kingAltarService.save();
         if (hotZoneService != null) hotZoneService.save();
         if (spawnService != null) spawnService.shutdown();
