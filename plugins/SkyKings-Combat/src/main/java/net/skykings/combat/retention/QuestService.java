@@ -1,5 +1,6 @@
 package net.skykings.combat.retention;
 
+import net.skykings.combat.event.EventParticipationService;
 import net.skykings.core.economy.EconomyService;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -20,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Daily/Weekly Quests: echte PvP-/Pearl-Ziele statt Block-Grind. */
+/** Daily/Weekly Quests: Open-World-PvP-/Pearl-Ziele statt Event-Farming oder Block-Grind. */
 public final class QuestService implements Listener {
     private static final long SAME_VICTIM_COOLDOWN = 10L * 60L * 1000L;
     private final JavaPlugin plugin;
@@ -41,6 +42,8 @@ public final class QuestService implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) return;
+        if (EventParticipationService.global().isInEvent(victim.getUniqueId())
+                || EventParticipationService.global().isInEvent(killer.getUniqueId())) return;
         String pair = killer.getUniqueId() + ":" + victim.getUniqueId();
         long now = System.currentTimeMillis();
         Long until = pairCooldowns.get(pair);
@@ -56,6 +59,7 @@ public final class QuestService implements Listener {
     public void onTeleport(PlayerTeleportEvent event) {
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.ENDER_PEARL) return;
         Player player = event.getPlayer();
+        if (EventParticipationService.global().isInEvent(player.getUniqueId())) return;
         prepare(player.getUniqueId());
         add(player, "daily.pearls", 1);
         checkRewards(player);
