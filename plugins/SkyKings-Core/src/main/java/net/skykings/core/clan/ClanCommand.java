@@ -219,7 +219,7 @@ public final class ClanCommand implements CommandExecutor {
         ClanBaseService.BaseData base = bases.get(clan.getId());
         GuiSession gui = GuiSession.create(player, UiTheme.title("Clan Base"), 27);
         if (base == null) {
-            gui.setItem(13, UiItems.item(Material.LOCKED_CHEST,
+            gui.setItem(13, UiItems.item(Material.CHEST,
                     UiTheme.MUTED + "Keine Clan Base",
                     UiTheme.MUTED + "Ein kleiner geschuetzter Hub in einer offenen Welt.",
                     UiTheme.TEXT + "33x33 Claim • gemeinsamer Vault",
