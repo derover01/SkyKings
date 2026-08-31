@@ -3,6 +3,7 @@ package net.skykings.core.shop;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -14,6 +15,7 @@ import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -66,6 +68,11 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
         Type type = bindings.get(event.getRightClicked().getUniqueId());
         if (type == null) return;
         event.setCancelled(true);
+
+        if (!isAllowedAtConfiguredLandmark(type, event.getRightClicked().getLocation())) {
+            event.getPlayer().sendMessage(ChatColor.RED + "Dieser Händler gehört auf seine vorgesehene Map-Insel.");
+            return;
+        }
 
         if (!ensureExtendedShops()) {
             event.getPlayer().sendMessage(ChatColor.RED + "Der Shop-Service ist noch nicht bereit.");
@@ -129,6 +136,10 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
                 player.sendMessage(ChatColor.RED + "Unbekannter Shoptyp.");
                 return true;
             }
+            if (!isAllowedAtConfiguredLandmark(type, villager.getLocation())) {
+                player.sendMessage(ChatColor.RED + "Dieser Shop muss innerhalb seiner konfigurierten Map-Insel stehen.");
+                return true;
+            }
             bindings.put(villager.getUniqueId(), type);
             save();
             villager.setCustomName(displayName(type));
@@ -167,6 +178,28 @@ public final class ShopNpcService implements Listener, CommandExecutor, TabCompl
 
         sendUsage(player);
         return true;
+    }
+
+    private boolean isAllowedAtConfiguredLandmark(Type type, Location location) {
+        String landmark = null;
+        if (type == Type.BLACKSMITH) landmark = "blacksmith";
+        else if (type == Type.MERCHANT) landmark = "merchant";
+        if (landmark == null) return true;
+
+        Plugin combat = Bukkit.getPluginManager().getPlugin("SkyKings-Combat");
+        if (combat == null) return true;
+        File landmarks = new File(combat.getDataFolder(), "map-landmarks.yml");
+        if (!landmarks.exists()) return true;
+        YamlConfiguration yaml = YamlConfiguration.loadConfiguration(landmarks);
+        String base = "landmarks." + landmark;
+        String world = yaml.getString(base + ".world");
+        if (world == null || world.trim().isEmpty()) return true;
+        if (location == null || location.getWorld() == null || !world.equals(location.getWorld().getName())) return false;
+        double dx = location.getX() - yaml.getDouble(base + ".x");
+        double dy = location.getY() - yaml.getDouble(base + ".y");
+        double dz = location.getZ() - yaml.getDouble(base + ".z");
+        double radius = yaml.getDouble(base + ".radius", 8D);
+        return dx * dx + dy * dy + dz * dz <= radius * radius;
     }
 
     private String displayName(Type type) {
