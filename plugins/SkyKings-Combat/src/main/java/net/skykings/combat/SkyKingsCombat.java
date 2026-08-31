@@ -2,6 +2,9 @@ package net.skykings.combat;
 
 import net.skykings.combat.antifarm.AntiFarmService;
 import net.skykings.combat.antifarm.AntiFarmServiceImpl;
+import net.skykings.combat.community.GiveawayCommand;
+import net.skykings.combat.community.PeaceCommand;
+import net.skykings.combat.community.PeaceService;
 import net.skykings.combat.config.CombatConfig;
 import net.skykings.combat.cosmetic.KillCosmeticService;
 import net.skykings.combat.cosmetic.KillEffectCommand;
@@ -25,6 +28,7 @@ import net.skykings.combat.map.MapDisplayService;
 import net.skykings.combat.map.MapGameplayService;
 import net.skykings.combat.map.MapLandmarkCommand;
 import net.skykings.combat.map.MapLandmarkService;
+import net.skykings.combat.map.MapSetupCommand;
 import net.skykings.combat.map.TrashBinService;
 import net.skykings.combat.map.builder.SkyMapCommand;
 import net.skykings.combat.map.route.MapRouteCommand;
@@ -44,6 +48,9 @@ import net.skykings.combat.newbie.NewbieProtectionService;
 import net.skykings.combat.newbie.NewbieProtectionServiceImpl;
 import net.skykings.combat.pearl.EnderpearlCooldownListener;
 import net.skykings.combat.pvp.PvpDamageListener;
+import net.skykings.combat.retention.AchievementsCommand;
+import net.skykings.combat.retention.SeasonCommand;
+import net.skykings.combat.retention.SeasonProgressService;
 import net.skykings.combat.spawn.SpawnService;
 import net.skykings.combat.starterkit.DeathStarterKit;
 import net.skykings.combat.starterkit.DeathStarterKitService;
@@ -69,7 +76,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.logging.Level;
 
-/** SkyKings-Combat: zentrale SkyPvP-Regeln und Combat-Schutzsysteme. */
+/** SkyKings-Combat: PvP, Map Gameplay, Retention und Community-Systeme. */
 public final class SkyKingsCombat extends JavaPlugin {
 
     private PvpStatsService pvpStatsService;
@@ -86,6 +93,8 @@ public final class SkyKingsCombat extends JavaPlugin {
     private IslandGameplayService islandGameplayService;
     private TrashBinService trashBinService;
     private MapDisplayService mapDisplayService;
+    private SeasonProgressService seasonProgressService;
+    private PeaceService peaceService;
 
     @Override
     public void onEnable() {
@@ -125,6 +134,8 @@ public final class SkyKingsCombat extends JavaPlugin {
         this.trashBinService = new TrashBinService(this);
         this.pvpStatsService = new PvpStatsService(this);
         this.mapDisplayService = new MapDisplayService(this, pvpStatsService, kingAltarService, hotZoneService);
+        this.seasonProgressService = new SeasonProgressService(this);
+        this.peaceService = new PeaceService(this);
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
         CombatKillService combatKillService = new CombatKillServiceImpl(killstreakService, antiFarmService,
@@ -150,6 +161,8 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(mapRouteService, this);
         getServer().getPluginManager().registerEvents(mapLandmarkService, this);
         getServer().getPluginManager().registerEvents(trashBinService, this);
+        getServer().getPluginManager().registerEvents(seasonProgressService, this);
+        getServer().getPluginManager().registerEvents(peaceService, this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
         getServer().getPluginManager().registerEvents(mapGameplayService, this);
@@ -160,6 +173,12 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand topCommand = getCommand("top");
         PluginCommand killEffectCommand = getCommand("killeffect");
         PluginCommand mapMasteryCommand = getCommand("mapmastery");
+        PluginCommand achievementsCommand = getCommand("achievements");
+        PluginCommand seasonCommand = getCommand("season");
+        PluginCommand pvpLevelCommand = getCommand("pvplevel");
+        PluginCommand peaceCommand = getCommand("peace");
+        PluginCommand giveawayCommand = getCommand("verlosung");
+        PluginCommand mapSetupCommand = getCommand("mapsetup");
         PluginCommand mapLootCommand = getCommand("maploot");
         PluginCommand supplyDropCommand = getCommand("supplydrop");
         PluginCommand kingAltarCommand = getCommand("kingaltar");
@@ -174,10 +193,11 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand spawnCommand = getCommand("spawn");
         PluginCommand setSpawnCommand = getCommand("setspawn");
         if (statsCommand == null || topCommand == null || killEffectCommand == null || mapMasteryCommand == null
-                || mapLootCommand == null || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null
-                || endZoneCommand == null || secretCommand == null || routeCommand == null || landmarkCommand == null
-                || trashBinCommand == null || mapDisplayCommand == null || skyMapCommand == null
-                || spawnCommand == null || setSpawnCommand == null) {
+                || achievementsCommand == null || seasonCommand == null || pvpLevelCommand == null || peaceCommand == null
+                || giveawayCommand == null || mapSetupCommand == null || mapLootCommand == null || supplyDropCommand == null
+                || kingAltarCommand == null || hotZoneCommand == null || endZoneCommand == null || secretCommand == null
+                || routeCommand == null || landmarkCommand == null || trashBinCommand == null || mapDisplayCommand == null
+                || skyMapCommand == null || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -189,6 +209,14 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(topExecutor, this);
         killEffectCommand.setExecutor(new KillEffectCommand(new KillEffectGui(coreApi.getGuiManager(), killCosmeticService)));
         mapMasteryCommand.setExecutor(new MapMasteryCommand(mapMasteryService));
+        achievementsCommand.setExecutor(new AchievementsCommand(pvpStatsService, mapMasteryService));
+        SeasonCommand seasonExecutor = new SeasonCommand(seasonProgressService);
+        seasonCommand.setExecutor(seasonExecutor);
+        pvpLevelCommand.setExecutor(seasonExecutor);
+        peaceCommand.setExecutor(new PeaceCommand(peaceService));
+        giveawayCommand.setExecutor(new GiveawayCommand(this, coreApi.getEconomyService()));
+        mapSetupCommand.setExecutor(new MapSetupCommand(kingAltarService, hotZoneService, endZoneService,
+                secretDiscoveryService, mapLandmarkService, mapRouteService, trashBinService, mapDisplayService));
         mapLootCommand.setExecutor(mapGameplayService);
         supplyDropCommand.setExecutor(mapGameplayService);
         kingAltarCommand.setExecutor(new KingAltarCommand(kingAltarService));
@@ -204,11 +232,13 @@ public final class SkyKingsCombat extends JavaPlugin {
         setSpawnCommand.setExecutor(spawnService);
 
         getLogger().info("SkyKingsCoreAPI gefunden: true");
-        getLogger().info("SkyKings-Combat (Phase 6: Zones + Secrets + Routes + Islands + Trash + Displays + Mastery) aktiviert.");
+        getLogger().info("SkyKings-Combat (Phase 6-9: Map + Retention + Community) aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (peaceService != null) peaceService.save();
+        if (seasonProgressService != null) seasonProgressService.save();
         if (mapDisplayService != null) mapDisplayService.shutdown();
         if (trashBinService != null) trashBinService.save();
         if (islandGameplayService != null) islandGameplayService.shutdown();
