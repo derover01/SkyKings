@@ -1,5 +1,6 @@
 package net.skykings.core.island;
 
+import net.skykings.core.gui.GuiManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -9,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,6 +23,13 @@ import java.util.UUID;
 public final class IslandCommand implements CommandExecutor, TabCompleter {
     private final IslandService islands;
     private final IslandMenu menu;
+
+    /** Legacy-Wiring aus SkyKingsCore: nutzt automatisch den aktiven Core-GuiManager. */
+    public IslandCommand(IslandService islands) {
+        this(islands, new IslandMenu(GuiManager.active(), islands));
+        Bukkit.getPluginManager().registerEvents(new IslandWelcomeSignListener(islands),
+                JavaPlugin.getProvidingPlugin(IslandCommand.class));
+    }
 
     public IslandCommand(IslandService islands, IslandMenu menu) {
         this.islands = islands;
