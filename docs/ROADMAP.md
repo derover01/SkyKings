@@ -206,19 +206,20 @@ Reward-Mix:
 
 ## Phase 9 — Events & Community
 
-- /verlosung
-- Freitagsevent
-- KOTH
+Final vorgesehenes Eventset:
+- /verlosung / Giveaway
+- Freitag-/Community-Events
+- King Altar / KOTH
 - LMS
-- Tournament
-- Juggernaut
 - Clan Wars
-- /duel mit Kit-Auswahl
-- optionale Duel-Wagers mit Coins/Nethersternen
+- /duel mit optionalen Coin-Wagers
+- Most Wanted / Target Event
 - kleines Friend-/Peace-System als moderne Variante alter SkyPvP-/friede-Systeme
 - Discord Integration
 - Event-Hologramme
 - Supply-Drop-Events
+
+**Bewusst nicht Teil von SkyKings:** Tournament und Juggernaut.
 
 ## Phase 10 — Release Hardening
 
@@ -233,3 +234,5 @@ Reward-Mix:
 - PvP Balance Sessions
 - Soft Launch
 - Season 1 Release
+
+Die automatisierbaren Code-Gates laufen über CI, statischen Release-Audit, Unit-/Regressionstests sowie die lokalen Preflight-/Backup-/Restore-Skripte. Reale Spigot-, Multiplayer-, Map-, Performance- und Balance-Gates werden vor Soft Launch bewusst ingame durchgeführt.
