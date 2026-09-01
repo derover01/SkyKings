@@ -1,7 +1,7 @@
 name: SkyKings-Admin
 version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
-depend: [SkyKings-Core]
+depend: [SkyKings-Core, SkyKings-Combat]
 description: >
   Admin-Modul für Staff-Commands, Warps, Audit, Events, Diagnose und Discord-Logging.
 authors: [SkyKings Team]
@@ -24,8 +24,9 @@ commands:
     description: Startet einen angekündigten Boden-Clear mit 2 Minuten Countdown.
     usage: /clear
   warp:
-    description: Öffnet die SkyKings-Warp-Auswahl oder teleportiert zu einem Warp.
+    description: Öffnet die SkyKings-Warp-Auswahl oder startet eine 3-Sekunden-Schnellreise.
     usage: /warp [Name]
+    aliases: [warps]
   setwarp:
     description: Setzt einen Warp an der aktuellen Position.
     usage: /setwarp <Name>
