@@ -15,6 +15,8 @@ import java.util.UUID;
  * IslandGameplayService gespeichert, damit nicht jede Spielsekunde Disk-I/O erzeugt.
  */
 public final class MapMasteryService {
+    private static volatile MapMasteryService liveInstance;
+
     private final JavaPlugin plugin;
     private final File file;
     private final YamlConfiguration data;
@@ -24,6 +26,11 @@ public final class MapMasteryService {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "map-mastery.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        liveInstance = this;
+    }
+
+    public static MapMasteryService liveInstance() {
+        return liveInstance;
     }
 
     public void addHotZoneKill(UUID uuid) { addAndSave(uuid, "hot-zone-kills", 1L); }
