@@ -55,4 +55,19 @@ public class TradeServiceTest {
         assertNull(service.get(b));
         assertTrue(service.request(a, c));
     }
+
+    @Test
+    public void offerOrAcceptanceRevisionInvalidatesOlderCountdownToken() {
+        TradeSession session = new TradeSession(UUID.randomUUID(), UUID.randomUUID());
+        long firstCountdown = session.getAcceptanceRevision();
+        assertTrue(session.isAcceptanceRevision(firstCountdown));
+
+        session.bumpAcceptanceRevision();
+        assertFalse(session.isAcceptanceRevision(firstCountdown));
+
+        long replacementCountdown = session.getAcceptanceRevision();
+        assertTrue(session.isAcceptanceRevision(replacementCountdown));
+        session.bumpAcceptanceRevision();
+        assertFalse(session.isAcceptanceRevision(replacementCountdown));
+    }
 }
