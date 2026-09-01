@@ -122,7 +122,7 @@ public final class TradeGuiService implements Listener {
             updated.add(clicked.clone());
             self.setItems(updated);
             event.getClickedInventory().setItem(event.getSlot(), null);
-            resetOtherAcceptance(session, player.getUniqueId());
+            resetAcceptance(session);
             refresh(session);
             return;
         }
@@ -132,7 +132,7 @@ public final class TradeGuiService implements Listener {
             List<ItemStack> updated = new ArrayList<ItemStack>(self.getItems());
             ItemStack returned = updated.remove(offerIndex);
             self.setItems(updated);
-            resetOtherAcceptance(session, player.getUniqueId());
+            resetAcceptance(session);
             giveOrDrop(player, returned);
             refresh(session);
             return;
@@ -154,14 +154,17 @@ public final class TradeGuiService implements Listener {
     private void changeCoins(Player player, TradeSession session, TradeOffer self, long delta) {
         long next = Math.max(0L, self.getCoins() + delta);
         next = Math.min(next, economyService.getBalance(player.getUniqueId()));
+        if (next == self.getCoins()) return;
         self.setCoins(next);
-        resetOtherAcceptance(session, player.getUniqueId());
+        resetAcceptance(session);
         refresh(session);
     }
 
-    private void resetOtherAcceptance(TradeSession session, UUID changedBy) {
-        TradeOffer other = session.otherOf(changedBy);
-        if (other != null) other.setAccepted(false);
+    /** Jede Angebotsaenderung invalidiert beide alten Zusagen. */
+    private void resetAcceptance(TradeSession session) {
+        if (session == null) return;
+        session.getLeft().setAccepted(false);
+        session.getRight().setAccepted(false);
     }
 
     @EventHandler public void onDrag(InventoryDragEvent event) {
@@ -190,6 +193,7 @@ public final class TradeGuiService implements Listener {
     }
 
     private void complete(TradeSession session) {
+        if (session == null || session.isFinished() || !session.bothAccepted()) return;
         Player left = Bukkit.getPlayer(session.getLeft().getPlayer());
         Player right = Bukkit.getPlayer(session.getRight().getPlayer());
         if (left == null || right == null) { cancel(session, ChatColor.RED + "Trade abgebrochen: Spieler offline."); return; }
@@ -197,14 +201,14 @@ public final class TradeGuiService implements Listener {
         TradeOffer b = session.getRight();
 
         if (!economyService.has(a.getPlayer(), a.getCoins()) || !economyService.has(b.getPlayer(), b.getCoins())) {
-            a.setAccepted(false); b.setAccepted(false);
+            resetAcceptance(session);
             left.sendMessage(ChatColor.RED + "Trade gestoppt: Ein Kontostand hat sich veraendert.");
             right.sendMessage(ChatColor.RED + "Trade gestoppt: Ein Kontostand hat sich veraendert.");
             refresh(session);
             return;
         }
         if (!canFit(left, b.getItems()) || !canFit(right, a.getItems())) {
-            a.setAccepted(false); b.setAccepted(false);
+            resetAcceptance(session);
             left.sendMessage(ChatColor.RED + "Trade gestoppt: Nicht genug Inventarplatz.");
             right.sendMessage(ChatColor.RED + "Trade gestoppt: Nicht genug Inventarplatz.");
             refresh(session);
