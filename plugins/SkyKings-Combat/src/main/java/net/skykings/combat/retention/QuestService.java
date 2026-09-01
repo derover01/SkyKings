@@ -12,13 +12,17 @@ import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.Map;
 import java.util.UUID;
 
 /** Daily/Weekly Quests mit Free-/Premium-Pool und direkter Season-XP-Anbindung. */
@@ -88,7 +92,38 @@ public final class QuestService implements Listener {
         checkRewards(player);
     }
 
-    /** Wird nur vom erfolgreichen Duel-Finish aufgerufen. */
+    /**
+     * QuestService ist vor DuelService registriert und liest deshalb den noch aktiven Duel-Sessionzustand.
+     * So zaehlen sowohl normale Duel-Tode als auch Forfeit/Disconnect ohne Kopplung an private DuelService-Daten.
+     */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onDuelDeath(PlayerDeathEvent event) {
+        recordDuelOpponentWin(event.getEntity());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onDuelQuit(PlayerQuitEvent event) {
+        recordDuelOpponentWin(event.getPlayer());
+    }
+
+    private void recordDuelOpponentWin(Player loser) {
+        if (loser == null) return;
+        EventParticipationService runtime = EventParticipationService.global();
+        EventParticipationService.Participation loserState = runtime.get(loser.getUniqueId());
+        if (loserState == null || loserState.getType() != EventParticipationService.Type.DUEL) return;
+
+        for (Map.Entry<UUID, EventParticipationService.Participation> entry : runtime.snapshot().entrySet()) {
+            if (entry.getKey().equals(loser.getUniqueId())) continue;
+            EventParticipationService.Participation other = entry.getValue();
+            if (other == null || other.getType() != EventParticipationService.Type.DUEL) continue;
+            if (!loserState.getSessionId().equals(other.getSessionId())) continue;
+            Player winner = Bukkit.getPlayer(entry.getKey());
+            if (winner != null && winner.isOnline()) recordDuelWin(winner);
+            return;
+        }
+    }
+
+    /** Wird nur fuer einen tatsaechlichen Duel-Sieg aufgerufen. */
     public void recordDuelWin(Player player) {
         if (player == null) return;
         prepare(player.getUniqueId());
