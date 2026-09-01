@@ -23,31 +23,23 @@ $env:Path += ";C:\Users\marti\OneDrive\Desktop\SkyKings\tools\apache-maven-3.9.1
 mvn -version
 ```
 
-## 3. Release-Preflight
+## 3. Alles vorbereiten: Preflight + Tests + Build + Deploy + einmaliger Plot-Reset
+
+Fuer den ersten Test des neuen Plot-Rasters genau einmal:
 
 ```powershell
-.\scripts\release-preflight.ps1
+.\scripts\prepare-local-test.ps1 -ResetSkyPlots
 ```
 
-Java, Maven, Git, Serverstatus und Build-Voraussetzungen muessen sauber sein.
+Der Befehl fuehrt Release-Preflight, statischen Release-Audit, Maven-Tests, Build und Deploy aus. Mit `-ResetSkyPlots` wird die alte Testwelt vorher sicher in einen timestamped Backup-Ordner verschoben.
 
-## 4. Neue Plugins testen + bauen + deployen
+Bei spaeteren Testlaeufen ohne Plot-Reset reicht:
 
 ```powershell
-.\scripts\deploy-server.ps1
+.\scripts\prepare-local-test.ps1
 ```
 
-Das Script muss selbst abbrechen, falls Spigot noch laeuft. Maven-Tests und Build muessen komplett gruen sein.
-
-## 5. SkyPlots fuer den neuen Raster-Test einmal sauber resetten
-
-Nur im aktuellen Pre-Release-Test. Das Script legt vorher automatisch ein Backup an.
-
-```powershell
-.\scripts\reset-skyplots.ps1
-```
-
-Erwartetes Raster danach:
+Erwartetes Plot-Raster:
 - 65x65 Grasflaeche = genau eine Plotzelle
 - 7 Block Stone-Brick = neutrale, unantastbare Strasse
 - freie Plotgrenze = Holzstufe
@@ -55,7 +47,7 @@ Erwartetes Raster danach:
 - Strasse gehoert keinem Plot
 - Merge entfernt nur die Strasse zwischen zusammengefuehrten Plotzellen
 
-## 6. Server starten
+## 4. Server starten
 
 ```powershell
 cd ".\server"
@@ -64,7 +56,7 @@ java -Xms1G -Xmx2G -jar spigot-1.8.8.jar nogui
 
 Bis `Done` warten und auf rote Exceptions achten.
 
-## 7. Runtime-Systemcheck
+## 5. Runtime-Systemcheck
 
 Ingame:
 
@@ -72,9 +64,9 @@ Ingame:
 /skcheck
 ```
 
-Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, CombatTag, Clan Service, Event Participation sowie Duel, LMS und Clan Wars.
+Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, CombatTag, Clan Service, Event Participation, Discord Bridge, Duel, LMS und Clan Wars. Discord-Channels duerfen OPTIONAL sein, solange Discord noch nicht eingerichtet ist.
 
-## 8. Plot-Test — zuerst machen
+## 6. Plot-Test — zuerst machen
 
 1. `/p auto`
 2. Pruefen: Grasflaeche liegt exakt zwischen vier Stone-Brick-Strassen.
@@ -90,7 +82,7 @@ Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, 
 12. Andere Strassen bleiben neutral.
 13. Spaeter 2x2-Merge testen und Kreuzung pruefen.
 
-## 9. Battle Pass / Quests / Kits / Crates / Commands testen
+## 7. Battle Pass / Quests / Kits / Crates / Commands testen
 
 ```text
 /battlepass
@@ -120,7 +112,20 @@ Pruefen:
 - Quest-Abschluss gibt Coins + SkyKings Sterne + Season-XP
 - Restart-Persistenz testen
 
-## 10. Inventory-Sync-Bug provozieren
+## 8. Prefix / Clan-Tag / Chat testen
+
+```text
+/prefix
+```
+
+Pruefen:
+- kosmetischen Prefix separat AN/AUS schalten
+- Rang neben kosmetischem Prefix separat AN/AUS schalten
+- Rang bleibt ohne kosmetischen Prefix sichtbar
+- Clan-Mitglieder zeigen den Clan-Tag sauber im Chat und Tab
+- Spieler ohne Clan haben keinen leeren/kaputten Platzhalter
+
+## 9. Inventory-Sync-Bug provozieren
 
 Item droppen und SOFORT hintereinander Menues oeffnen:
 
@@ -133,14 +138,14 @@ Item droppen und SOFORT hintereinander Menues oeffnen:
 
 Das gedroppte Item darf nicht wieder im alten Slot erscheinen.
 
-## 11. Event-/Buildmode-Schutz pruefen
+## 10. Event-/Buildmode-Schutz pruefen
 
 Auf Event-/Mainmap:
 - Buildmode AN -> Staff darf bauen
 - Buildmode AUS -> normaler Map-Schutz
 - keine Plot-Schutzmeldung ausserhalb von `SkyPlots`
 
-## 12. Duel / LMS Multiplayer-Gate
+## 11. Duel / LMS Multiplayer-Gate
 
 Duel-Arena setzen:
 
@@ -170,7 +175,7 @@ Danach testen:
 - Event-Kills bleiben aus normalen PvP-Stats/Streaks/Bounties heraus
 - keine Command-/Drop-/Pickup-Umgehung
 
-## 13. Clan Wars Multiplayer-Gate
+## 12. Clan Wars Multiplayer-Gate
 
 Mindestens zwei echte Clans mit jeweils 2+ Online-Mitgliedern erstellen. Beide Clan-Owner muessen online sein.
 
@@ -204,7 +209,9 @@ Pruefen:
 - Clan-War-Kills laufen nicht in normale Open-World-Stats
 - `/clanwar stop` mit Staff funktioniert
 
-## 14. Spawner-/Mob-Stacking testen
+Tournament und Juggernaut gehoeren bewusst nicht mehr zum Feature-Set und werden nicht getestet/eingerichtet.
+
+## 13. Spawner-/Mob-Stacking testen
 
 Auf eigener Island und eigenem Plot:
 - mehrere Spawner stacken
@@ -215,7 +222,7 @@ Auf eigener Island und eigenem Plot:
 - grosse Farm auf TPS/Entity-Anzahl beobachten
 - Chunk unload/reload und Serverrestart testen
 
-## 15. Crate/Voucher Security-Gate
+## 14. Crate/Voucher Security-Gate
 
 Pruefen:
 - schneller Doppelklick
@@ -224,7 +231,7 @@ Pruefen:
 - Restart nach Einloesung
 - Reward darf pro Serial/Batch nur einmal kommen
 
-## 16. PlayerShop / Trade Transaction-Gate
+## 15. PlayerShop / Trade Transaction-Gate
 
 PlayerShop:
 - zweiter Spieler kauft waehrend Owner Stock entnimmt
@@ -238,6 +245,21 @@ Trade:
 - beide muessen danach erneut bestaetigen
 - Quit/Inventory-Close waehrend Trade
 - keine doppelte Auszahlung / keine verlorenen Escrow-Items
+
+## 16. Discord-Gate (nur wenn eingerichtet)
+
+Wenn `SKYKINGS_DISCORD_BOT_TOKEN` und Channel-IDs gesetzt sind:
+
+```text
+/discordtest events
+/discordtest status
+```
+
+Pruefen:
+- Start/Stop-Status kommt im Status-Channel an
+- King-Altar-Capture kommt im Events-Channel an
+- 10er/25er/50er/100er legitime Killstreak wird gemeldet
+- Anti-Farm-Kills erzeugen keinen Discord-Meilenstein
 
 ## 17. Phase-10 Backup-/Restart-Gate
 
