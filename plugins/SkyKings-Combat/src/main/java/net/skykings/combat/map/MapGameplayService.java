@@ -1,5 +1,6 @@
 package net.skykings.combat.map;
 
+import net.skykings.combat.retention.QuestService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -39,7 +40,7 @@ import java.util.logging.Level;
 
 /**
  * Map-Loot + Supply-Drop-Grundsystem. Alle Map-Koordinaten werden ingame registriert,
- * damit die finale Map ohne Codeänderung eingerichtet werden kann.
+ * damit die finale Map ohne Codeaenderung eingerichtet werden kann.
  */
 public final class MapGameplayService implements Listener, CommandExecutor {
 
@@ -77,12 +78,12 @@ public final class MapGameplayService implements Listener, CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur ingame verfügbar.");
+            sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
             return true;
         }
         Player player = (Player) sender;
         if (!player.hasPermission("skykings.admin.map")) {
-            player.sendMessage(ChatColor.RED + "Dafür hast du keine Berechtigung.");
+            player.sendMessage(ChatColor.RED + "Dafuer hast du keine Berechtigung.");
             return true;
         }
 
@@ -95,7 +96,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         if (args.length < 1) {
             player.sendMessage(ChatColor.YELLOW + "/maploot set <common|rare|epic>" + ChatColor.GRAY + " • Chest ansehen");
             player.sendMessage(ChatColor.YELLOW + "/maploot remove" + ChatColor.GRAY + " • Chest ansehen");
-            player.sendMessage(ChatColor.YELLOW + "/maploot refill" + ChatColor.GRAY + " • alle Chests sofort füllen");
+            player.sendMessage(ChatColor.YELLOW + "/maploot refill" + ChatColor.GRAY + " • alle Chests sofort fuellen");
             return true;
         }
         if (args[0].equalsIgnoreCase("set") && args.length >= 2) {
@@ -130,17 +131,17 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         }
         if (args[0].equalsIgnoreCase("refill")) {
             refillAll();
-            player.sendMessage(ChatColor.GREEN + "Alle geladenen Map-Loot-Chests wurden neu gefüllt.");
+            player.sendMessage(ChatColor.GREEN + "Alle geladenen Map-Loot-Chests wurden neu gefuellt.");
             return true;
         }
-        player.sendMessage(ChatColor.RED + "Ungültiger /maploot-Unterbefehl.");
+        player.sendMessage(ChatColor.RED + "Ungueltiger /maploot-Unterbefehl.");
         return true;
     }
 
     private boolean handleSupplyDrop(Player player, String[] args) {
         if (args.length == 0) {
             player.sendMessage(ChatColor.YELLOW + "/supplydrop addpoint" + ChatColor.GRAY + " • aktueller Block");
-            player.sendMessage(ChatColor.YELLOW + "/supplydrop trigger" + ChatColor.GRAY + " • zufälliger registrierter Punkt");
+            player.sendMessage(ChatColor.YELLOW + "/supplydrop trigger" + ChatColor.GRAY + " • zufaelliger registrierter Punkt");
             player.sendMessage(ChatColor.YELLOW + "/supplydrop points" + ChatColor.GRAY + " • Anzahl Punkte");
             return true;
         }
@@ -161,7 +162,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
             return true;
         }
         if (args[0].equalsIgnoreCase("trigger")) {
-            if (!spawnSupplyDrop()) player.sendMessage(ChatColor.RED + "Kein gültiger Supply-Drop-Punkt verfügbar.");
+            if (!spawnSupplyDrop()) player.sendMessage(ChatColor.RED + "Kein gueltiger Supply-Drop-Punkt verfuegbar.");
             return true;
         }
         return true;
@@ -178,13 +179,22 @@ public final class MapGameplayService implements Listener, CommandExecutor {
 
         long now = System.currentTimeMillis();
         if (now >= data.nextRefillAt) {
+            Chest chest = (Chest) block.getState();
+            boolean wasEmpty = isEmpty(chest.getBlockInventory());
             refill(block.getLocation(), data.tier, false);
             data.nextRefillAt = now + data.tier.getCooldownMillis();
             saveAsync();
+
+            // Nur ein echter frischer Rare/Epic-Refill durch einen Spieler zaehlt als Quest.
+            // Common, Supply, Admin-Refills und bereits gefuellte Chests zaehlen nicht.
+            if (wasEmpty && (data.tier == MapLootTier.RARE || data.tier == MapLootTier.EPIC)) {
+                QuestService quests = QuestService.active();
+                if (quests != null) quests.recordRareMapChest(event.getPlayer());
+            }
         } else {
             long seconds = Math.max(1L, (data.nextRefillAt - now + 999L) / 1000L);
             event.getPlayer().sendMessage(data.tier.getColor() + data.tier.getDisplay() + ChatColor.GRAY
-                    + " • nächster Refill in " + ChatColor.WHITE + format(seconds));
+                    + " • naechster Refill in " + ChatColor.WHITE + format(seconds));
         }
     }
 
@@ -193,7 +203,7 @@ public final class MapGameplayService implements Listener, CommandExecutor {
         if (!isProtected(event.getBlock().getLocation())) return;
         if (event.getPlayer().hasPermission("skykings.admin.map")) return;
         event.setCancelled(true);
-        event.getPlayer().sendMessage(ChatColor.RED + "Diese Loot-Chest gehört zur SkyPvP-Map.");
+        event.getPlayer().sendMessage(ChatColor.RED + "Diese Loot-Chest gehoert zur SkyPvP-Map.");
     }
 
     @EventHandler(ignoreCancelled = true)
