@@ -56,13 +56,22 @@ public final class GuiSession {
     }
 
     /**
-     * UiTheme-Navigation ist fuer 54 Slots definiert. Kleinere Menues bekommen dieselben relativen
-     * Positionen automatisch in ihre letzte Reihe gemappt. Dadurch kann ein NAV_BACK nie wieder
-     * ein 27er/45er Inventar mit ArrayIndexOutOfBounds crashen.
+     * UiTheme-Navigation ist fuer 54 Slots definiert. Kleinere echte Bukkit-Menues bekommen
+     * dieselben relativen Positionen automatisch in ihre letzte Reihe gemappt.
+     *
+     * <p>Mockito/Test-Doubles liefern fuer {@link Inventory#getSize()} ohne Stub standardmaessig
+     * 0. Das ist kein gueltiges Bukkit-Inventar, sondern bedeutet hier nur "Groesse unbekannt".
+     * In diesem Fall wird der angefragte Slot unveraendert weitergereicht, damit die generische
+     * Session weiterhin isoliert testbar bleibt. Produktions-Inventare haben immer 9-54 Slots.
      */
     private int resolveSlot(int requested) {
+        if (requested < 0) {
+            throw new IllegalArgumentException("GUI-Slot darf nicht negativ sein: " + requested);
+        }
+
         int size = inventory.getSize();
-        if (requested >= 0 && requested < size) return requested;
+        if (size <= 0) return requested; // Test-Double / unbekannte Groesse.
+        if (requested < size) return requested;
         if (requested == UiTheme.NAV_BACK) return size - 9;
         if (requested == UiTheme.NAV_HOME) return size - 5;
         if (requested == UiTheme.NAV_NEXT) return size - 1;
