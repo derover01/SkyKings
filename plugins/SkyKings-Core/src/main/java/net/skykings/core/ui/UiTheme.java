@@ -9,6 +9,7 @@ public final class UiTheme {
     public static final ChatColor PRIMARY = ChatColor.AQUA;
     public static final ChatColor TEXT = ChatColor.WHITE;
     public static final ChatColor MUTED = ChatColor.GRAY;
+    public static final ChatColor DARK = ChatColor.DARK_GRAY;
     public static final ChatColor DISABLED = ChatColor.DARK_GRAY;
     public static final ChatColor SUCCESS = ChatColor.GREEN;
     public static final ChatColor WARNING = ChatColor.YELLOW;
