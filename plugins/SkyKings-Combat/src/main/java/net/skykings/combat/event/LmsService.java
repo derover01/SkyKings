@@ -19,7 +19,9 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
@@ -43,6 +45,8 @@ public final class LmsService implements Listener, CommandExecutor {
     private final Set<UUID> queue = new LinkedHashSet<UUID>();
     private final Set<UUID> alive = new LinkedHashSet<UUID>();
     private final Map<UUID, Location> returnLocations = new LinkedHashMap<UUID, Location>();
+    /** Spieler, die auf dem Death-Screen liegen, werden erst ueber PlayerRespawnEvent sicher zurueckgesetzt. */
+    private final Map<UUID, Location> pendingRespawns = new LinkedHashMap<UUID, Location>();
 
     private String sessionId;
     private String activeArena;
@@ -179,6 +183,7 @@ public final class LmsService implements Listener, CommandExecutor {
         sessionId = "lms-" + System.currentTimeMillis();
         alive.clear();
         returnLocations.clear();
+        pendingRespawns.clear();
         queue.clear();
 
         int index = 1;
@@ -205,28 +210,54 @@ public final class LmsService implements Listener, CommandExecutor {
         UUID uuid = event.getEntity().getUniqueId();
         EventParticipationService.Participation p = participation.get(uuid);
         if (!running || p == null || p.getType() != EventParticipationService.Type.LMS || !sessionId.equals(p.getSessionId())) return;
+        // LMS darf niemals das normale Spieler-Inventar vernichten. Ohne keepInventory wuerde das
+        // Leeren der Drops auf 1.8 die Items dauerhaft loeschen.
+        event.setKeepInventory(true);
         event.getDrops().clear();
         event.setDroppedExp(0);
         event.setKeepLevel(true);
-        Bukkit.getScheduler().runTask(plugin, () -> eliminate(uuid, false));
+        eliminate(uuid, false);
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        Location back = pendingRespawns.remove(event.getPlayer().getUniqueId());
+        if (back != null) event.setRespawnLocation(back);
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        final UUID uuid = event.getPlayer().getUniqueId();
+        final Location back = pendingRespawns.remove(uuid);
+        if (back != null) Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline() && !player.isDead()) player.teleport(back);
+            else if (player != null && player.isOnline()) pendingRespawns.put(uuid, back);
+        });
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         queue.remove(uuid);
-        if (running && alive.contains(uuid)) Bukkit.getScheduler().runTask(plugin, () -> eliminate(uuid, true));
+        if (running && alive.contains(uuid)) eliminate(uuid, true);
     }
 
     private void eliminate(UUID uuid, boolean forfeit) {
         if (!alive.remove(uuid)) return;
         participation.leave(uuid);
         Player player = Bukkit.getPlayer(uuid);
+        Location back = returnLocations.remove(uuid);
         if (player != null && player.isOnline()) {
-            Location back = returnLocations.get(uuid);
-            if (back != null) player.teleport(back);
+            if (back != null) {
+                if (player.isDead()) pendingRespawns.put(uuid, back);
+                else player.teleport(back);
+            }
             player.sendMessage(UiTheme.DANGER + (forfeit ? "LMS aufgegeben." : "Aus dem LMS ausgeschieden."));
             SoundFeedback.error(player);
+        } else if (back != null) {
+            // Quit waehrend Death-Screen: Position fuer den naechsten Join/Respawn behalten.
+            pendingRespawns.put(uuid, back);
         }
         Bukkit.broadcastMessage(UiTheme.PRIMARY + "LMS " + UiTheme.TEXT + name(uuid)
                 + UiTheme.MUTED + " ausgeschieden • " + UiTheme.TEXT + alive.size() + UiTheme.MUTED + " verbleiben");
@@ -251,8 +282,14 @@ public final class LmsService implements Listener, CommandExecutor {
         for (UUID uuid : new ArrayList<UUID>(alive)) {
             participation.leave(uuid);
             Player player = Bukkit.getPlayer(uuid);
-            Location back = returnLocations.get(uuid);
-            if (player != null && player.isOnline() && back != null) player.teleport(back);
+            Location back = returnLocations.remove(uuid);
+            if (back == null) continue;
+            if (player != null && player.isOnline()) {
+                if (player.isDead()) pendingRespawns.put(uuid, back);
+                else player.teleport(back);
+            } else {
+                pendingRespawns.put(uuid, back);
+            }
         }
         alive.clear();
         returnLocations.clear();
