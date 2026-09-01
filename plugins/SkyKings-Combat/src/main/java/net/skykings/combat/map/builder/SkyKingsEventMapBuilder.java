@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Separate SkyKings-Eventwelt im Stil der alten SkyPvP-Fantasyfestung.
- * Hub + Duel + LMS + Tournament + Juggernaut bleiben als eigene schwebende Inseln klar lesbar.
+ * Hub + Duel + LMS + Clan Wars bleiben als eigene schwebende Bereiche klar lesbar.
  */
 public final class SkyKingsEventMapBuilder {
     public static final int Y = 108;
@@ -65,8 +65,7 @@ public final class SkyKingsEventMapBuilder {
         buildHub();
         buildDuelArena();
         buildLmsArena();
-        buildTournamentArena();
-        buildJuggernautArena();
+        buildClanWarArena();
         buildVisualLinks();
     }
 
@@ -85,11 +84,10 @@ public final class SkyKingsEventMapBuilder {
         V3Structures.brokenArch(c, 0, Y + 1, -31, 12, 9);
         V3Structures.brokenArch(c, 31, Y + 1, 0, 12, 9);
         V3Structures.brokenArch(c, 0, Y + 1, 31, 12, 9);
-        V3Structures.brokenArch(c, -31, Y + 1, 0, 12, 9);
-        c.disc(0, Y + 2, 12, 3, Material.EMERALD_BLOCK);
-        c.set(0, Y + 3, 12, Material.GLOWSTONE);
         V3Structures.customTree(c, -22, Y + 1, 8, 8);
         V3Structures.customTree(c, 22, Y + 1, 8, 8);
+        c.disc(0, Y + 2, 12, 3, Material.EMERALD_BLOCK);
+        c.set(0, Y + 3, 12, Material.GLOWSTONE);
         lamps(0, Y + 1, 0, 20);
     }
 
@@ -139,53 +137,34 @@ public final class SkyKingsEventMapBuilder {
         spectator(cx + 52, Y + 13, cz + 42, 10);
     }
 
-    private void buildTournamentArena() {
+    private void buildClanWarArena() {
         int cx = 0, cz = 132;
-        V3Terrain.island(c, cx, Y - 5, cz, 59, 52, 27, 8401L, Material.GRASS, Material.DIRT, Material.STONE);
-        c.disc(cx, Y, cz, 39, Material.SMOOTH_BRICK);
-        c.disc(cx, Y + 1, cz, 30, Material.GRASS);
-        c.ring(cx, Y + 1, cz, 39, 5, Material.NETHER_BRICK);
-        c.ring(cx, Y + 4, cz, 39, 3, Material.SMOOTH_BRICK);
-        c.ring(cx, Y + 7, cz, 39, 2, Material.SMOOTH_BRICK);
-        V3Structures.brokenArch(c, cx, Y + 1, cz - 39, 14, 10);
-        V3Structures.brokenArch(c, cx, Y + 1, cz + 39, 14, 10);
-        for (int[] p : new int[][]{{-33,-22},{33,-22},{-33,22},{33,22}}) {
-            c.column(cx + p[0], Y + 1, cz + p[1], 12, Material.QUARTZ_BLOCK);
-            c.set(cx + p[0], Y + 13, cz + p[1], Material.GOLD_BLOCK);
-            c.set(cx + p[0], Y + 14, cz + p[1], Material.GLOWSTONE);
-        }
-        c.disc(cx, Y + 2, cz - 19, 2, Material.GOLD_BLOCK);
-        c.disc(cx, Y + 2, cz + 19, 2, Material.DIAMOND_BLOCK);
-        marker(cx - 19, Y + 2, cz, Material.EMERALD_BLOCK);
-        marker(cx + 19, Y + 2, cz, Material.REDSTONE_BLOCK);
-        spectator(cx + 43, Y + 10, cz, 11);
-    }
+        V3Terrain.island(c, cx, Y - 5, cz, 62, 54, 28, 8401L, Material.GRASS, Material.DIRT, Material.STONE);
+        c.fill(cx - 40, Y, cz - 31, cx + 40, Y, cz + 31, Material.SMOOTH_BRICK);
+        c.disc(cx, Y + 1, cz, 17, Material.GRASS);
+        c.ring(cx, Y + 1, cz, 40, 3, Material.NETHER_BRICK);
+        c.ring(cx, Y + 4, cz, 40, 2, Material.SMOOTH_BRICK);
+        V3Structures.brokenArch(c, cx, Y + 1, cz - 31, 14, 10);
+        V3Structures.brokenArch(c, cx, Y + 1, cz + 31, 14, 10);
+        V3Structures.watchTower(c, cx - 44, Y, cz - 34, 5, 16);
+        V3Structures.watchTower(c, cx + 44, Y, cz - 34, 5, 16);
+        V3Structures.watchTower(c, cx - 44, Y, cz + 34, 5, 16);
+        V3Structures.watchTower(c, cx + 44, Y, cz + 34, 5, 16);
 
-    private void buildJuggernautArena() {
-        int cx = -132, cz = 0;
-        V3Terrain.island(c, cx, Y - 4, cz, 55, 48, 28, 8501L, Material.GRASS, Material.DIRT, Material.STONE);
-        c.fill(cx - 35, Y, cz - 29, cx + 35, Y, cz + 29, Material.NETHER_BRICK);
-        c.disc(cx, Y + 1, cz, 24, Material.SMOOTH_BRICK);
-        c.ring(cx, Y + 2, cz, 25, 3, Material.OBSIDIAN);
-        V3Structures.watchTower(c, cx - 38, Y, cz - 31, 5, 20);
-        V3Structures.watchTower(c, cx + 38, Y, cz - 31, 5, 20);
-        V3Structures.watchTower(c, cx - 38, Y, cz + 31, 5, 20);
-        V3Structures.watchTower(c, cx + 38, Y, cz + 31, 5, 20);
-        c.fill(cx - 6, Y + 2, cz - 6, cx + 6, Y + 2, cz + 6, Material.QUARTZ_BLOCK);
-        c.fill(cx - 4, Y + 3, cz + 2, cx + 4, Y + 3, cz + 6, Material.GOLD_BLOCK);
-        c.fill(cx - 2, Y + 4, cz + 4, cx + 2, Y + 8, cz + 6, Material.OBSIDIAN);
-        marker(cx, Y + 4, cz, Material.REDSTONE_BLOCK);
-        int[][] spawns = {{0,-22},{22,0},{0,22},{-22,0},{16,-16},{16,16},{-16,16},{-16,-16}};
-        for (int[] s : spawns) marker(cx + s[0], Y + 2, cz + s[1], Material.GLOWSTONE);
-        c.disc(cx - 31, Y + 2, cz - 23, 3, Material.EMERALD_BLOCK);
-        spectator(cx, Y + 13, cz + 37, 10);
+        // Zwei klar getrennte Teamseiten. Die Marker werden spaeter als a1..a5 / b1..b5 gespeichert.
+        int[][] teamA = {{-28,-16},{-28,-8},{-28,0},{-28,8},{-28,16}};
+        int[][] teamB = {{28,-16},{28,-8},{28,0},{28,8},{28,16}};
+        for (int[] p : teamA) marker(cx + p[0], Y + 1, cz + p[1], Material.GOLD_BLOCK);
+        for (int[] p : teamB) marker(cx + p[0], Y + 1, cz + p[1], Material.DIAMOND_BLOCK);
+        c.disc(cx, Y + 1, cz, 4, Material.OBSIDIAN);
+        c.set(cx, Y + 2, cz, Material.BEACON);
+        spectator(cx, Y + 10, cz + 42, 11);
     }
 
     private void buildVisualLinks() {
         V3Structures.stoneBridge(c, 0, Y + 1, -34, 0, Y + 1, -52, 5);
         V3Structures.stoneBridge(c, 34, Y + 1, 0, 52, Y + 1, 0, 5);
         V3Structures.stoneBridge(c, 0, Y + 1, 34, 0, Y + 1, 52, 5);
-        V3Structures.stoneBridge(c, -34, Y + 1, 0, -52, Y + 1, 0, 5);
     }
 
     private void lamps(int cx, int y, int cz, int radius) {
@@ -217,7 +196,7 @@ public final class SkyKingsEventMapBuilder {
         Location hub = new Location(world, 0.5D, Y + 3D, 12.5D, 180F, 0F);
         if (initiator.isOnline()) initiator.teleport(hub);
         initiator.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "EVENT-MAP FERTIG");
-        initiator.sendMessage(ChatColor.GRAY + "Hub + Duel (Nord) + LMS (Ost) + Tournament (Sued) + Juggernaut (West).");
+        initiator.sendMessage(ChatColor.GRAY + "Hub + Duel (Nord) + LMS (Ost) + Clan Wars (Sued).");
         initiator.sendMessage(ChatColor.YELLOW + "Naechster Schritt: Arena-Punkte mit /eventarena set ... speichern.");
     }
 }
