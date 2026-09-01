@@ -1,189 +1,142 @@
 # SkyKings – PC Test Checklist
 
-Diese Checkliste ist der feste Runtime-Test fuer den aktuellen Pre-Release-Stand.
-Die dauerhafte Setup-Liste steht zusaetzlich in `docs/SERVER_SETUP_TODO.md`.
+Diese Datei ist die kompakte Runtime-Checkliste. Die **verbindliche aktuelle Reihenfolge** steht in `docs/NEXT_PC_CHECKLIST.md`.
 
-## 1. Repository aktualisieren und bauen
+## 1. Aktualisieren / Preflight / Deploy
 
 ```powershell
 cd "C:\Users\marti\OneDrive\Desktop\SkyKings"
 git pull
+$env:Path += ";C:\Users\marti\OneDrive\Desktop\SkyKings\tools\apache-maven-3.9.16\bin"
+.\scripts\release-preflight.ps1
 .\scripts\deploy-server.ps1
 ```
 
-Erwartung: `BUILD SUCCESS`.
+Erwartung: Tests + Build komplett gruen.
 
-## 2. Server starten
+## 2. Plotwelt fuer den neuen Raster-Test resetten
+
+Server muss aus sein:
 
 ```powershell
-cd "C:\Users\marti\OneDrive\Desktop\SkyKings\server"
+.\scripts\reset-skyplots.ps1
+```
+
+Danach:
+- 65x65 Gras = ein Plot
+- 7 Block Stone-Brick = neutrale Strasse
+- Holzstufe frei / Steinstufe claimed
+- `/p rand`
+- `/p merge`
+- Roads ausserhalb eines Merge bleiben unantastbar
+
+## 3. Server starten
+
+```powershell
+cd ".\server"
 java -Xms1G -Xmx2G -jar spigot-1.8.8.jar nogui
 ```
 
-Beim Start auf `SEVERE`, `Exception`, `NoSuchMethodError` und deaktivierte SkyKings-Module achten.
+Auf `SEVERE`, Exceptions und deaktivierte Module achten.
 
-## 3. Runtime-Schnellcheck
+## 4. Runtime-Schnellcheck
 
 ```text
 /skcheck
 ```
 
-Erwartet insbesondere:
-- SkyKings-Core: OK
-- SkyKings-Combat: OK
-- SkyKings-Crates: OK
-- SkyKings-Admin: OK
-- LuckPerms / Vault: OK
-- Core API / Island API / Plot API: OK
+Core, Combat, Crates, Admin, APIs und aktive Commands muessen OK sein.
 
-## 4. Aktuelle Regressionstests
+## 5. GUI / UI
 
-### GUI-Crashfix
-Diese Befehle duerfen **keinen ArrayIndexOutOfBoundsException Slot 45** mehr werfen:
 ```text
+/commands
+/kit
+/battlepass
+/quests
+/craterewards
 /prefix
 /top
 /gutscheine
 ```
-In `/gutscheine` jede Kategorie einmal oeffnen.
 
-### Gutschein-/Crate-Tooltip
-Neu erzeugte Items testen:
-- technische Serial-/Batch-ID darf Tooltip nicht mehr ueber den Bildschirm ziehen
-- Ranggutschein zeigt konkreten Rang im Namen
-- Rechtegutschein zeigt konkretes Recht
-- Coin/GiveAll zeigt konkreten Betrag
-- Rang/Rechte = Buch
-- Kit = Papier
-- Coin/GiveAll = Sonnenblume
-- Coin-Gewinn aus Crate kommt als Gutschein statt Sofortbuchung
+Pruefen:
+- keine Slot-Crashes
+- Custom-Panel-Stil konsistent
+- Lore sauber umgebrochen
+- Back/Home Navigation
+- READY / LOCKED / COOLDOWN / COMPLETED eindeutig
+- Clan-Tag zerstoert Rang/Prefix nicht
 
-### Map-Schutz
-- auf `SkyPvP` Weizenfeld mehrfach anspringen -> Farmland bleibt Farmland
-- ohne `/buildmode` kein Bauen/Abbauen
-- mit `/buildmode` als Staff editierbar
+## 6. Combat / Economy / Security
 
-### Profile / Navigation
-```text
-/stats
-/achievements
-/collection
-/legacyhall
-/top
-```
-- Achievements aus `/stats` muss dasselbe `/achievements`-Menue oeffnen wie der Direktcommand
-- Collection Seite 1 -> Zurueck zu Profile
-- Legacy Hall Seite 1 -> Zurueck zu Profile
-- Top -> Zurueck zu Profile
+- CombatTag / Enderperlen-Cooldown
+- legitime Kills vs. Anti-Farm
+- Bounty nur bei legitimen Kill
+- Voucher/Crate Rapid-Click + Restart-Replay
+- PlayerShop Kauf vs. Stock-Withdraw
+- Revenue Doppelclaim
+- Trade-Angebot waehrend Countdown aendern
+- Item droppen und sofort Commands/GUIs oeffnen
 
-### Kopfgeld
-Mit einem zweiten bekannten Spieler:
-```text
-/kopfgeld <Spieler> 25k
-```
-- 25.000 Coins werden beim Setzer abgezogen
-- Ziel erscheint im `/kopfgeld` Board
-- Board zeigt Spieler-Kopfgeld + ggf. Streak-Bounty getrennt
-- legitimer Kill zahlt Spieler-Kopfgeld aus
-- Farm-/Repeat-Kill darf gesetztes Kopfgeld nicht verbrauchen
+## 7. Islands / Plots / Spawner
 
-### Islands
-```text
-/is
-/is level
-/is top
-```
-- Grenze in Info: 129x129 / Center +/-64
-- `/is top` zeigt Top 10 nach Island-Level als Spielerkopf-GUI
-- Island-Level + Levelpunkte sind im `/is` Hauptmenue sichtbar
-- wertvolle Bloecke steigern Level; Abbauen reduziert es wieder
-- Level bleibt nach Serverrestart erhalten
-- `[Welcome]` bleibt Voraussetzung fuer `/is visit <Owner>`
-- Besucher landet direkt am Schild
+- Island Create / Level / Welcome Visit
+- Plot Claim / Flags / Trust / Deny / Rand / Merge
+- Spawner bis Limit stacken
+- Spawner-Mobs gleicher Art werden automatisch gestackt
+- ein Kill reduziert Mob-Stack genau um 1
+- Drops/XP nur fuer einen Kill
+- Restart / Chunk Reload / Performance
 
-**Achtung:** Eine alte Testinsel behaelt ihre alte Form. Fuer den neuen klassischen Baum/Chest-Generator siehe Reset-Hinweis in `SERVER_SETUP_TODO.md`.
+## 8. Finale Event-Welt
 
-### Plots
-Vor dem ersten Test des neuen Grid-Generators den Server stoppen und die alte Testwelt **einmalig** loeschen:
-```text
-server/SkyPlots
-```
-Danach Server neu starten und testen:
-```text
-/p auto
-/p h
-/p add <Spieler>
-/p trust <Spieler>
-/p remove <Spieler>
-/p deny <Spieler>
-/p undeny <Spieler>
-/p flags
-/p flag pvp an
-/p flag explosions an
-/p flag fire an
-/p flag mob-spawn an
-```
-- 65x65 Plot + 7 Block Strassen sichtbar
-- `add`: Baurecht nur solange Owner online
-- `trust`: dauerhaft, auch wenn Owner offline
-- `remove`: entfernt Add/Trust, hebt Deny nicht versehentlich auf
-- `deny`: Zutritt blockiert; `undeny` hebt nur die Sperre auf
-- PvP / Explosionen / Feuer / Mob-Spawns sind im GUI einzeln schaltbar
-- Strassen bleiben gegen Explosionen, Feuer und Mob-Spawns geschuetzt
-- Neustart behaelt Member/Trust/Deny und alle Flags
-
-### Kits
-```text
-/kit
-```
-- READY / COOLDOWN sichtbar
-- Linksklick = claim
-- Rechtsklick = echte Item-/Potion-Vorschau
-- Zurueck funktioniert
-
-### Quests / Battle Pass
-```text
-/quests
-/battlepass
-```
-- jedes Quest-Item beschreibt die konkrete Aufgabe
-- Free-Spieler sieht keine Premium-Aufgaben
-- Premium-Spieler hat zusaetzliche Daily-/Weekly-Quests
-- Quest- und Battle-Pass-Sterne sind echte gebrandete SkyKings Sterne
-
-### PlayerShops
-```text
-/playershop kaufen
-```
-- Haendler-Ei nur auf eigener Island/eigenem Plot platzierbar
-- `/playershop set <Menge> <Coins>`
-- Item halten + `/playershop stock <Menge>`
-- Kauf mit zweitem Spieler
-- Owner-Rechtsklick -> Control Center
-- Claim / Withdraw testen
-
-### Friede
-`/peace` und `/friede` sind dasselbe System.
-- Anfrage / Accept / Deny
-- Partner koennen sich nicht verletzen
-- kein CombatTag durch geblockten Peace-Hit
-- nach Remove normales PvP
-
-### Event-Welt
-Einmalig spaeter:
 ```text
 /skymap event SkyEvents
 ```
-- Hub, Duel, LMS, Tournament, Juggernaut optisch pruefen
-- Map darf von normalen Spielern nicht zerstoert werden
-- Event-Welt hat PvP technisch aktiv; Session-Schutz entscheidet, wer kaempfen darf
-- Arena-Punkte danach gemaess `SERVER_SETUP_TODO.md` setzen
 
-## 5. Dauerhaft noch ingame zu konfigurieren
+Die finale Eventmap enthaelt:
+- Hub
+- Duel
+- LMS
+- Clan Wars
 
-Siehe:
-```text
-docs/SERVER_SETUP_TODO.md
+**Tournament und Juggernaut sind bewusst nicht Bestandteil des Servers.**
+
+Danach gemaess `SERVER_SETUP_TODO.md` Arena-Punkte setzen und testen:
+- Duel normal + Wager
+- LMS
+- Clan Wars 2v2 / 3v3 / 5v5
+- Quit/Forfeit
+- Team-Damage
+- Event-Kills nicht in Open-World-Stats
+
+## 9. Map / Buildmode
+
+- SkyPvP ohne Buildmode geschuetzt
+- Staff mit Buildmode kann bauen
+- Eventmap ohne Plot-Meldungen
+- Farmland bleibt geschuetzt
+- KOTH / HotZones / Secrets / Routes / Displays pruefen
+
+## 10. Backup / Restart / Restore
+
+```powershell
+cd "C:\Users\marti\OneDrive\Desktop\SkyKings"
+.\scripts\backup-server.ps1
 ```
 
-Dort stehen insbesondere `/mapsetup`, King/HotZone/End/Secrets/Routen/Landmarks, NPC-Bindings, PvP-Regionen, Event-Arenen, Legacy Hall und Discord.
+Daten veraendern -> sauber stoppen -> Restart -> Persistenz pruefen -> spaeter Guarded Restore testen.
+
+## 11. Finales Gate
+
+Erst danach:
+- Economy-Balance
+- Kit-Cooldowns
+- Battle-Pass-XP/Rewards
+- Crate-Chancen
+- Mob-/Spawner-Limits
+- TPS unter realer Spielerzahl
+- Soft Launch
+
+Der Resource-Pack-Layer kommt danach als UI-Polish.
