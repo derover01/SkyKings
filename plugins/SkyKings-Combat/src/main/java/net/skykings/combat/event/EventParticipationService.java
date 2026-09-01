@@ -19,7 +19,8 @@ public final class EventParticipationService {
         DUEL,
         LMS,
         TOURNAMENT,
-        JUGGERNAUT
+        JUGGERNAUT,
+        CLAN_WAR
     }
 
     public static final class Participation {
@@ -58,16 +59,13 @@ public final class EventParticipationService {
     }
 
     public boolean isSameSession(UUID first, UUID second) {
-        Participation a = get(first);
-        Participation b = get(second);
-        return a != null && b != null && a.getType() == b.getType() && a.getSessionId().equals(b.getSessionId());
+        Participation a = get(first), b = get(second);
+        return a != null && b != null && a.type == b.type && a.sessionId.equals(b.sessionId);
     }
+
+    public void clear() { active.clear(); }
 
     public Map<UUID, Participation> snapshot() {
         return Collections.unmodifiableMap(new LinkedHashMap<UUID, Participation>(active));
-    }
-
-    public void clear() {
-        active.clear();
     }
 }
