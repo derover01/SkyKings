@@ -1,5 +1,6 @@
 package net.skykings.combat.kill;
 
+import net.skykings.combat.retention.QuestService;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiFormat;
@@ -29,7 +30,6 @@ public final class BountyService {
     private final File file;
     private final Map<UUID, Long> playerBounties = new HashMap<UUID, Long>();
 
-    /** Bestehendes Combat-Wiring bleibt kompatibel. */
     public BountyService(EconomyService economyService, NetherstarRewardDelivery rewardDelivery) {
         this(JavaPlugin.getProvidingPlugin(BountyService.class), economyService, rewardDelivery);
     }
@@ -77,14 +77,18 @@ public final class BountyService {
     }
 
     public void awardStreakShutdown(Player killer, Player victim, int victimStreak, double antiFarmMultiplier) {
+        boolean paidAnyBounty = false;
         Bounty base = bountyFor(victimStreak);
         if (base != null && antiFarmMultiplier > 0.0D) {
             long stars = Math.round(base.netherstars * antiFarmMultiplier);
             long coins = Math.round(base.coins * antiFarmMultiplier);
             if (stars > 0L) rewardDelivery.give(killer, stars);
             if (coins > 0L) economyService.deposit(killer.getUniqueId(), coins, "BOUNTY", "Streak-Shutdown gegen " + victim.getName());
-            if (stars > 0L || coins > 0L) Bukkit.broadcastMessage(UiTheme.PRIMARY + "Streak-Bounty claimed " + UiTheme.MUTED + "• "
-                    + UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " besiegt " + UiTheme.TEXT + victim.getName());
+            if (stars > 0L || coins > 0L) {
+                paidAnyBounty = true;
+                Bukkit.broadcastMessage(UiTheme.PRIMARY + "Streak-Bounty claimed " + UiTheme.MUTED + "• "
+                        + UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " besiegt " + UiTheme.TEXT + victim.getName());
+            }
         }
 
         if (antiFarmMultiplier >= 0.999D) {
@@ -96,7 +100,14 @@ public final class BountyService {
                 Bukkit.broadcastMessage(UiTheme.LEGENDARY + "Kopfgeld kassiert " + UiTheme.MUTED + "• "
                         + UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " erhaelt " + UiTheme.LEGENDARY + UiFormat.coins(placed));
                 SoundFeedback.reward(killer);
+                paidAnyBounty = true;
             }
+        }
+
+        // Rewards duerfen bei Anti-Farm reduziert bleiben; Questfortschritt gibt es nur fuer einen vollen legitimen Kill.
+        if (paidAnyBounty && antiFarmMultiplier >= 0.999D) {
+            QuestService quests = QuestService.active();
+            if (quests != null) quests.recordBountyClaim(killer);
         }
     }
 
