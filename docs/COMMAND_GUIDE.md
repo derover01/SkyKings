@@ -147,7 +147,7 @@ Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 - `/route <create|addpoint|remove|list> [Name]` - Jump-/Pearl-Routen.
 - `/landmark <set|remove|list> [Typ] [Radius]` - Gold-/Level-/Blacksmith-/Merchant-Landmarks.
 - `/trashbin <add|remove|list>` - Map-Muelleimer.
-- `/mapdisplay <set|remove|list> [topkills|king|hotzones]` - Map-Hologramme/Displays.
+- `/mapdisplay <set|remove|list> [topkills|king|hotzones|ranks]` - Map-Hologramme/Displays; `ranks` setzt das Paid-Rank-Board fuer Knight bis King.
 
 ## 12. Event-Arenen einmalig setzen
 
