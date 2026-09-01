@@ -103,7 +103,7 @@ An den finalen NPC-Positionen auf der Main Map binden:
 
 ```text
 /shopnpc bind system
-/shopnpc bind pvp_restock
+/shopnpc bind pvp
 /shopnpc bind blacksmith
 /shopnpc bind enchant
 /shopnpc bind recycler
@@ -115,62 +115,40 @@ Blacksmith/Merchant vorher in ihren Landmark-Bereichen platzieren.
 
 **Offen:** Shoppreise gemeinsam final balancen. Aktuelle Preise sind noch Test-/Draftwerte.
 
-## 4. Separate Combat-Event-Welt
+## 4. Combat-Event-Arenen
 
-Einmalig erzeugen:
+Es gibt **keine separate `SkyEvents`-Produktionswelt mehr**. Duel, LMS und Clan Wars verwenden persistente Arena-Punkte, die in einer geeigneten bereits vorhandenen Welt gesetzt werden.
 
-```text
-/skymap event SkyEvents
-```
+Vor dem Setup mit `/skymap list` pruefen, dass nur die offiziellen Welten erwartet werden:
+- `SkyPvP`
+- `SkyPlots`
+- `SkyIslands`
+- `SkyCommunityEvent`
 
-Diese Welt ist **nur fuer spielbare Combat-Events** gedacht und nicht fuer die Community-Giveaways.
-
-Die finale Generatorstruktur ist bewusst schlanker:
-- zentraler SkyKings Event-Hub
-- Nord: Duel Courtyard
-- Ost: LMS Ruins
-- Sued: Clan-War-Arena
-
-Tournament und Juggernaut gehoeren nicht mehr zum SkyKings-Feature-Set.
+`SkyEvents` ist retired und darf nicht fuer den finalen Server neu erzeugt werden. Tournament und Juggernaut gehoeren ebenfalls nicht mehr zum SkyKings-Feature-Set.
 
 ### Duel
-Auf Gold-Marker:
+An den beiden Spawnpunkten und der Zuschauerposition:
 ```text
 /eventarena set duel a
-```
-Auf Diamant-Marker:
-```text
 /eventarena set duel b
-```
-Auf Zuschauerplattform:
-```text
 /eventarena set duel spectator
 ```
 
 ### LMS
-Auf gruenem Lobby-Marker:
+Lobby und mindestens vier Spawns setzen:
 ```text
 /eventarena set lms lobby
-```
-Danach die Glowstone-Marker im Kreis ablaufen:
-```text
 /eventarena set lms spawn1
 /eventarena set lms spawn2
 /eventarena set lms spawn3
 /eventarena set lms spawn4
-/eventarena set lms spawn5
-/eventarena set lms spawn6
-/eventarena set lms spawn7
-/eventarena set lms spawn8
-```
-Zuschauerplattform:
-```text
 /eventarena set lms spectator
 ```
 
-### Clan Wars
-Der Gameplay-Controller verwendet die echten persistenten Core-Clans. Die neue suedliche Arena zeigt zwei klar getrennte Teamseiten.
+Weitere LMS-Spawns koennen bei Bedarf ueber `spawn5`, `spawn6`, `spawn7`, `spawn8` gesetzt werden, sofern die finale Arena dafuer ausgelegt ist.
 
+### Clan Wars
 Mindestens fuer 2v2 setzen:
 ```text
 /eventarena set clanwar a1
@@ -219,8 +197,9 @@ Regeln:
 - Siegerreward wird nur einmal ausgezahlt
 - Clan-War-Kills bleiben aus Open-World-Stats/Streaks/Bounties heraus
 - Commands, Drop/Pickup und fremde Inventare sind waehrend des Wars blockiert
+- Event-Return-Recovery muss Quit, Death-Screen und Serverrestart ueberleben
 
-Vor Release 2v2, 3v3 und 5v5 testen, inklusive Owner-Quit, Member-Quit, Pfeile und `/clanwar stop`.
+Vor Release 2v2, 3v3 und 5v5 testen, inklusive Owner-Quit, Member-Quit, Pfeile, Death-Screen-Restart und `/clanwar stop`.
 
 ## 5. Community-/Giveaway-Eventmap
 
@@ -391,6 +370,12 @@ Spaeter lokal setzen, niemals in GitHub committen:
 - Channel IDs in `discord.yml`
 - `/discordtest staff|audit|events|status`
 
+Runtime pruefen:
+- Serverstatus-Relay
+- King-Altar-Capture
+- kuratierte legitime Killstreak-Meilensteine
+- keine Anti-Farm-Killstreak-Meldung
+
 ## 14. Warps / Map-Travel
 
 Finale Warp-Namen und Koordinaten **nicht raten**. Auf der echten Map an die gewuenschte Position stellen:
@@ -415,7 +400,6 @@ Staff Map-Travel:
 /maptp main
 /maptp plots
 /maptp islands
-/maptp events
 /maptp community
 ```
 
@@ -429,8 +413,10 @@ Permissions:
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
 - Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
 - Mob-Stacking Performanceprofil unter realer Last
-- Clan Tag final in Chat/Tab integrieren, ohne Rangdarstellung zu zerstoeren
-- Discord-Events aus allen Modulen final anschliessen
+- Prefix/Rang/Clan-Tag Darstellung im echten Chat/Tab mit langen Namen testen
+- Discord-Relay mit echtem Bot/Channels testen
 - kompletter Restart-/Dupe-/Load-/Backup-Test vor Release
 - Battle-Pass-Economy/XP nach echtem Spieler-Test balancen
+- Jackpot und Map-Mastery-Persistenz unter Restart testen
+- Event-Return-Recovery bei Quit, Death-Screen und Serverrestart testen
 - optionaler eigener Resource-Pack-Layer fuer die Pixel-Battle-Pass-UI nach stabilem Serverstand
