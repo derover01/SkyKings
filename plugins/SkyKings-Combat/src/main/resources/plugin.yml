@@ -27,7 +27,7 @@ commands:
     usage: /stattrack [apply|give]
     aliases: [weaponhistory, weaponstats]
   mapmastery:
-    description: Zeigt deine Map-Mastery mit Hot-Zone-, King-, End- und Secret-Fortschritt.
+    description: Zeigt deine Map-Mastery mit Landmark-, Hot-Zone-, King-, End- und Secret-Fortschritt.
     usage: /mapmastery [Spieler]
     aliases: [mastery, mapstats]
   achievements:
@@ -66,7 +66,7 @@ commands:
     usage: /peace <Spieler|accept|deny|remove|list>
     aliases: [friede, friend]
   duel:
-    description: Fordert einen Spieler zu einem sicheren 1v1 mit optionalem Coin-Einsatz heraus.
+    description: Öffnet für /duel <Spieler> das Duel-Setup mit Kit und optionalem Coin-Einsatz.
     usage: /duel <Spieler> [Einsatz|Arena] [Arena]
     aliases: [1v1]
   lms:
@@ -142,13 +142,13 @@ commands:
     permission: skykings.admin.map
     aliases: [islandmarker, maplandmark]
   trashbin:
-    description: Registriert Hopper als 6x9 Map-Muelleimer.
+    description: Registriert Hopper als 6x9 Map-Mülleimer.
     usage: /trashbin <add|remove|list>
     permission: skykings.admin.map
     aliases: [maptrash, muelleimer]
   mapdisplay:
-    description: Setzt dynamische Map-Hologramme und Leaderboards.
-    usage: /mapdisplay <set|remove|list> [topkills|king|hotzones]
+    description: Setzt dynamische Map-Hologramme für Leaderboards, Objectives und das Paid-Rank-Board.
+    usage: /mapdisplay <set|remove|list> [topkills|king|hotzones|ranks]
     permission: skykings.admin.map
     aliases: [mapholo, maphologram]
   skymap:
@@ -203,7 +203,7 @@ permissions:
     description: Darf StatTrack-Module ausgeben.
     default: false
   skykings.admin.season:
-    description: Darf eine Season abschließen und archivieren.
+    description: Darf eine Season abschließen und archiviert Hall-of-Fame und Medaillen.
     default: false
   skykings.admin.legacyhall:
     description: Darf Legacy-Hall-Displays platzieren und entfernen.
