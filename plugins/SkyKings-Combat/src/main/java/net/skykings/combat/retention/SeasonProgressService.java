@@ -18,10 +18,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Season-XP/PvP-Level 1-100. Nur Open-World-Kills geben XP. */
+/** Season-XP/PvP-Level 1-100. Nur legitime PvP-/Quest-Aktivitaet gibt XP. */
 public final class SeasonProgressService implements Listener {
     private static final int XP_PER_KILL = 100;
     private static final long SAME_VICTIM_COOLDOWN = 10L * 60L * 1000L;
+    private static volatile SeasonProgressService active;
+
     private final JavaPlugin plugin;
     private final File file;
     private final YamlConfiguration data;
@@ -32,7 +34,10 @@ public final class SeasonProgressService implements Listener {
         this.file = new File(plugin.getDataFolder(), "season-progress.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
         if (!data.contains("season")) data.set("season", 1);
+        active = this;
     }
+
+    public static SeasonProgressService active() { return active; }
 
     @EventHandler(ignoreCancelled = true)
     public void onDeath(PlayerDeathEvent event) {
@@ -50,7 +55,7 @@ public final class SeasonProgressService implements Listener {
     }
 
     public void addXp(Player player, int amount, String reason) {
-        if (amount <= 0) return;
+        if (player == null || amount <= 0) return;
         UUID uuid = player.getUniqueId();
         int before = getLevel(uuid);
         data.set(path(uuid, "xp"), getXp(uuid) + amount);
