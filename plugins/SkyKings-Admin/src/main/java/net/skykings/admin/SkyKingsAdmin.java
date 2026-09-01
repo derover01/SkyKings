@@ -13,6 +13,8 @@ import net.skykings.admin.command.WarpAdminCommand;
 import net.skykings.admin.command.WarpCommand;
 import net.skykings.admin.discord.DiscordBridge;
 import net.skykings.admin.warp.WarpService;
+import net.skykings.admin.warp.WarpTeleportService;
+import net.skykings.combat.tag.CombatTagService;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.discord.DiscordNotifier;
 import org.bukkit.command.PluginCommand;
@@ -25,6 +27,7 @@ public class SkyKingsAdmin extends JavaPlugin {
 
     private DiscordBridge discordBridge;
     private GroundClearService groundClearService;
+    private WarpTeleportService warpTeleportService;
 
     @Override
     public void onEnable() {
@@ -36,6 +39,15 @@ public class SkyKingsAdmin extends JavaPlugin {
             return;
         }
         SkyKingsCoreAPI core = registration.getProvider();
+        RegisteredServiceProvider<CombatTagService> combatRegistration =
+                getServer().getServicesManager().getRegistration(CombatTagService.class);
+        if (combatRegistration == null) {
+            getLogger().severe("CombatTagService nicht gefunden - sichere Warps koennen nicht gestartet werden.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        CombatTagService combatTags = combatRegistration.getProvider();
+
         this.discordBridge = new DiscordBridge(this);
         getServer().getServicesManager().register(DiscordNotifier.class, discordBridge, this, ServicePriority.Normal);
 
@@ -74,7 +86,9 @@ public class SkyKingsAdmin extends JavaPlugin {
         groundClearService.startAutomaticCycle();
 
         WarpService warpService = new WarpService(this);
-        WarpCommand warpExecutor = new WarpCommand(warpService);
+        this.warpTeleportService = new WarpTeleportService(this, warpService, combatTags);
+        getServer().getPluginManager().registerEvents(warpTeleportService, this);
+        WarpCommand warpExecutor = new WarpCommand(warpService, warpTeleportService);
         warpCommand.setExecutor(warpExecutor);
         warpCommand.setTabCompleter(warpExecutor);
         WarpAdminCommand warpAdminExecutor = new WarpAdminCommand(warpService);
@@ -92,11 +106,12 @@ public class SkyKingsAdmin extends JavaPlugin {
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Warp-, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit sicheren Combat-Warps, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (warpTeleportService != null) warpTeleportService.shutdown();
         if (groundClearService != null) groundClearService.stopAutomaticCycle();
         getServer().getServicesManager().unregisterAll(this);
         if (discordBridge != null) {
