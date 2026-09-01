@@ -77,6 +77,10 @@ commands:
     description: SkyKings Tournament Queue und Bracket-Event.
     usage: /tournament <join|leave|status|start|stop>
     aliases: [turnier]
+  juggernaut:
+    description: Boss gegen Angreifer als asymmetrisches Serverevent.
+    usage: /juggernaut <join|leave|status|start|stop>
+    aliases: [jug]
   targetevent:
     description: Most-Wanted-Event innerhalb konfigurierter PvP-Regionen.
     usage: /targetevent <status|start|stop> [Spieler]
