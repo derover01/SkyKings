@@ -19,7 +19,7 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 - `/fly` - Flugmodus, rang-/permissionabhaengig.
 - `/speed <1-10|reset>` - Fluggeschwindigkeit.
 - `/stack` - stackbare Inventaritems verdichten.
-- `/bloecke` - No-Sell-Baublöcke fuer berechtigte Raenge.
+- `/bloecke` - No-Sell-Baubloecke fuer berechtigte Raenge.
 - `/repair` - gehaltenes Item reparieren.
 - `/enderchest` - persoenliche mehrseitige Enderchest. Alias: `/ec`.
 - `/anvil` - portabler Amboss.
@@ -100,7 +100,9 @@ Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort
 - `/pvplevel` - PvP-Level 1-100.
 - `/medals [Spieler]` - permanente Medaillen.
 - `/legacyhall` - Hall of Fame.
-- `/battlepass [rewards|quests]` - Battle Pass Hub / Reward Track / Quests.
+- `/battlepass [rewards|quests]` - Battle Pass Hub / Reward Track / Quests. Jedes Level 1-100 hat einen Free-Reward; Premium hat pro Level einen zusaetzlichen Reward.
+- `/premiumpass give <Spieler>` - Staff: Premium Pass vergeben.
+- `/premiumpass remove <Spieler>` - Staff: Premium Pass entfernen.
 - `/quests [daily|weekly|premium]` - Quest Center.
 - `/killeffect` - Cosmetics Center fuer Kill Effects und Death Messages.
 - `/stattrack [apply|give]` - Weapon History / StatTrack.
@@ -132,17 +134,24 @@ Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 - `/clearchat` - Chat leeren.
 - `/clear` - angekuendigter Boden-Clear. Aliases: `/groundclear`, `/bodenclear`.
 - `/gm <0|1|2|3> [Spieler]` - Gamemode.
-- `/buildmode` - persoenlicher Map-Baumodus fuer geschuetzte Produktions-/Eventmaps.
+- `/buildmode` - persoenlicher Map-Baumodus fuer geschuetzte Produktions-/Communitymaps.
 - `/skcheck` - Runtime-Systemcheck.
 - `/discordtest [staff|audit|events|status]` - Discord-Bridge testen.
 
 ## 10. Warps & Welten
 
+Die offiziellen SkyKings-Welten sind `SkyPvP`, `SkyPlots`, `SkyIslands` und `SkyCommunityEvent`. `SkyEvents` ist nicht mehr Bestandteil des Servers.
+
 - `/setwarp <Name>` - Warp an aktueller Position setzen.
 - `/delwarp <Name>` - Warp loeschen. Alias: `/deletewarp`.
-- `/maptp <main|plots|islands|events|community>` - Staff-Weltreise.
+- `/maptp <main|plots|islands|community>` - Staff-Weltreise.
 - `/setspawn` - globalen SkyKings Spawn setzen.
-- `/skymap <load|event|community|generate> [Weltname]` - Produktions-/Event-/Community-Welten verwalten.
+- `/skymap list` - zeigt alle offiziellen Maps und ihren Ladezustand.
+- `/skymap load [Weltname]` - vorhandene Welt manuell laden; normalerweise nicht noetig, da offizielle Maps beim Start automatisch geladen werden.
+- `/skymap community [Weltname]` - Community-/Giveaway-Map erstmalig erzeugen, falls sie noch fehlt.
+- `/skymap generate [Weltname]` - alte lokale Test-Arena V3 erzeugen; kein Produktionsbestandteil.
+
+Auto-Load-Regel: `SkyPlots` und `SkyIslands` werden beim Core-Start mit ihren Spezialgeneratoren geladen. `SkyPvP` und `SkyCommunityEvent` werden beim Combat-Start automatisch geladen, sobald ihre Weltordner existieren.
 
 ## 11. Map-Gameplay Setup
 
@@ -162,7 +171,7 @@ Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 
 ## 12. Event-Arenen einmalig setzen
 
-Finale Koordinaten niemals raten; ingame an die exakte Position stellen.
+Duel, LMS und Clan Wars benoetigen weiterhin persistente Arena-Punkte, aber keine eigene `SkyEvents`-Welt. Die Punkte koennen in einer geeigneten vorhandenen Welt gesetzt werden. Finale Koordinaten niemals raten; ingame an die exakte Position stellen.
 
 ### Duel
 
@@ -214,7 +223,7 @@ In der Naehe des gewuenschten Villagers:
 ## 14. Empfohlene erste Setup-Reihenfolge
 
 1. Build/Deploy, Serverstart, `/skcheck`.
-2. Produktions-, Plot-, Island-, Event- und Community-Welten laden.
+2. Mit `/skymap list` pruefen, dass `SkyPvP`, `SkyPlots`, `SkyIslands` und `SkyCommunityEvent` geladen sind.
 3. `/setspawn`.
 4. finale `/setwarp`-Punkte setzen.
 5. PvP-Regionen definieren.
@@ -222,9 +231,9 @@ In der Naehe des gewuenschten Villagers:
 7. Gold-/Level-/Blacksmith-/Merchant-Landmarks.
 8. Secrets, Loot Rooms, Routes, Map Loot, Supply Drops, Displays, Trashbins.
 9. Shop-NPCs binden und Markt-Mietstaende mit `/shoprent pos1|pos2|create` definieren.
-10. Duel/LMS/Clan-War-Arenen setzen.
+10. Duel/LMS/Clan-War-Arenen in einer gewuenschten bestehenden Welt setzen.
 11. Plot-/Island-Schutz, Rand, Merge, Trust testen.
-12. Kits, Battle Pass, Quests, Crates, Voucher, Jackpot testen.
+12. Kits, 100-Level-Battle-Pass, Quests, Crates, Voucher, Jackpot testen.
 13. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
 14. Restart-/Persistenz- und Backup/Restore-Gates.
 15. Economy-/Reward-Balance, dann Soft Launch.
@@ -234,4 +243,4 @@ In der Naehe des gewuenschten Villagers:
 - Bei jedem neuen/entfernten Command diese Datei aktualisieren.
 - `plugin.yml` und `/commands` muessen dieselbe Spielerrealitaet widerspiegeln.
 - PDF/Handbook wird aus diesem aktuellen Repo-Stand neu erzeugt, sobald sich Commands oder Setup aendern.
-- Keine retired Features (Tournament/Juggernaut) wieder in Help/UI/Doku aufnehmen.
+- Keine retired Features (Tournament/Juggernaut/SkyEvents) wieder in Help/UI/Doku aufnehmen.
