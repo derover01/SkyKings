@@ -30,6 +30,10 @@ public final class PlotBorderService {
         this.yaml = YamlConfiguration.loadConfiguration(file);
     }
 
+    public boolean hasPlot(UUID owner) {
+        return plots.hasPlot(owner);
+    }
+
     public PlotBorderTheme selected(UUID owner) {
         return PlotBorderTheme.byId(yaml.getString(path(owner, "selected"), PlotBorderTheme.CLASSIC.getId()));
     }
@@ -54,6 +58,15 @@ public final class PlotBorderService {
         return true;
     }
 
+    public boolean selectOwned(Player player, PlotBorderTheme theme) {
+        UUID owner = player.getUniqueId();
+        if (!plots.hasPlot(owner) || !owns(owner, theme)) return false;
+        yaml.set(path(owner, "selected"), theme.getId());
+        save();
+        apply(owner, theme);
+        return true;
+    }
+
     @SuppressWarnings("deprecation")
     public void apply(UUID owner, PlotBorderTheme theme) {
         PlotService.PlotData plot = plots.get(owner);
@@ -66,6 +79,8 @@ public final class PlotBorderService {
         int maxZ = plot.getMaxZ();
         Material material = theme.getMaterial();
 
+        // Nur der aeusserste Blockring DER 65x65-Claimflaeche wird veraendert.
+        // Die 7 Block breite Stone-Brick-Strasse liegt ausserhalb dieser Grenzen und bleibt neutral.
         for (int x = minX; x <= maxX; x++) {
             world.getBlockAt(x, PlotService.Y - 1, minZ).setType(material, false);
             world.getBlockAt(x, PlotService.Y - 1, maxZ).setType(material, false);
