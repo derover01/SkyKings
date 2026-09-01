@@ -23,7 +23,10 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
     private final PlotService plots;
     private final PlotMenu menu;
 
-    public PlotCommand(PlotService plots) { this.plots = plots; this.menu = new PlotMenu(plots); }
+    public PlotCommand(PlotService plots, PlotBorderService borders) {
+        this.plots = plots;
+        this.menu = new PlotMenu(plots, borders);
+    }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -35,7 +38,7 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
         if ("create".equals(sub) || "auto".equals(sub) || "claim".equals(sub) || "a".equals(sub) || "c".equals(sub)) {
             if (plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt bereits einen Plot."); return true; }
             if (!plots.create(p)) { p.sendMessage(ChatColor.RED + "Plot konnte nicht erstellt werden."); return true; }
-            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT GECLAIMT! " + ChatColor.GRAY + "65x65 Baugrundstueck mit Strassenanschluss.");
+            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT GECLAIMT! " + ChatColor.GRAY + "65x65 Baugrundstueck. Die Wege bleiben neutral.");
             return true;
         }
         if ("home".equals(sub) || "h".equals(sub)) { plots.teleportHome(p, p.getUniqueId()); return true; }
@@ -46,6 +49,7 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
         }
         if ("info".equals(sub) || "i".equals(sub)) { menu.open(p); return true; }
         if ("flags".equals(sub)) { menu.openFlags(p); return true; }
+        if ("rand".equals(sub) || "border".equals(sub)) { menu.openBorders(p); return true; }
 
         if ("add".equals(sub) || "trust".equals(sub) || "remove".equals(sub) || "untrust".equals(sub)
                 || "deny".equals(sub) || "undeny".equals(sub)) {
@@ -116,13 +120,14 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
         p.sendMessage(ChatColor.GREEN + "/p deny <Spieler>" + ChatColor.GRAY + " - Plot-Zutritt sperren");
         p.sendMessage(ChatColor.GREEN + "/p undeny <Spieler>" + ChatColor.GRAY + " - Sperre entfernen");
         p.sendMessage(ChatColor.GREEN + "/p flags" + ChatColor.GRAY + " - Flag-Menue");
+        p.sendMessage(ChatColor.GREEN + "/p rand" + ChatColor.GRAY + " - Plot-Rand kaufen/waehlen");
         p.sendMessage(ChatColor.GREEN + "/p visit <Spieler>" + ChatColor.GRAY + " - Plot besuchen");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(Arrays.asList("menu", "auto", "home", "sethome", "info", "add", "trust", "remove", "deny", "undeny", "flags", "flag", "visit"), args[0]);
+            return filter(Arrays.asList("menu", "auto", "home", "sethome", "info", "add", "trust", "remove", "deny", "undeny", "flags", "flag", "rand", "visit"), args[0]);
         }
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);
