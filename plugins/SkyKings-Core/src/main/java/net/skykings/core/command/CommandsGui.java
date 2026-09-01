@@ -26,14 +26,14 @@ public final class CommandsGui {
         category(gui, 10, Material.DIAMOND_SWORD, ChatColor.RED + "PvP & Profil",
                 "Stats, Bounties, Cosmetics", p -> openPvp(p));
         category(gui, 12, Material.GOLD_INGOT, ChatColor.GOLD + "Economy & Handel",
-                "Shop, Sell, Trade, PlayerShop", p -> openEconomy(p));
+                "Shop, Trade, Jackpot, PlayerShop", p -> openEconomy(p));
         category(gui, 14, Material.GRASS, ChatColor.GREEN + "Islands & Plots",
                 "Private Welten & Schutz", p -> openClaims(p));
         category(gui, 16, Material.EXP_BOTTLE, ChatColor.AQUA + "Progression",
                 "Ranks, Kits, Season, Pass", p -> openProgression(p));
 
         category(gui, 28, Material.BLAZE_ROD, ChatColor.LIGHT_PURPLE + "Events",
-                "Duel, LMS, Turnier, Clan War", p -> openEvents(p));
+                "Duel, LMS, Clan War, Most Wanted", p -> openEvents(p));
         category(gui, 30, Material.NAME_TAG, ChatColor.YELLOW + "Social",
                 "Clan, Peace, Collection", p -> openSocial(p));
         category(gui, 32, Material.FEATHER, ChatColor.WHITE + "Komfort & Perks",
@@ -84,6 +84,7 @@ public final class CommandsGui {
         action(gui, 12, Material.PAPER, "/worth", "Hand-Item bewerten", "worth");
         info(gui, 14, Material.GOLD_INGOT, "/sell <hand|all>", "Items verkaufen");
         info(gui, 16, Material.CHEST, "/trade <Spieler>", "Sicherer Spielerhandel");
+        action(gui, 28, Material.NETHER_STAR, "/jackpot", "Serverweiter Coin-Jackpot", "jackpot");
         info(gui, 30, Material.MONSTER_EGG, "/playershop kaufen", "Eigenen Händler starten");
         info(gui, 32, Material.HOPPER, "/playershop ...", "Stock, Preis, Einnahmen");
         nav(gui);
@@ -122,11 +123,9 @@ public final class CommandsGui {
         GuiSession gui = page(player, "Events");
         info(gui, 10, Material.DIAMOND_SWORD, "/duel <Spieler> [Einsatz]", "Sicheres 1v1");
         info(gui, 12, Material.FIREWORK, "/lms join", "Last Man Standing");
-        info(gui, 14, Material.GOLD_HELMET, "/tournament join", "Bracket-Turnier");
-        info(gui, 16, Material.IRON_CHESTPLATE, "/juggernaut join", "Boss gegen Team");
-        info(gui, 28, Material.BANNER, "/clanwar <Clan-Owner>", "2v2 bis 5v5 Clan War");
-        info(gui, 30, Material.COMPASS, "/targetevent status", "Most Wanted");
-        info(gui, 32, Material.GOLD_INGOT, "/verlosung join", "Coin-Verlosung");
+        info(gui, 14, Material.BANNER, "/clanwar <Clan-Owner>", "2v2 bis 5v5 Clan War");
+        info(gui, 16, Material.COMPASS, "/targetevent status", "Most Wanted");
+        info(gui, 30, Material.GOLD_INGOT, "/verlosung join", "Coin-Verlosung");
         nav(gui);
         guiManager.open(gui);
     }
@@ -177,6 +176,7 @@ public final class CommandsGui {
                 ChatColor.GRAY + "Rechts: öffnen"));
         action(gui, 13, Material.NETHER_STAR, "/craterewards", "Rang-Rewards", "craterewards");
         action(gui, 15, Material.GOLD_NUGGET, "/dailyrewards", "Daily Reward", "dailyrewards");
+        action(gui, 29, Material.GOLD_INGOT, "/jackpot", "Coin Jackpot", "jackpot");
         action(gui, 31, Material.NETHER_STAR, "/battlepass", "Season Rewards", "battlepass");
         nav(gui);
         guiManager.open(gui);
