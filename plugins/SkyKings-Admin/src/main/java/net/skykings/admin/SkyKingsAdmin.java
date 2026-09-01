@@ -1,6 +1,7 @@
 package net.skykings.admin;
 
 import net.skykings.admin.casino.CasinoCommand;
+import net.skykings.admin.casino.CasinoNpcService;
 import net.skykings.admin.cleanup.GroundClearService;
 import net.skykings.admin.command.AnnouncementCommand;
 import net.skykings.admin.command.ClearChatCommand;
@@ -69,10 +70,11 @@ public class SkyKingsAdmin extends JavaPlugin {
         PluginCommand fridayCommand = getCommand("freitag");
         PluginCommand raffleCommand = getCommand("verlosen");
         PluginCommand casinoCommand = getCommand("casino");
+        PluginCommand casinoNpcCommand = getCommand("casinonpc");
         if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null
                 || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null
                 || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null
-                || fridayCommand == null || raffleCommand == null || casinoCommand == null) {
+                || fridayCommand == null || raffleCommand == null || casinoCommand == null || casinoNpcCommand == null) {
             getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -111,7 +113,13 @@ public class SkyKingsAdmin extends JavaPlugin {
         this.fridayEventService = new FridayEventService(this, core, warpService);
         fridayCommand.setExecutor(fridayEventService);
         raffleCommand.setExecutor(fridayEventService);
-        casinoCommand.setExecutor(new CasinoCommand(core));
+
+        CasinoCommand casino = new CasinoCommand(core);
+        casinoCommand.setExecutor(casino);
+        CasinoNpcService casinoNpcs = new CasinoNpcService(this, casino);
+        casinoNpcCommand.setExecutor(casinoNpcs);
+        casinoNpcCommand.setTabCompleter(casinoNpcs);
+        getServer().getPluginManager().registerEvents(casinoNpcs, this);
 
         systemCheckCommand.setExecutor(new SystemCheckCommand());
         discordTestCommand.setExecutor(new DiscordTestCommand(discordBridge));
@@ -119,7 +127,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Void-Crown-Casino, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Void-Crown-Casino/NPC-Stationen, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
