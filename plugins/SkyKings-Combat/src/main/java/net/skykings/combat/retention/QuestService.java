@@ -2,8 +2,8 @@ package net.skykings.combat.retention;
 
 import net.skykings.combat.event.EventParticipationService;
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.item.SkyKingsCurrencyItems;
 import org.bukkit.ChatColor;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -11,7 +11,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -21,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Daily/Weekly Quests: Open-World-PvP-/Pearl-Ziele statt Event-Farming oder Block-Grind. */
+/** Daily/Weekly Quests mit separatem Premium-Pool. */
 public final class QuestService implements Listener {
     private static final long SAME_VICTIM_COOLDOWN = 10L * 60L * 1000L;
     private final JavaPlugin plugin;
@@ -52,6 +51,10 @@ public final class QuestService implements Listener {
         prepare(killer.getUniqueId());
         add(killer, "daily.kills", 1);
         add(killer, "weekly.kills", 1);
+        if (isPremium(killer.getUniqueId())) {
+            add(killer, "premium.daily.kills", 1);
+            add(killer, "premium.weekly.kills", 1);
+        }
         checkRewards(killer);
     }
 
@@ -62,7 +65,13 @@ public final class QuestService implements Listener {
         if (EventParticipationService.global().isInEvent(player.getUniqueId())) return;
         prepare(player.getUniqueId());
         add(player, "daily.pearls", 1);
+        if (isPremium(player.getUniqueId())) add(player, "premium.daily.pearls", 1);
         checkRewards(player);
+    }
+
+    public boolean isPremium(UUID uuid) {
+        BattlePassService service = BattlePassService.active();
+        return service != null && service.isPremium(uuid);
     }
 
     public void prepare(UUID uuid) {
@@ -72,10 +81,12 @@ public final class QuestService implements Listener {
         if (data.getLong(p + "daily.id", -1L) != day) {
             data.set(p + "daily", null);
             data.set(p + "daily.id", day);
+            data.set(p + "premium.daily", null);
         }
         if (data.getInt(p + "weekly.id", -1) != week) {
             data.set(p + "weekly", null);
             data.set(p + "weekly.id", week);
+            data.set(p + "premium.weekly", null);
         }
     }
 
@@ -90,26 +101,30 @@ public final class QuestService implements Listener {
 
     private void checkRewards(Player player) {
         UUID uuid = player.getUniqueId();
-        if (get(uuid, "daily.kills") >= 5 && !claimed(uuid, "daily.claimed-kills")) {
+        if (get(uuid, "daily.kills") >= 5 && !claimed(uuid, "daily.claimed-kills"))
             reward(player, "daily.claimed-kills", 150_000L, 2, "Daily: 5 PvP-Kills");
-        }
-        if (get(uuid, "daily.pearls") >= 20 && !claimed(uuid, "daily.claimed-pearls")) {
+        if (get(uuid, "daily.pearls") >= 20 && !claimed(uuid, "daily.claimed-pearls"))
             reward(player, "daily.claimed-pearls", 75_000L, 1, "Daily: 20 Enderperlen");
-        }
-        if (get(uuid, "weekly.kills") >= 30 && !claimed(uuid, "weekly.claimed-kills")) {
+        if (get(uuid, "weekly.kills") >= 30 && !claimed(uuid, "weekly.claimed-kills"))
             reward(player, "weekly.claimed-kills", 500_000L, 5, "Weekly: 30 PvP-Kills");
-        }
+
+        if (!isPremium(uuid)) return;
+        if (get(uuid, "premium.daily.kills") >= 10 && !claimed(uuid, "premium.daily.claimed-kills"))
+            reward(player, "premium.daily.claimed-kills", 300_000L, 4, "Premium Daily: 10 PvP-Kills");
+        if (get(uuid, "premium.daily.pearls") >= 40 && !claimed(uuid, "premium.daily.claimed-pearls"))
+            reward(player, "premium.daily.claimed-pearls", 150_000L, 3, "Premium Daily: 40 Enderperlen");
+        if (get(uuid, "premium.weekly.kills") >= 75 && !claimed(uuid, "premium.weekly.claimed-kills"))
+            reward(player, "premium.weekly.claimed-kills", 1_250_000L, 12, "Premium Weekly: 75 PvP-Kills");
     }
 
     private void reward(Player player, String claimedKey, long coins, int stars, String name) {
         UUID uuid = player.getUniqueId();
         data.set("players." + uuid + "." + claimedKey, true);
         economy.deposit(uuid, coins, "QUEST_REWARD", name);
-        java.util.Map<Integer, ItemStack> left = player.getInventory().addItem(new ItemStack(Material.NETHER_STAR, stars));
-        for (ItemStack stack : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), stack);
+        SkyKingsCurrencyItems.give(player, stars);
         save();
         player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "QUEST ABGESCHLOSSEN " + ChatColor.YELLOW + name
-                + ChatColor.GRAY + " - +" + coins + " Coins, +" + stars + " Nethersterne");
+                + ChatColor.GRAY + " - +" + coins + " Coins, +" + stars + " SkyKings Sterne");
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.7F, 1.5F);
     }
 
