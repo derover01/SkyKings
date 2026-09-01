@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Kodiert Gutschein-Typ, Ziel und eindeutige Seriennummer persistent in Lore (1.8-kompatibel). */
+/** Kodiert Gutschein-Typ, Ziel und eindeutige Seriennummer persistent und spielerunsichtbar im Item. */
 public final class VoucherItemCodec {
 
     public enum VoucherType { RANK, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
 
     /** Legacy-Marker bleibt lesbar, damit bereits ausgegebene Testgutscheine dekodiert werden koennen. */
     private static final String LEGACY_MARKER = ChatColor.BLACK + "skykings:voucher:";
-    /** Neue Metadaten werden absichtlich in kurzen Lore-Zeilen gespeichert, damit 1.8 Tooltips nicht riesig werden. */
+    /** Fallback fuer Umgebungen ohne CraftBukkit-NBT (z. B. isolierte Unit-Tests). */
     private static final String META_MARKER = ChatColor.BLACK + "#sv";
     private static final int META_CHUNK = 12;
 
@@ -33,13 +33,21 @@ public final class VoucherItemCodec {
     public ItemStack create(VoucherType type, String target, String displayTarget) {
         String cleanTarget = cleanDisplay(target, displayTarget);
         UUID serial = UUID.randomUUID();
-        if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitize(target))) {
+        String sanitizedTarget = sanitize(target);
+        if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitizedTarget)) {
             throw new IllegalStateException("Voucher-Serial konnte nicht sicher registriert werden");
         }
         ItemStack item = baseItem(type, cleanTarget, true);
+        String payload = type.name().toLowerCase(Locale.ROOT) + "|" + sanitizedTarget + "|" + serial;
+
+        // Auf dem echten Spigot-Server: technische Daten ausschliesslich im NBT, nicht im Tooltip.
+        ItemStack nbtItem = VoucherNbtCodec.write(item, payload);
+        if (nbtItem != null) return nbtItem;
+
+        // Nur Fallback fuer Test-Doubles/ungewoehnliche Server ohne CraftBukkit-NBT-Zugriff.
         ItemMeta meta = item.getItemMeta();
         List<String> lore = new ArrayList<String>(meta.getLore());
-        addMeta(lore, type.name().toLowerCase(Locale.ROOT) + "|" + sanitize(target) + "|" + serial);
+        addMeta(lore, payload);
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -77,17 +85,22 @@ public final class VoucherItemCodec {
 
     public DecodedVoucher decode(ItemStack item) {
         if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return null;
+
+        // Neue Gutscheine: echte interne Item-Daten, komplett ausserhalb der sichtbaren Lore.
+        String nbtPayload = VoucherNbtCodec.read(item);
+        if (nbtPayload != null) return decodePayload(nbtPayload);
+
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
 
-        // Neue kurze Metazeilen zuerst lesen.
+        // Rueckwaertskompatibilitaet fuer den kurzen Lore-Marker der vorherigen Version.
         StringBuilder payload = new StringBuilder();
         for (String line : meta.getLore()) {
             if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
         }
         if (payload.length() > 0) return decodePayload(payload.toString());
 
-        // Rueckwaertskompatibilitaet fuer alte Testitems.
+        // Rueckwaertskompatibilitaet fuer ganz alte Testitems.
         for (String line : meta.getLore()) {
             if (line == null || !line.startsWith(LEGACY_MARKER)) continue;
             String[] parts = line.substring(LEGACY_MARKER.length()).split(":", 3);
