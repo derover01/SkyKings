@@ -143,6 +143,7 @@ public final class TradeGuiService implements Listener {
         else if (raw == 23) changeCoins(player, session, self, 100000L);
         else if (raw == 24) changeCoins(player, session, self, 1000000L);
         else if (raw == 48) {
+            session.bumpAcceptanceRevision();
             self.setAccepted(!self.isAccepted());
             refresh(session);
             if (session.bothAccepted()) startCountdown(session);
@@ -160,9 +161,10 @@ public final class TradeGuiService implements Listener {
         refresh(session);
     }
 
-    /** Jede Angebotsaenderung invalidiert beide alten Zusagen. */
+    /** Jede Angebotsaenderung invalidiert beide alten Zusagen und alle alten Countdown-Tasks. */
     private void resetAcceptance(TradeSession session) {
         if (session == null) return;
+        session.bumpAcceptanceRevision();
         session.getLeft().setAccepted(false);
         session.getRight().setAccepted(false);
     }
@@ -187,8 +189,10 @@ public final class TradeGuiService implements Listener {
     }
 
     private void startCountdown(final TradeSession session) {
+        final long revision = session.getAcceptanceRevision();
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!session.isFinished() && session.bothAccepted()) complete(session);
+            if (!session.isFinished() && session.bothAccepted()
+                    && session.getAcceptanceRevision() == revision) complete(session);
         }, 60L);
     }
 
@@ -215,9 +219,19 @@ public final class TradeGuiService implements Listener {
             return;
         }
 
-        if (a.getCoins() > 0 && !economyService.withdraw(a.getPlayer(), a.getCoins(), "TRADE", "Trade " + session.getId())) return;
+        if (a.getCoins() > 0 && !economyService.withdraw(a.getPlayer(), a.getCoins(), "TRADE", "Trade " + session.getId())) {
+            resetAcceptance(session);
+            left.sendMessage(ChatColor.RED + "Trade gestoppt: Coins konnten nicht reserviert werden.");
+            right.sendMessage(ChatColor.RED + "Trade gestoppt: Coins konnten nicht reserviert werden.");
+            refresh(session);
+            return;
+        }
         if (b.getCoins() > 0 && !economyService.withdraw(b.getPlayer(), b.getCoins(), "TRADE", "Trade " + session.getId())) {
             if (a.getCoins() > 0) economyService.deposit(a.getPlayer(), a.getCoins(), "TRADE_ROLLBACK", "Trade rollback " + session.getId());
+            resetAcceptance(session);
+            left.sendMessage(ChatColor.RED + "Trade gestoppt: Coins konnten nicht reserviert werden.");
+            right.sendMessage(ChatColor.RED + "Trade gestoppt: Coins konnten nicht reserviert werden.");
+            refresh(session);
             return;
         }
         if (b.getCoins() > 0) economyService.deposit(a.getPlayer(), b.getCoins(), "TRADE", "Trade " + session.getId());
