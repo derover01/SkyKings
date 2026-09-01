@@ -46,6 +46,8 @@ public final class PlayerShopService {
         if (placementPolicy != null) this.placementPolicy = placementPolicy;
     }
 
+    public ShopPlacementPolicy getPlacementPolicy() { return placementPolicy; }
+
     public synchronized PlayerShop create(Player owner, Location location) {
         if (owner == null || location == null || !placementPolicy.canCreateShop(owner, location)) return null;
         PlayerShop shop = store.create(owner.getUniqueId());
@@ -59,11 +61,6 @@ public final class PlayerShopService {
         return shop;
     }
 
-    /**
-     * Reserviert den Stock persistent bevor Geld/Item bewegt werden. Dadurch kann ein Crash
-     * niemals denselben Shop-Stock erneut verkaufen. Fehler vor Reward-Vergabe rollen die
-     * Reservierung und gegebenenfalls das Geld zurueck.
-     */
     public synchronized Result purchase(Player buyer, UUID shopId) {
         PlayerShop shop = store.get(shopId);
         if (buyer == null || shop == null || !shop.isConfigured()) return Result.INVALID_SHOP;
@@ -112,7 +109,6 @@ public final class PlayerShopService {
         return Result.SUCCESS;
     }
 
-    /** Revenue wird erst ausgezahlt, nachdem pendingRevenue=0 sicher persistent ist. */
     public synchronized long claimRevenue(Player owner, UUID shopId) {
         PlayerShop shop = store.get(shopId);
         if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
