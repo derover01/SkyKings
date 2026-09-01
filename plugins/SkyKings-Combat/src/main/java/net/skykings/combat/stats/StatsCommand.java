@@ -1,5 +1,6 @@
 package net.skykings.combat.stats;
 
+import net.skykings.combat.killstreak.KillstreakServiceImpl;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.pvp.PvpStatsSnapshot;
@@ -19,19 +20,65 @@ import java.util.Locale;
 
 /** /stats, /profile und /profil teilen sich dieselbe moderne Spielerprofil-Oberflaeche. */
 public final class StatsCommand implements CommandExecutor {
-    private final PvpStatsTracker stats;
+    public static final String RESET_PERMISSION = "skykings.perk.statsreset";
 
-    public StatsCommand(PvpStatsTracker stats) { this.stats = stats; }
+    private final PvpStatsService stats;
+
+    public StatsCommand(PvpStatsService stats) { this.stats = stats; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) { sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar."); return true; }
         Player viewer = (Player) sender;
+
+        if (label.equalsIgnoreCase("statsreset") || label.equalsIgnoreCase("resetstats")) {
+            openReset(viewer);
+            return true;
+        }
+
         OfflinePlayer target = resolve(viewer, args);
         if (target == null) {
             viewer.sendMessage(UiTheme.DANGER + "Spieler nicht gefunden."); SoundFeedback.error(viewer); return true;
         }
         open(viewer, target); return true;
+    }
+
+    private void openReset(final Player player) {
+        if (!player.hasPermission(RESET_PERMISSION)) {
+            player.sendMessage(UiTheme.DANGER + "Du besitzt das Stats-Reset-Recht nicht.");
+            player.sendMessage(UiTheme.MUTED + "Das Recht kann ueber einen Stats-Reset-Gutschein freigeschaltet werden.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        PvpStatsSnapshot current = stats.getStats(player.getUniqueId());
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Stats Reset"), 27);
+        gui.setItem(4, UiItems.item(Material.BOOK, UiTheme.WARNING + "Combat-Stats zuruecksetzen",
+                UiTheme.MUTED + "Kills " + UiTheme.TEXT + UiFormat.number(current.getKills()),
+                UiTheme.MUTED + "Tode " + UiTheme.TEXT + UiFormat.number(current.getDeaths()),
+                UiTheme.MUTED + "Beststreak " + UiTheme.TEXT + current.getBestStreak(), "",
+                UiTheme.DANGER + "Diese Aktion kann nicht rueckgaengig gemacht werden."));
+        gui.setItem(11, UiItems.item(Material.REDSTONE_BLOCK, UiTheme.DANGER + "ABBRECHEN",
+                UiTheme.MUTED + "Deine Stats bleiben unveraendert.", "", UiItems.action("Klicken")), (p,e,s) -> {
+            p.closeInventory();
+            SoundFeedback.back(p);
+        });
+        gui.setItem(15, UiItems.item(Material.EMERALD_BLOCK, UiTheme.SUCCESS + "RESET BESTAETIGEN",
+                UiTheme.MUTED + "Setzt Kills, Tode und Streaks auf 0.", "", UiItems.action("Klicken zum Bestaetigen")), (p,e,s) -> {
+            if (!p.hasPermission(RESET_PERMISSION)) {
+                p.closeInventory();
+                p.sendMessage(UiTheme.DANGER + "Das Stats-Reset-Recht ist nicht mehr aktiv.");
+                SoundFeedback.error(p);
+                return;
+            }
+            stats.resetStats(p.getUniqueId());
+            KillstreakServiceImpl.resetActive(p.getUniqueId());
+            p.closeInventory();
+            p.sendMessage(UiTheme.SUCCESS + "Deine PvP-Stats wurden vollstaendig zurueckgesetzt.");
+            SoundFeedback.success(p);
+        });
+        GuiManager.active().open(gui);
+        SoundFeedback.menuOpen(player);
     }
 
     private void open(Player viewer, OfflinePlayer target) {
