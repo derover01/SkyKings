@@ -61,6 +61,20 @@ public final class EventReturnRecoveryService implements Listener {
         }
     }
 
+    /** Read-only Runtime-Health fuer /skcheck und Diagnose. */
+    public static synchronized boolean isInstalled() {
+        return instance != null;
+    }
+
+    /** Anzahl persistenter Rueckkehrpositionen, die noch auf Join/Respawn warten. */
+    public static synchronized int pendingCount() {
+        return instance == null ? -1 : instance.pendingSize();
+    }
+
+    private synchronized int pendingSize() {
+        return pending.size();
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
         Player player = event.getPlayer();
