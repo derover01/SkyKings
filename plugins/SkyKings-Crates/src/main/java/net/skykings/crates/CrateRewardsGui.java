@@ -79,9 +79,6 @@ public final class CrateRewardsGui {
             return;
         }
 
-        // Crash-sicherer Reihenfolgepunkt: Erst den persistenten Cooldown reservieren, danach
-        // das Item vergeben. Ein Prozessabbruch kann dadurch hoechstens einen Reward verlieren,
-        // aber niemals denselben Reward mehrfach erzeugen. Normale AddItem-Fehler rollen zurueck.
         long duration = tier.hours * 60L * 60L * 1000L;
         core.getCooldownService().set(player.getUniqueId(), key, duration);
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(stack);
@@ -112,13 +109,13 @@ public final class CrateRewardsGui {
         meta.setDisplayName(ChatColor.GOLD + display(tier.rank) + ChatColor.YELLOW + " Reward");
         java.util.List<String> lore = new java.util.ArrayList<String>();
         lore.add(ChatColor.GRAY + "Reward: " + ChatColor.WHITE + tier.amount + "x " + tier.crateId + " Crate");
-        lore.add(ChatColor.GRAY + "Cooldown: " + ChatColor.WHITE + tier.hours + " Stunden");
+        lore.add(ChatColor.GRAY + "Cooldown: " + ChatColor.WHITE + tier.hours + "h");
         boolean access = canAccess(player, tier);
-        if (!access) lore.add(ChatColor.RED + "Nicht freigeschaltet");
+        if (!access) lore.add(ChatColor.RED + "LOCKED");
         else {
             long remaining = core.getCooldownService().getRemainingMillis(player.getUniqueId(), key(tier));
-            lore.add(remaining > 0L ? ChatColor.RED + "Bereit in: " + formatDuration(remaining)
-                    : ChatColor.GREEN + "Bereit • klicken zum Abholen");
+            lore.add(remaining > 0L ? ChatColor.RED + "COOLDOWN • " + formatDuration(remaining)
+                    : ChatColor.GREEN + "READY • Klicken");
         }
         meta.setLore(lore);
         item.setItemMeta(meta);
@@ -130,9 +127,8 @@ public final class CrateRewardsGui {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(ChatColor.AQUA + "Crate Rewards");
         meta.setLore(Arrays.asList(
-                ChatColor.GRAY + "Jeder Paid-Rang hat einen eigenen Reward.",
-                ChatColor.GRAY + "Höhere Gameplay-Ränge können niedrigere Rewards claimen.",
-                ChatColor.DARK_GRAY + "Teamränge geben keinen automatischen Zugriff."));
+                ChatColor.GRAY + "Rewards passend zu deinem Rang.",
+                ChatColor.DARK_GRAY + "Jeder Tier hat eigenen Cooldown."));
         item.setItemMeta(meta);
         return item;
     }
