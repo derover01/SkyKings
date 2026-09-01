@@ -1,6 +1,5 @@
 package net.skykings.core.shop;
 
-import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.permission.VoucherPermission;
@@ -17,24 +16,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Premium System-Shop: Kategorien -> Progressionsseiten statt einer flachen Item-Wand. */
 public final class SystemShopGui {
     private final GuiManager guiManager;
     private final ShopTransactionService transactions;
-    private final EconomyService economy;
     private final VoucherPermissionService rights;
 
-    public SystemShopGui(GuiManager guiManager, ShopTransactionService transactions,
-                         EconomyService economy, VoucherPermissionService rights) {
+    public SystemShopGui(GuiManager guiManager, ShopTransactionService transactions) {
         this.guiManager = guiManager;
         this.transactions = transactions;
-        this.economy = economy;
-        this.rights = rights;
+        this.rights = VoucherPermissionService.active();
     }
 
     public void open(Player player) {
@@ -49,12 +42,10 @@ public final class SystemShopGui {
         category(gui, 12, Material.SKULL_ITEM, ChatColor.LIGHT_PURPLE + "Crates", "Crate & Reward Center", p -> p.performCommand("craterewards"));
         category(gui, 14, Material.PAPER, ChatColor.YELLOW + "Rechte", "Permanente Komfort-Rechte", this::openRights);
         category(gui, 16, Material.DIAMOND_SWORD, ChatColor.RED + "Schwerter", "Normal bis Sharpness XIII", this::openSwords);
-
         category(gui, 28, Material.BOW, ChatColor.GOLD + "Boegen", "Power Progression", this::openBows);
         category(gui, 30, Material.DIAMOND_CHESTPLATE, ChatColor.AQUA + "Ruestung", "PvP-Ruestung & OP-Tiers", this::openArmor);
         category(gui, 32, Material.ENDER_PEARL, ChatColor.DARK_AQUA + "Enderperlen", "Kleine bis grosse Stacks", this::openPearls);
         category(gui, 34, Material.COOKED_BEEF, ChatColor.GREEN + "Essen", "Food & Golden Apples", this::openFood);
-
         category(gui, 38, Material.POTION, ChatColor.LIGHT_PURPLE + "Potions", "PvP-Verbrauchsgueter", this::openPotions);
         category(gui, 40, Material.EXP_BOTTLE, ChatColor.WHITE + "Utility", "XP, Pfeile, Obsidian", this::openUtility);
 
@@ -167,12 +158,12 @@ public final class SystemShopGui {
                 UiTheme.MUTED + "Permanent",UiTheme.MUTED + "Preis " + UiTheme.TEXT + UiFormat.number(price) + " Coins"));
         gui.setItem(11,UiItems.item(Material.EMERALD_BLOCK,UiTheme.SUCCESS + "KAUFEN",UiItems.action("Bestaetigen")),(player,e,s)->{
             if (player.hasPermission(right.getNode())) { player.closeInventory(); openRights(player); return; }
-            if (!economy.withdraw(player.getUniqueId(),price,"SHOP_RIGHT","Recht " + right.getId())) {
+            if (!transactions.withdrawCoins(player.getUniqueId(),price,"SHOP_RIGHT","Recht " + right.getId())) {
                 player.sendMessage(UiTheme.DANGER + "Nicht genug Coins."); SoundFeedback.error(player); return;
             }
             VoucherPermissionService.GrantStatus status = rights.grant(player.getUniqueId(),right.getId(),"SHOP_RIGHT");
             if (status != VoucherPermissionService.GrantStatus.GRANTED) {
-                economy.deposit(player.getUniqueId(),price,"SHOP_RIGHT_ROLLBACK","Rollback Recht " + right.getId());
+                transactions.depositCoins(player.getUniqueId(),price,"SHOP_RIGHT_ROLLBACK","Rollback Recht " + right.getId());
                 player.sendMessage(UiTheme.DANGER + "Recht konnte nicht vergeben werden. Coins wurden erstattet.");
                 SoundFeedback.error(player); return;
             }
