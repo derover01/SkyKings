@@ -38,6 +38,7 @@ public final class PlayerShopService {
             @Override public boolean canManageShop(Player player, PlayerShop shop) {
                 return player != null && shop != null && player.getUniqueId().equals(shop.getOwner());
             }
+            @Override public boolean canSellFromShop(PlayerShop shop) { return shop != null; }
         };
     }
 
@@ -66,6 +67,7 @@ public final class PlayerShopService {
     public synchronized Result purchase(Player buyer, UUID shopId) {
         PlayerShop shop = store.get(shopId);
         if (buyer == null || shop == null || !shop.isConfigured()) return Result.INVALID_SHOP;
+        if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
         final int amount = shop.getAmountPerSale();
         final int oldStock = shop.getStock();
         if (oldStock < amount) return Result.OUT_OF_STOCK;
@@ -75,7 +77,6 @@ public final class PlayerShopService {
         long price = shop.getPriceCoins();
         if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
 
-        // Stock zuerst auf Platte reservieren. Bei Persistenzfehler keine Transaktion.
         shop.setStock(oldStock - amount);
         if (!store.saveChecked()) {
             shop.setStock(oldStock);
@@ -100,9 +101,6 @@ public final class PlayerShopService {
         long oldRevenue = shop.getPendingRevenue();
         shop.setPendingRevenue(oldRevenue + sellerRevenue);
         if (!store.saveChecked()) {
-            // Verkauf/Stock bleiben absichtlich fail-closed. Die Einnahme bleibt im RAM und
-            // ein spaeterer erfolgreicher Save kann sie noch persistieren; es wird niemals
-            // Stock zurueckgesetzt, nachdem der Buyer den Reward bereits erhalten hat.
             logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP_SAVE_WARNING", price,
                     "shop=" + shopId + ", owner=" + shop.getOwner() + ", pendingRevenuePersistFailed=true"));
         }
@@ -158,7 +156,6 @@ public final class PlayerShopService {
         return true;
     }
 
-    /** Gibt normalen Stock sicher an den Besitzer zurueck. */
     public synchronized boolean withdrawStock(Player owner, UUID shopId, int amount) {
         PlayerShop shop = store.get(shopId);
         if (owner == null || shop == null || amount <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
