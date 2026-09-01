@@ -32,8 +32,8 @@ public final class PlotMenu {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Plots"), 45);
         if (!plots.hasPlot(player.getUniqueId())) {
             gui.setItem(22, UiItems.item(Material.GRASS, UiTheme.SUCCESS + "Plot automatisch claimen",
-                    UiTheme.MUTED + "65x65 Baugrundstueck",
-                    UiTheme.MUTED + "mit neutralen Stone-Brick-Wegen.",
+                    UiTheme.MUTED + "Eine komplette 65x65 Grasflaeche.",
+                    UiTheme.MUTED + "Stone-Brick-Wege bleiben neutral.",
                     "", UiItems.action("Klicken zum Claimen")), (p,e,s) -> {
                 p.closeInventory();
                 if (plots.create(p)) p.sendMessage(UiTheme.SUCCESS + "Dein Plot wurde geclaimt.");
@@ -42,7 +42,7 @@ public final class PlotMenu {
             gui.setItem(31, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Plot Verwaltung",
                     UiTheme.TEXT + "/p auto  /p h  /p visit",
                     UiTheme.TEXT + "/p add  /p trust  /p deny",
-                    UiTheme.TEXT + "/p flags  /p rand"));
+                    UiTheme.TEXT + "/p flags  /p rand  /p merge"));
         } else {
             PlotService.PlotData data = plots.get(player.getUniqueId());
             gui.setItem(10, UiItems.item(Material.ENDER_PEARL, UiTheme.SUCCESS + "Plot Home",
@@ -64,19 +64,18 @@ public final class PlotMenu {
                     UiTheme.MUTED + "und Mob-Spawns.",
                     "", UiItems.action("Einstellungen oeffnen")), (p,e,s) -> openFlags(p));
             gui.setItem(22, UiItems.item(Material.GRASS, UiTheme.TEXT + "Plot #" + data.index,
-                    UiTheme.MUTED + "Claim: " + UiTheme.TEXT + "65 x 65",
-                    UiTheme.MUTED + "Nur die Flaeche innerhalb",
-                    UiTheme.MUTED + "der Stone-Brick-Wege gehoert dir.",
+                    UiTheme.MUTED + "Plotzellen: " + UiTheme.TEXT + data.getCellCount(),
+                    UiTheme.MUTED + "Basis: " + UiTheme.TEXT + "65 x 65",
+                    UiTheme.MUTED + "Wege gehoeren nur nach Merge dazu.",
                     UiTheme.MUTED + "Owner: " + UiTheme.SUCCESS + player.getName()));
             gui.setItem(30, UiItems.item(borders.selected(player.getUniqueId()).getMaterial(), UiTheme.LEGENDARY + "Plot-Rand",
                     UiTheme.MUTED + "Aktuell: " + UiTheme.TEXT + borders.selected(player.getUniqueId()).getDisplayName(),
-                    UiTheme.MUTED + "Raender mit Coins freischalten.",
+                    UiTheme.MUTED + "Einmal kaufen, dauerhaft wechseln.",
                     "", UiItems.action("Rand-Shop oeffnen")), (p,e,s) -> openBorders(p));
-            gui.setItem(32, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Plot Verwaltung",
-                    UiTheme.TEXT + "/p add <Spieler>",
-                    UiTheme.TEXT + "/p trust <Spieler>",
-                    UiTheme.TEXT + "/p deny / undeny <Spieler>",
-                    UiTheme.TEXT + "/p flags  /p rand"));
+            gui.setItem(32, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Plot erweitern",
+                    UiTheme.TEXT + "/p merge <Richtung>",
+                    UiTheme.MUTED + "Entfernt die Strasse zwischen",
+                    UiTheme.MUTED + "deinem Plot und der freien Nachbarzelle."));
         }
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
@@ -100,15 +99,15 @@ public final class PlotMenu {
                     status,
                     active ? UiTheme.MUTED + "Dieser Rand ist aktiv."
                             : owned ? UiItems.action("Klicken zum Auswaehlen")
-                            : UiItems.action("Klicken zum Kaufen")), (p,e,s) -> {
-                if (borders.purchaseAndSelect(p, theme)) {
-                    p.playSound(p.getLocation(), Sound.LEVEL_UP, 0.65F, 1.35F);
-                    p.sendMessage(UiTheme.SUCCESS + "Plot-Rand aktiviert: " + ChatColor.WHITE + theme.getDisplayName());
-                    openBorders(p);
-                } else {
-                    p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
-                    p.sendMessage(UiTheme.DANGER + "Dafuer fehlen dir Coins.");
+                            : UiItems.action("Klicken zum Kauf-Check")), (p,e,s) -> {
+                if (borders.owns(p.getUniqueId(), theme)) {
+                    if (borders.selectOwned(p, theme)) {
+                        p.playSound(p.getLocation(), Sound.CLICK, 0.65F, 1.35F);
+                        openBorders(p);
+                    }
+                    return;
                 }
+                confirmBorderPurchase(p, theme);
             });
         }
         gui.setItem(31, UiItems.item(Material.GOLD_NUGGET, UiTheme.LEGENDARY + "Deine Coins",
@@ -117,6 +116,35 @@ public final class PlotMenu {
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.3F);
     }
+
+    private void confirmBorderPurchase(Player player, PlotBorderTheme theme) {
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Rand kaufen"), 27);
+        boolean affordable = borders.canAfford(player.getUniqueId(), theme);
+        gui.setItem(13, UiItems.item(theme.getMaterial(), UiTheme.LEGENDARY + theme.getDisplayName(),
+                UiTheme.MUTED + "Preis: " + UiTheme.WARNING + numbers.format(theme.getPrice()) + " Coins",
+                UiTheme.MUTED + "Danach dauerhaft freigeschaltet.",
+                "", affordable ? UiTheme.STATUS_READY : UiTheme.STATUS_LOCKED));
+        gui.setItem(11, UiItems.item(Material.REDSTONE_BLOCK, UiTheme.DANGER + "Abbrechen",
+                UiTheme.MUTED + "Zurueck zum Rand-Shop."), (p,e,s) -> openBorders(p));
+        gui.setItem(15, UiItems.item(Material.EMERALD_BLOCK,
+                affordable ? UiTheme.SUCCESS + "Kaufen" : UiTheme.DISABLED + "Zu wenig Coins",
+                affordable ? UiTheme.TEXT + numbers.format(theme.getPrice()) + " Coins bezahlen"
+                        : UiTheme.MUTED + "Kontostand: " + numbers.format(borders.balance(pUuid(player))) + " Coins"), (p,e,s) -> {
+            if (!affordable || !borders.purchaseAndSelect(p, theme)) {
+                p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+                p.sendMessage(UiTheme.DANGER + "Dafuer fehlen dir Coins.");
+                openBorders(p);
+                return;
+            }
+            p.playSound(p.getLocation(), Sound.LEVEL_UP, 0.65F, 1.35F);
+            p.sendMessage(UiTheme.SUCCESS + "Plot-Rand freigeschaltet: " + ChatColor.WHITE + theme.getDisplayName());
+            openBorders(p);
+        });
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> openBorders(p));
+        guiManager.open(gui);
+    }
+
+    private UUID pUuid(Player player) { return player.getUniqueId(); }
 
     public void openFlags(Player player) {
         PlotService.PlotData data = plots.get(player.getUniqueId());
