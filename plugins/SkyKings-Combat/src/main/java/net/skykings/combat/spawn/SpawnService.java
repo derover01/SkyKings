@@ -2,9 +2,11 @@ package net.skykings.combat.spawn;
 
 import net.skykings.combat.map.builder.VoidChunkGenerator;
 import net.skykings.combat.tag.CombatTagService;
+import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.command.Command;
@@ -67,20 +69,24 @@ public final class SpawnService implements Listener, CommandExecutor {
         if (combatTagService.isTagged(uuid)) {
             long seconds = Math.max(1L, (combatTagService.getRemainingMillis(uuid) + 999L) / 1000L);
             player.sendMessage(ChatColor.RED + "Du bist im Kampf. /spawn ist noch " + seconds + "s gesperrt.");
+            SoundFeedback.error(player);
             return true;
         }
         if (pending.containsKey(uuid)) {
             player.sendMessage(ChatColor.YELLOW + "Dein Spawn-Teleport laeuft bereits.");
+            SoundFeedback.warning(player);
             return true;
         }
         final Location target = getSpawn();
         if (target == null || target.getWorld() == null) {
             player.sendMessage(ChatColor.RED + "Der SkyKings-Spawn ist noch nicht gesetzt.");
+            SoundFeedback.error(player);
             return true;
         }
         final Location origin = player.getLocation().clone();
         player.sendMessage(ChatColor.GOLD + "Teleport zum Spawn in " + ChatColor.WHITE + "3 Sekunden"
                 + ChatColor.GRAY + " • Nicht bewegen und keinen Schaden bekommen.");
+        player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.55F, 1.05F);
 
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
             @Override public void run() {
@@ -88,9 +94,12 @@ public final class SpawnService implements Listener, CommandExecutor {
                 if (removed == null || !player.isOnline()) return;
                 if (combatTagService.isTagged(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Teleport abgebrochen: Du bist jetzt im Kampf.");
+                    SoundFeedback.error(player);
                     return;
                 }
                 player.teleport(target);
+                player.playSound(player.getLocation(), Sound.ENDERMAN_TELEPORT, 0.8F, 1.25F);
+                SoundFeedback.success(player);
                 player.sendMessage(ChatColor.GREEN + "Du wurdest zum Spawn teleportiert.");
             }
         }, TELEPORT_DELAY_TICKS);
@@ -101,10 +110,12 @@ public final class SpawnService implements Listener, CommandExecutor {
     private boolean handleSetSpawn(Player player) {
         if (!player.hasPermission("skykings.admin.map")) {
             player.sendMessage(ChatColor.RED + "Dafuer hast du keine Berechtigung.");
+            SoundFeedback.error(player);
             return true;
         }
         setSpawn(player.getLocation());
         player.sendMessage(ChatColor.GREEN + "Globaler SkyKings-Spawn und Worldspawn wurden gesetzt.");
+        SoundFeedback.success(player);
         return true;
     }
 
@@ -148,7 +159,10 @@ public final class SpawnService implements Listener, CommandExecutor {
         PendingTeleport teleport = pending.remove(player.getUniqueId());
         if (teleport == null) return;
         teleport.task.cancel();
-        if (message != null) player.sendMessage(ChatColor.RED + message);
+        if (message != null) {
+            player.sendMessage(ChatColor.RED + message);
+            SoundFeedback.error(player);
+        }
     }
 
     private void load() {
