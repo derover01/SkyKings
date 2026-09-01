@@ -31,7 +31,7 @@ public final class PlayerDisplayListener implements Listener {
         displayService.refreshTab(event.getPlayer());
     }
 
-    /** /prefix verwaltet nur die Anzeige; Besitz und Permissions des Prefixes bleiben unangetastet. */
+    /** /prefix verwaltet ausschliesslich sichtbare Chat-Layer; Besitz/Clan/Rang bleiben unangetastet. */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrefixCommand(PlayerCommandPreprocessEvent event) {
         String raw = event.getMessage();
@@ -41,35 +41,60 @@ public final class PlayerDisplayListener implements Listener {
         event.setCancelled(true);
 
         Player player = event.getPlayer();
-        if (displayService.cosmeticPrefixFor(player) == null) {
-            player.sendMessage(UiTheme.DANGER + "Du besitzt aktuell keinen kosmetischen Prefix.");
-            SoundFeedback.error(player);
-            return;
-        }
-
         if (parts.length >= 2) {
             String option = parts[1].toLowerCase(Locale.ROOT);
-            if ("an".equals(option) || "on".equals(option)) {
-                displayService.setCosmeticPrefixShown(player, true);
-                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: AN");
+
+            // Legacy-Kurzform: /prefix an|aus schaltet weiterhin nur den Cosmetic-Prefix.
+            if ("an".equals(option) || "on".equals(option) || "aus".equals(option) || "off".equals(option)) {
+                if (displayService.cosmeticPrefixFor(player) == null) {
+                    player.sendMessage(UiTheme.DANGER + "Du besitzt aktuell keinen kosmetischen Prefix.");
+                    SoundFeedback.error(player);
+                    return;
+                }
+                boolean show = "an".equals(option) || "on".equals(option);
+                displayService.setCosmeticPrefixShown(player, show);
+                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: " + (show ? "AN" : "AUS"));
                 SoundFeedback.success(player);
                 return;
             }
-            if ("aus".equals(option) || "off".equals(option)) {
-                displayService.setCosmeticPrefixShown(player, false);
-                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: AUS");
+
+            if (("prefix".equals(option) || "cosmetic".equals(option)) && parts.length >= 3) {
+                if (displayService.cosmeticPrefixFor(player) == null) {
+                    player.sendMessage(UiTheme.DANGER + "Du besitzt aktuell keinen kosmetischen Prefix.");
+                    SoundFeedback.error(player);
+                    return;
+                }
+                Boolean show = parseState(parts[2]);
+                if (show == null) {
+                    player.sendMessage(UiTheme.WARNING + "Nutze: /prefix prefix <an|aus>");
+                    return;
+                }
+                displayService.setCosmeticPrefixShown(player, show.booleanValue());
+                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: " + (show.booleanValue() ? "AN" : "AUS"));
                 SoundFeedback.success(player);
                 return;
             }
+
             if ("rang".equals(option) && parts.length >= 3) {
-                String state = parts[2].toLowerCase(Locale.ROOT);
-                if ("an".equals(state) || "on".equals(state)) displayService.setRankShownWithCosmetic(player, true);
-                else if ("aus".equals(state) || "off".equals(state)) displayService.setRankShownWithCosmetic(player, false);
-                else {
+                Boolean show = parseState(parts[2]);
+                if (show == null) {
                     player.sendMessage(UiTheme.WARNING + "Nutze: /prefix rang <an|aus>");
                     return;
                 }
-                player.sendMessage(UiTheme.SUCCESS + "Rang neben Prefix: " + (displayService.isRankShownWithCosmetic(player) ? "AN" : "AUS"));
+                displayService.setRankShown(player, show.booleanValue());
+                player.sendMessage(UiTheme.SUCCESS + "Rang im Chat: " + (show.booleanValue() ? "AN" : "AUS"));
+                SoundFeedback.success(player);
+                return;
+            }
+
+            if ("clan".equals(option) && parts.length >= 3) {
+                Boolean show = parseState(parts[2]);
+                if (show == null) {
+                    player.sendMessage(UiTheme.WARNING + "Nutze: /prefix clan <an|aus>");
+                    return;
+                }
+                displayService.setClanTagShown(player, show.booleanValue());
+                player.sendMessage(UiTheme.SUCCESS + "Clan-Tag im Chat: " + (show.booleanValue() ? "AN" : "AUS"));
                 SoundFeedback.success(player);
                 return;
             }
@@ -77,27 +102,58 @@ public final class PlayerDisplayListener implements Listener {
         openPrefixMenu(player);
     }
 
+    private Boolean parseState(String raw) {
+        String state = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
+        if ("an".equals(state) || "on".equals(state)) return Boolean.TRUE;
+        if ("aus".equals(state) || "off".equals(state)) return Boolean.FALSE;
+        return null;
+    }
+
     private void openPrefixMenu(Player player) {
         String cosmetic = displayService.cosmeticPrefixFor(player);
-        boolean showPrefix = displayService.isCosmeticPrefixShown(player);
-        boolean showRank = displayService.isRankShownWithCosmetic(player);
-        GuiSession gui = GuiSession.create(player, UiTheme.title("Chat Prefix"), 27);
-        gui.setItem(11, UiItems.item(showPrefix ? Material.NAME_TAG : Material.INK_SACK,
-                showPrefix ? UiTheme.SUCCESS + "Prefix: AN" : UiTheme.DANGER + "Prefix: AUS",
-                UiTheme.TEXT + cosmetic,
+        boolean hasCosmetic = cosmetic != null;
+        boolean showPrefix = hasCosmetic && displayService.isCosmeticPrefixShown(player);
+        boolean showRank = displayService.isRankShown(player);
+        boolean showClan = displayService.isClanTagShown(player);
+        String clan = displayService.clanTagFor(player);
+
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Chat Identitaet"), 27);
+
+        if (hasCosmetic) {
+            gui.setItem(10, UiItems.item(showPrefix ? Material.NAME_TAG : Material.INK_SACK,
+                    showPrefix ? UiTheme.SUCCESS + "Prefix: AN" : UiTheme.DANGER + "Prefix: AUS",
+                    UiTheme.TEXT + cosmetic,
+                    UiTheme.MUTED + "Nur Anzeige im Chat.",
+                    UiItems.action("Klicken zum Umschalten")), (p,e,s) -> {
+                displayService.setCosmeticPrefixShown(p, !displayService.isCosmeticPrefixShown(p));
+                SoundFeedback.success(p);
+                openPrefixMenu(p);
+            });
+        } else {
+            gui.setItem(10, UiItems.item(Material.BARRIER,
+                    UiTheme.MUTED + "Kein Cosmetic-Prefix",
+                    UiTheme.MUTED + "Du besitzt aktuell keinen Prefix."));
+        }
+
+        gui.setItem(13, UiItems.item(showRank ? Material.EMERALD : Material.REDSTONE,
+                showRank ? UiTheme.SUCCESS + "Rang im Chat: AN" : UiTheme.DANGER + "Rang im Chat: AUS",
+                UiTheme.MUTED + "Unabhaengig vom Cosmetic-Prefix.",
                 UiItems.action("Klicken zum Umschalten")), (p,e,s) -> {
-            displayService.setCosmeticPrefixShown(p, !displayService.isCosmeticPrefixShown(p));
+            displayService.setRankShown(p, !displayService.isRankShown(p));
             SoundFeedback.success(p);
             openPrefixMenu(p);
         });
-        gui.setItem(15, UiItems.item(showRank ? Material.EMERALD : Material.REDSTONE,
-                showRank ? UiTheme.SUCCESS + "Rang daneben: AN" : UiTheme.DANGER + "Rang daneben: AUS",
-                UiTheme.MUTED + "Wirkt nur bei sichtbarem Prefix.",
+
+        gui.setItem(16, UiItems.item(showClan ? Material.BANNER : Material.REDSTONE,
+                showClan ? UiTheme.SUCCESS + "Clan-Tag: AN" : UiTheme.DANGER + "Clan-Tag: AUS",
+                clan.isEmpty() ? UiTheme.MUTED + "Aktuell keinem Clan zugeordnet." : UiTheme.TEXT + clan,
+                UiTheme.MUTED + "Gilt nur fuer den Chat, nicht fuer den Tab.",
                 UiItems.action("Klicken zum Umschalten")), (p,e,s) -> {
-            displayService.setRankShownWithCosmetic(p, !displayService.isRankShownWithCosmetic(p));
+            displayService.setClanTagShown(p, !displayService.isClanTagShown(p));
             SoundFeedback.success(p);
             openPrefixMenu(p);
         });
+
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
             SoundFeedback.back(p);
             Bukkit.dispatchCommand(p, "commands");
@@ -110,9 +166,19 @@ public final class PlayerDisplayListener implements Listener {
     public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         String prefix = displayService.prefixFor(player);
-        String clan = displayService.clanTagFor(player);
-        event.setFormat(prefix + ChatColor.DARK_GRAY + " | "
-                + (clan.isEmpty() ? "" : clan + " ")
+        String clan = displayService.isClanTagShown(player) ? displayService.clanTagFor(player) : "";
+
+        StringBuilder identity = new StringBuilder();
+        if (!prefix.isEmpty()) identity.append(prefix);
+        if (!clan.isEmpty()) {
+            if (identity.length() > 0) identity.append(" ");
+            identity.append(clan);
+        }
+
+        String leading = identity.length() == 0
+                ? ""
+                : identity.toString() + ChatColor.DARK_GRAY + " | ";
+        event.setFormat(leading
                 + ChatColor.WHITE + "%1$s"
                 + ChatColor.DARK_GRAY + " » " + ChatColor.GRAY + "%2$s");
     }
