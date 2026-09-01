@@ -1,5 +1,7 @@
 package net.skykings.combat.event;
 
+import net.skykings.core.gui.GuiManager;
+import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiFormat;
 import net.skykings.core.ui.UiTheme;
@@ -9,7 +11,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /duel Spieler [Coins] [Arena], /duel accept, /duel deny. */
+/** /duel Spieler oeffnet Setup; Direktform: /duel Spieler Coins Arena Kit. */
 public final class DuelCommand implements CommandExecutor {
     private final DuelService duels;
 
@@ -24,8 +26,8 @@ public final class DuelCommand implements CommandExecutor {
         Player player = (Player) sender;
         if (args.length == 0) {
             player.sendMessage(UiTheme.TEXT + "Duels");
-            player.sendMessage(UiTheme.WARNING + "/duel <Spieler>" + UiTheme.MUTED + " - ohne Einsatz");
-            player.sendMessage(UiTheme.WARNING + "/duel <Spieler> <Coins> [Arena]" + UiTheme.MUTED + " - Wager");
+            player.sendMessage(UiTheme.WARNING + "/duel <Spieler>" + UiTheme.MUTED + " - Setup mit Kit & Einsatz");
+            player.sendMessage(UiTheme.WARNING + "/duel <Spieler> <Coins> [Arena] [Kit]" + UiTheme.MUTED + " - Direktanfrage");
             player.sendMessage(UiTheme.WARNING + "/duel accept | deny");
             return true;
         }
@@ -54,16 +56,29 @@ public final class DuelCommand implements CommandExecutor {
             return true;
         }
 
+        // Normale UX: erst Setup-Panel, dann Challenge absenden.
+        if (args.length == 1) {
+            KitRegistry kits = duels.getKitRegistry();
+            if (kits == null) {
+                player.sendMessage(UiTheme.DANGER + "Kit-Service ist gerade nicht verfuegbar.");
+                SoundFeedback.error(player);
+                return true;
+            }
+            new DuelSetupGui(duels, GuiManager.active(), kits).open(player, target);
+            return true;
+        }
+
         long wager = 0L;
         String arena = "duel";
-        if (args.length >= 2) {
-            try {
-                wager = parseCoins(args[1]);
-                if (args.length >= 3) arena = args[2];
-            } catch (NumberFormatException notCoins) {
-                // Legacy-Komfort: /duel Spieler Arena bleibt gueltig.
-                arena = args[1];
-            }
+        String kit = null;
+        try {
+            wager = parseCoins(args[1]);
+            if (args.length >= 3) arena = args[2];
+            if (args.length >= 4) kit = args[3];
+        } catch (NumberFormatException notCoins) {
+            // Legacy-Komfort: /duel Spieler Arena bleibt weiterhin gueltig und nutzt eigenes Gear.
+            arena = args[1];
+            if (args.length >= 3) kit = args[2];
         }
         if (wager < 0L || wager > DuelService.MAX_WAGER) {
             player.sendMessage(UiTheme.DANGER + "Einsatz muss zwischen 0 und " + UiFormat.coins(DuelService.MAX_WAGER) + " liegen.");
@@ -71,9 +86,9 @@ public final class DuelCommand implements CommandExecutor {
             return true;
         }
 
-        if (!duels.request(player, target, arena, wager)) {
+        if (!duels.request(player, target, arena, wager, kit)) {
             player.sendMessage(UiTheme.DANGER + "Duel-Anfrage nicht moeglich.");
-            player.sendMessage(UiTheme.MUTED + "Pruefe Coins, Combat-Status und ob einer von euch bereits beschaeftigt ist.");
+            player.sendMessage(UiTheme.MUTED + "Pruefe Coins, Kit, Combat-Status und ob einer von euch bereits beschaeftigt ist.");
             SoundFeedback.error(player);
         }
         return true;
@@ -105,6 +120,12 @@ public final class DuelCommand implements CommandExecutor {
                 break;
             case INVALID_WAGER:
                 player.sendMessage(UiTheme.DANGER + "Ungueltiger Duel-Einsatz.");
+                break;
+            case KIT_NOT_FOUND:
+                player.sendMessage(UiTheme.DANGER + "Das gewaehlte Duel-Kit existiert nicht.");
+                break;
+            case LOADOUT_FAILED:
+                player.sendMessage(UiTheme.DANGER + "Duel-Kit konnte nicht sicher geladen werden.");
                 break;
             case PLAYER_BUSY:
             default:
