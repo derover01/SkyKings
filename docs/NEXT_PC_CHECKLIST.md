@@ -23,7 +23,15 @@ $env:Path += ";C:\Users\marti\OneDrive\Desktop\SkyKings\tools\apache-maven-3.9.1
 mvn -version
 ```
 
-## 3. Neue Plugins testen + bauen + deployen
+## 3. Release-Preflight
+
+```powershell
+.\scripts\release-preflight.ps1
+```
+
+Java, Maven, Git, Serverstatus und Build-Voraussetzungen muessen sauber sein.
+
+## 4. Neue Plugins testen + bauen + deployen
 
 ```powershell
 .\scripts\deploy-server.ps1
@@ -31,7 +39,7 @@ mvn -version
 
 Das Script muss selbst abbrechen, falls Spigot noch laeuft. Maven-Tests und Build muessen komplett gruen sein.
 
-## 4. SkyPlots fuer den neuen Raster-Test einmal sauber resetten
+## 5. SkyPlots fuer den neuen Raster-Test einmal sauber resetten
 
 Nur im aktuellen Pre-Release-Test. Das Script legt vorher automatisch ein Backup an.
 
@@ -47,7 +55,7 @@ Erwartetes Raster danach:
 - Strasse gehoert keinem Plot
 - Merge entfernt nur die Strasse zwischen zusammengefuehrten Plotzellen
 
-## 5. Server starten
+## 6. Server starten
 
 ```powershell
 cd ".\server"
@@ -56,7 +64,7 @@ java -Xms1G -Xmx2G -jar spigot-1.8.8.jar nogui
 
 Bis `Done` warten und auf rote Exceptions achten.
 
-## 6. Runtime-Systemcheck
+## 7. Runtime-Systemcheck
 
 Ingame:
 
@@ -64,9 +72,9 @@ Ingame:
 /skcheck
 ```
 
-Kritische Module/Services/Commands muessen OK sein. Der Check umfasst inzwischen auch Clan Service, Event Participation, Tournament, Juggernaut und Clan Wars.
+Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, CombatTag, Clan Service, Event Participation sowie Duel, LMS und Clan Wars.
 
-## 7. Plot-Test — zuerst machen
+## 8. Plot-Test — zuerst machen
 
 1. `/p auto`
 2. Pruefen: Grasflaeche liegt exakt zwischen vier Stone-Brick-Strassen.
@@ -82,7 +90,7 @@ Kritische Module/Services/Commands muessen OK sein. Der Check umfasst inzwischen
 12. Andere Strassen bleiben neutral.
 13. Spaeter 2x2-Merge testen und Kreuzung pruefen.
 
-## 8. Battle Pass / Quests / Kits testen
+## 9. Battle Pass / Quests / Kits / Crates / Commands testen
 
 ```text
 /battlepass
@@ -90,15 +98,19 @@ Kritische Module/Services/Commands muessen OK sein. Der Check umfasst inzwischen
 /battlepass quests
 /quests
 /kit
+/craterewards
+/commands
 ```
 
 Pruefen:
+- alle grossen Menues folgen demselben Custom-Panel-Stil
 - Hub wirkt sauber und nicht wie eine Item-Wand
 - Free/Premium-Track getrennt
 - Daily/Weekly/Premium-Tabs klar erkennbar
 - Kit Arsenal zeigt READY / LOCKED / COOLDOWN sauber
+- Crate Center zeigt Rang-Rail und Reward-Cards sauber
 - Kit-Preview und direkter Claim funktionieren
-- Seitenwechsel funktioniert
+- Seitenwechsel und Zurueck/Home funktionieren
 - Rewards nur einmal claimbar
 - Premium-Rewards ohne Premium gesperrt
 - legitime PvP-Kills erhoehen Questfortschritt
@@ -108,7 +120,7 @@ Pruefen:
 - Quest-Abschluss gibt Coins + SkyKings Sterne + Season-XP
 - Restart-Persistenz testen
 
-## 9. Inventory-Sync-Bug provozieren
+## 10. Inventory-Sync-Bug provozieren
 
 Item droppen und SOFORT hintereinander Menues oeffnen:
 
@@ -121,72 +133,42 @@ Item droppen und SOFORT hintereinander Menues oeffnen:
 
 Das gedroppte Item darf nicht wieder im alten Slot erscheinen.
 
-## 10. Event-/Buildmode-Schutz pruefen
+## 11. Event-/Buildmode-Schutz pruefen
 
 Auf Event-/Mainmap:
 - Buildmode AN -> Staff darf bauen
 - Buildmode AUS -> normaler Map-Schutz
 - keine Plot-Schutzmeldung ausserhalb von `SkyPlots`
 
-## 11. Tournament Multiplayer-Gate
+## 12. Duel / LMS Multiplayer-Gate
 
-Arena einmalig setzen:
-
-```text
-/eventarena set tournament lobby
-/eventarena set tournament a
-/eventarena set tournament b
-/eventarena set tournament spectator
-```
-
-Danach mit 4, 5 und spaeter 8 Spielern:
+Duel-Arena setzen:
 
 ```text
-/tournament join
-/tournament status
-/tournament start
+/eventarena set duel a
+/eventarena set duel b
+/eventarena set duel spectator
 ```
 
-Pruefen:
-- Bracket/Runden laufen automatisch
-- Freilos bei ungerader Spielerzahl
-- nur aktuelle Fighter koennen Schaden machen
-- wartende Spieler koennen sich nicht angreifen
-- Drop/Pickup/Commands koennen Event nicht umgehen
-- Quit waehrend Match = Forfeit
-- Sieger bekommt exakt einmal 1.000.000 Coins
-- Event-Kills zaehlen nicht als normale PvP-Kills/Bounties/Streaks
-
-## 12. Juggernaut Multiplayer-Gate
-
-Arena einmalig setzen:
+LMS-Arena setzen:
 
 ```text
-/eventarena set juggernaut lobby
-/eventarena set juggernaut boss
-/eventarena set juggernaut spawn1
-/eventarena set juggernaut spawn2
+/eventarena set lms lobby
+/eventarena set lms spawn1
+/eventarena set lms spawn2
+/eventarena set lms spawn3
+/eventarena set lms spawn4
+/eventarena set lms spectator
 ```
 
-Optional weitere `spawn3` bis `spawn8`.
-
-Test:
-
-```text
-/juggernaut join
-/juggernaut status
-/juggernaut start
-```
-
-Pruefen:
-- zufaelliger Boss
-- Boss hat 40 HP + Buffs
-- Angreifer haben kein Friendly Fire
-- Boss kann Angreifer treffen und umgekehrt
-- Boss-Quit -> Angreifer gewinnen sauber
-- letzte Angreifer-Elimination -> Boss gewinnt sauber
-- Rewards nur einmal
-- kein Command-/Inventory-/Drop-Escape
+Danach testen:
+- Duel normal und mit Coin-Wager
+- Quit waehrend Duel
+- Wager-Auszahlung exakt einmal
+- LMS Join/Leave/Start/Stop
+- LMS-Elimination und letzter Spieler
+- Event-Kills bleiben aus normalen PvP-Stats/Streaks/Bounties heraus
+- keine Command-/Drop-/Pickup-Umgehung
 
 ## 13. Clan Wars Multiplayer-Gate
 
@@ -218,11 +200,46 @@ Pruefen:
 - tote Spieler sind eliminiert und kehren sauber zurueck
 - Quit zaehlt als Ausscheiden
 - letzter Clan gewinnt
-- jeder ueberlebende Sieger bekommt exakt einmal 500.000 Coins
+- Siegerreward exakt einmal
 - Clan-War-Kills laufen nicht in normale Open-World-Stats
 - `/clanwar stop` mit Staff funktioniert
 
-## 14. Phase-10 Backup-/Restart-Gate
+## 14. Spawner-/Mob-Stacking testen
+
+Auf eigener Island und eigenem Plot:
+- mehrere Spawner stacken
+- Spawner-Mobs derselben Art in der Naehe muessen zu einem Mob-Stack zusammengehen
+- sichtbarer Stackcounter stimmt
+- ein Kill reduziert den Stack genau um 1
+- Drops/XP nur fuer den einen Kill
+- grosse Farm auf TPS/Entity-Anzahl beobachten
+- Chunk unload/reload und Serverrestart testen
+
+## 15. Crate/Voucher Security-Gate
+
+Pruefen:
+- schneller Doppelklick
+- Shift-Klick / Inventar verschieben
+- Voucher kopieren und zweimal versuchen
+- Restart nach Einloesung
+- Reward darf pro Serial/Batch nur einmal kommen
+
+## 16. PlayerShop / Trade Transaction-Gate
+
+PlayerShop:
+- zweiter Spieler kauft waehrend Owner Stock entnimmt
+- Revenue claimen und sofort erneut versuchen
+- Restart direkt nach Kauf/Claim testen
+
+Trade:
+- Items und Coins anbieten
+- beide bestaetigen
+- waehrend Countdown Angebot aendern
+- beide muessen danach erneut bestaetigen
+- Quit/Inventory-Close waehrend Trade
+- keine doppelte Auszahlung / keine verlorenen Escrow-Items
+
+## 17. Phase-10 Backup-/Restart-Gate
 
 Vor groesseren Daten-Tests:
 
@@ -236,7 +253,20 @@ Danach mindestens einmal:
 - Server sauber `stop`
 - neu starten
 - Persistenz pruefen
-- spaeter Backup-Restore als eigener Testblock durchlaufen
+- Backup -> Daten veraendern -> Guarded Restore -> Datenstand vergleichen
+
+## 18. Finale Balance / Soft-Launch-Gate
+
+Erst wenn die technischen Gates sauber sind:
+- Economy und Shoppreise
+- Kit-Cooldowns
+- Battle-Pass-XP und Rewards
+- Crate-Wahrscheinlichkeiten
+- Event-Rewards
+- Mob-/Spawner-Limits
+- reale Spielerzahl / TPS
+
+Der Resource-Pack-Layer fuer die Custom UI kommt danach als Polish und ist kein Blocker fuer den ersten stabilen Serverstand.
 
 ## Wenn im Chat steht: "ich bin am PC"
 
