@@ -7,6 +7,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Haelt pro Spieler nur einen Ablaufzeitstempel - kein Bukkit-Task, keine Zustandsmaschine. */
 public final class CombatTagServiceImpl implements CombatTagService {
 
+    private static volatile CombatTagService liveInstance;
+
     private final long durationMillis;
     private final Map<UUID, Long> expiryTimestamps = new ConcurrentHashMap<UUID, Long>();
 
@@ -15,6 +17,12 @@ public final class CombatTagServiceImpl implements CombatTagService {
             throw new IllegalArgumentException("durationMillis muss positiv sein: " + durationMillis);
         }
         this.durationMillis = durationMillis;
+        liveInstance = this;
+    }
+
+    /** Liefert die aktuell vom Combat-Modul erzeugte Instanz, ohne Bukkit im Service selbst zu benoetigen. */
+    public static CombatTagService liveInstance() {
+        return liveInstance;
     }
 
     @Override
