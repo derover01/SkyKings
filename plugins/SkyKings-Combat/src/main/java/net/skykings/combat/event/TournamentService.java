@@ -5,10 +5,13 @@ import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -189,6 +192,24 @@ public final class TournamentService implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, this::startNextMatch, 20L);
     }
 
+    /** Nur das aktuell ausgerufene Match darf PvP-Schaden verursachen. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onTournamentDamage(EntityDamageByEntityEvent event) {
+        Player victim = event.getEntity() instanceof Player ? (Player) event.getEntity() : null;
+        Player attacker = resolvePlayer(event.getDamager());
+        boolean victimIn = victim != null && isParticipant(victim.getUniqueId());
+        boolean attackerIn = attacker != null && isParticipant(attacker.getUniqueId());
+        if (!victimIn && !attackerIn) return;
+        if (victim == null || attacker == null || fighterA == null || fighterB == null) {
+            event.setCancelled(true);
+            return;
+        }
+        UUID v = victim.getUniqueId();
+        UUID a = attacker.getUniqueId();
+        boolean activePair = (v.equals(fighterA) && a.equals(fighterB)) || (v.equals(fighterB) && a.equals(fighterA));
+        if (!activePair) event.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent event) {
         if (!running) return;
@@ -280,6 +301,15 @@ public final class TournamentService implements Listener {
         event.setCancelled(true);
         event.getPlayer().sendMessage(UiTheme.DANGER + "Commands sind waehrend des Tournaments deaktiviert.");
         SoundFeedback.error(event.getPlayer());
+    }
+
+    private Player resolvePlayer(Entity damager) {
+        if (damager instanceof Player) return (Player) damager;
+        if (damager instanceof Projectile) {
+            Object shooter = ((Projectile) damager).getShooter();
+            if (shooter instanceof Player) return (Player) shooter;
+        }
+        return null;
     }
 
     private void finishTournament(UUID winnerId) {
