@@ -1,87 +1,111 @@
 package net.skykings.core.plot;
 
+import net.skykings.core.protection.MapProtectionService;
 import org.bukkit.ChatColor;
-import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockBurnEvent;
-import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
-import org.bukkit.event.player.PlayerBucketFillEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 
-/** Schutz und Flags fuer die PlotSquared-inspirierte SkyPlots-Welt. */
+/** Schutz der SkyPlots-Welt. Staff-Bypass ist nur mit bewusst aktiviertem /buildmode möglich. */
 public final class PlotProtectionListener implements Listener {
     private final PlotService plots;
-    public PlotProtectionListener(PlotService plots) { this.plots = plots; }
+    private final MapProtectionService mapProtection;
 
-    @EventHandler(ignoreCancelled = true) public void onBreak(BlockBreakEvent e) {
-        if (plots.isPlotWorld(e.getBlock().getLocation()) && !allowed(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); deny(e.getPlayer()); }
-    }
-    @EventHandler(ignoreCancelled = true) public void onPlace(BlockPlaceEvent e) {
-        if (plots.isPlotWorld(e.getBlock().getLocation()) && !allowed(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); deny(e.getPlayer()); }
-    }
-    @EventHandler(ignoreCancelled = true) public void onEmpty(PlayerBucketEmptyEvent e) {
-        if (plots.isPlotWorld(e.getBlockClicked().getLocation()) && !allowed(e.getPlayer(), e.getBlockClicked().getLocation())) e.setCancelled(true);
-    }
-    @EventHandler(ignoreCancelled = true) public void onFill(PlayerBucketFillEvent e) {
-        if (plots.isPlotWorld(e.getBlockClicked().getLocation()) && !allowed(e.getPlayer(), e.getBlockClicked().getLocation())) e.setCancelled(true);
+    public PlotProtectionListener(PlotService plots, MapProtectionService mapProtection) {
+        this.plots = plots;
+        this.mapProtection = mapProtection;
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onMove(PlayerMoveEvent e) {
-        if (!plots.isPlotWorld(e.getTo())) return;
-        if (e.getFrom().getBlockX() == e.getTo().getBlockX() && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
-        if (plots.canEnter(e.getPlayer().getUniqueId(), e.getTo()) || e.getPlayer().hasPermission("skykings.admin.plot.bypass")) return;
-        e.setTo(e.getFrom());
-        e.getPlayer().sendMessage(ChatColor.RED + "Du bist von diesem Plot ausgeschlossen.");
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        if (canBypass(event.getPlayer())) return;
+        if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            deny(event.getPlayer());
+        }
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onPvp(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Player) || !(e.getEntity() instanceof Player)) return;
-        if (!plots.isPlotWorld(e.getEntity().getLocation())) return;
-        if (!plots.isPvpAllowed(e.getEntity().getLocation())) e.setCancelled(true);
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlace(BlockPlaceEvent event) {
+        if (canBypass(event.getPlayer())) return;
+        if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
+            event.setCancelled(true);
+            deny(event.getPlayer());
+        }
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onCreatureSpawn(CreatureSpawnEvent e) {
-        if (!plots.isPlotWorld(e.getLocation())) return;
-        PlotService.PlotData plot = plots.findAt(e.getLocation());
-        if (plot == null || !plot.isMobSpawning()) e.setCancelled(true);
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
+        if (canBypass(event.getPlayer())) return;
+        if (event.getClickedBlock() == null) return;
+        Material type = event.getClickedBlock().getType();
+        if (!protectedInteraction(type)) return;
+        if (!plots.canBuild(event.getPlayer(), event.getClickedBlock().getLocation())) {
+            event.setCancelled(true);
+            deny(event.getPlayer());
+        }
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onExplode(EntityExplodeEvent e) {
-        e.blockList().removeIf(b -> plots.isPlotWorld(b.getLocation()) && !plots.areExplosionsAllowed(b.getLocation()));
-    }
-    @EventHandler(ignoreCancelled = true)
-    public void onBlockExplode(BlockExplodeEvent e) {
-        e.blockList().removeIf(b -> plots.isPlotWorld(b.getLocation()) && !plots.areExplosionsAllowed(b.getLocation()));
-    }
-    @EventHandler(ignoreCancelled = true)
-    public void onBurn(BlockBurnEvent e) {
-        if (plots.isPlotWorld(e.getBlock().getLocation()) && !plots.isFireAllowed(e.getBlock().getLocation())) e.setCancelled(true);
-    }
-    @EventHandler(ignoreCancelled = true)
-    public void onIgnite(BlockIgniteEvent e) {
-        if (plots.isPlotWorld(e.getBlock().getLocation()) && !plots.isFireAllowed(e.getBlock().getLocation())) e.setCancelled(true);
-    }
-    @EventHandler(ignoreCancelled = true)
-    public void onFlow(BlockFromToEvent e) {
-        if (!plots.isPlotWorld(e.getBlock().getLocation())) return;
-        PlotService.PlotData a = plots.findAt(e.getBlock().getLocation()), b = plots.findAt(e.getToBlock().getLocation());
-        if (a == null || b == null || !a.owner.equals(b.owner)) e.setCancelled(true);
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBucket(PlayerBucketEmptyEvent event) {
+        if (canBypass(event.getPlayer())) return;
+        if (!plots.canBuild(event.getPlayer(), event.getBlockClicked().getLocation())) {
+            event.setCancelled(true);
+            deny(event.getPlayer());
+        }
     }
 
-    private boolean allowed(Player p, Location l) { return p.hasPermission("skykings.admin.plot.bypass") || plots.canBuild(p.getUniqueId(), l); }
-    private void deny(Player p) { p.sendMessage(ChatColor.RED + "Du darfst auf diesem Plot nicht bauen."); }
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onExplosion(EntityExplodeEvent event) {
+        if (!plots.isPlotWorld(event.getLocation().getWorld())) return;
+        if (plots.getPlotAt(event.getLocation()) == null || !plots.isExplosionsAllowed(event.getLocation())) {
+            event.blockList().clear();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBurn(BlockBurnEvent event) {
+        if (!plots.isPlotWorld(event.getBlock().getWorld())) return;
+        if (!plots.isFireAllowed(event.getBlock().getLocation())) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onIgnite(BlockIgniteEvent event) {
+        if (!plots.isPlotWorld(event.getBlock().getWorld())) return;
+        if (!plots.isFireAllowed(event.getBlock().getLocation())) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onSpawn(CreatureSpawnEvent event) {
+        if (!plots.isPlotWorld(event.getLocation().getWorld())) return;
+        if (plots.getPlotAt(event.getLocation()) == null || !plots.isMobSpawningAllowed(event.getLocation())) event.setCancelled(true);
+    }
+
+    private boolean canBypass(Player player) {
+        return player != null && player.hasPermission("skykings.admin.plot.bypass") && mapProtection.canEdit(player);
+    }
+
+    private boolean protectedInteraction(Material material) {
+        String n = material.name();
+        return n.contains("CHEST") || n.contains("DOOR") || n.contains("GATE") || n.contains("TRAP_DOOR")
+                || n.contains("BUTTON") || n.contains("LEVER") || n.contains("PRESSURE_PLATE")
+                || material == Material.FURNACE || material == Material.BURNING_FURNACE
+                || material == Material.ANVIL || material == Material.BREWING_STAND
+                || material == Material.ENCHANTMENT_TABLE || material == Material.HOPPER
+                || material == Material.DISPENSER || material == Material.DROPPER;
+    }
+
+    private void deny(Player player) {
+        player.sendMessage(ChatColor.RED + "Du hast auf diesem Plot keine Baurechte.");
+    }
 }
