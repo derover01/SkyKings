@@ -23,10 +23,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Schutz fuer Spawn-/SkyPvP-Welten. Standardspieler koennen dort nichts bauen oder zerstoeren.
- * Berechtigte Staffs koennen ihren persoenlichen Edit-Modus ueber /buildmode toggeln.
- */
+/** Schutz fuer Spawn-/SkyPvP-/Eventwelten. */
 public final class MapProtectionService implements Listener {
 
     public static final String BYPASS_PERMISSION = "skykings.admin.buildmode";
@@ -34,10 +31,15 @@ public final class MapProtectionService implements Listener {
     private final Set<String> protectedWorlds = new HashSet<String>();
     private final Set<UUID> buildMode = new HashSet<UUID>();
 
-    public MapProtectionService() { protectedWorlds.add("skypvp"); }
+    public MapProtectionService() {
+        protectedWorlds.add("skypvp");
+        protectedWorlds.add("skyevents");
+    }
 
     public boolean isProtected(World world) {
-        return world != null && protectedWorlds.contains(world.getName().toLowerCase());
+        if (world == null) return false;
+        String name = world.getName().toLowerCase();
+        return protectedWorlds.contains(name) || name.startsWith("skyevents");
     }
 
     public boolean canEdit(Player player) {
@@ -68,7 +70,6 @@ public final class MapProtectionService implements Listener {
         if (event.getRemover() instanceof Player && deny((Player) event.getRemover())) event.setCancelled(true);
     }
 
-    /** Spieler/Entities duerfen die Weizenfelder der Produktionsmap nicht zu Erde zertrampeln. */
     @EventHandler(ignoreCancelled = true)
     public void onFarmlandTrample(EntityChangeBlockEvent event) {
         if (!isProtected(event.getBlock().getWorld())) return;
@@ -78,21 +79,15 @@ public final class MapProtectionService implements Listener {
     @EventHandler public void onExplosion(EntityExplodeEvent event) {
         if (isProtected(event.getLocation().getWorld())) event.blockList().clear();
     }
-
     @EventHandler public void onBurn(BlockBurnEvent event) {
         if (isProtected(event.getBlock().getWorld())) event.setCancelled(true);
     }
-
     @EventHandler public void onIgnite(BlockIgniteEvent event) {
         if (isProtected(event.getBlock().getWorld())) event.setCancelled(true);
     }
-
-    @EventHandler
-    public void onFlow(BlockFromToEvent event) {
+    @EventHandler public void onFlow(BlockFromToEvent event) {
         if (!isProtected(event.getBlock().getWorld())) return;
         Material from = event.getBlock().getType();
-        if (from == Material.WATER || from == Material.STATIONARY_WATER || from == Material.LAVA || from == Material.STATIONARY_LAVA) {
-            event.setCancelled(true);
-        }
+        if (from == Material.WATER || from == Material.STATIONARY_WATER || from == Material.LAVA || from == Material.STATIONARY_LAVA) event.setCancelled(true);
     }
 }
