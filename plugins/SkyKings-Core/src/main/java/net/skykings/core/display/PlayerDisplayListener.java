@@ -31,10 +31,7 @@ public final class PlayerDisplayListener implements Listener {
         displayService.refreshTab(event.getPlayer());
     }
 
-    /**
-     * /prefix ist bewusst eine kleine Anzeige-Oberflaeche. Der kosmetische Prefix bleibt durch
-     * seine Permission bestimmt; der Spieler entscheidet hier nur, ob der Rang daneben im Chat steht.
-     */
+    /** /prefix verwaltet nur die Anzeige; Besitz und Permissions des Prefixes bleiben unangetastet. */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPrefixCommand(PlayerCommandPreprocessEvent event) {
         String raw = event.getMessage();
@@ -53,20 +50,27 @@ public final class PlayerDisplayListener implements Listener {
         if (parts.length >= 2) {
             String option = parts[1].toLowerCase(Locale.ROOT);
             if ("an".equals(option) || "on".equals(option)) {
-                displayService.setRankShownWithCosmetic(player, true);
-                player.sendMessage(UiTheme.SUCCESS + "Rang im Chat-Prefix: AN");
+                displayService.setCosmeticPrefixShown(player, true);
+                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: AN");
                 SoundFeedback.success(player);
                 return;
             }
             if ("aus".equals(option) || "off".equals(option)) {
-                displayService.setRankShownWithCosmetic(player, false);
-                player.sendMessage(UiTheme.SUCCESS + "Rang im Chat-Prefix: AUS");
+                displayService.setCosmeticPrefixShown(player, false);
+                player.sendMessage(UiTheme.SUCCESS + "Kosmetischer Prefix: AUS");
                 SoundFeedback.success(player);
                 return;
             }
-            if ("toggle".equals(option)) {
-                displayService.setRankShownWithCosmetic(player, !displayService.isRankShownWithCosmetic(player));
-                openPrefixMenu(player);
+            if ("rang".equals(option) && parts.length >= 3) {
+                String state = parts[2].toLowerCase(Locale.ROOT);
+                if ("an".equals(state) || "on".equals(state)) displayService.setRankShownWithCosmetic(player, true);
+                else if ("aus".equals(state) || "off".equals(state)) displayService.setRankShownWithCosmetic(player, false);
+                else {
+                    player.sendMessage(UiTheme.WARNING + "Nutze: /prefix rang <an|aus>");
+                    return;
+                }
+                player.sendMessage(UiTheme.SUCCESS + "Rang neben Prefix: " + (displayService.isRankShownWithCosmetic(player) ? "AN" : "AUS"));
+                SoundFeedback.success(player);
                 return;
             }
         }
@@ -75,16 +79,20 @@ public final class PlayerDisplayListener implements Listener {
 
     private void openPrefixMenu(Player player) {
         String cosmetic = displayService.cosmeticPrefixFor(player);
+        boolean showPrefix = displayService.isCosmeticPrefixShown(player);
         boolean showRank = displayService.isRankShownWithCosmetic(player);
         GuiSession gui = GuiSession.create(player, UiTheme.title("Chat Prefix"), 27);
-        gui.setItem(11, UiItems.item(Material.NAME_TAG,
-                UiTheme.PRIMARY + "Aktiver Prefix",
+        gui.setItem(11, UiItems.item(showPrefix ? Material.NAME_TAG : Material.INK_SACK,
+                showPrefix ? UiTheme.SUCCESS + "Prefix: AN" : UiTheme.DANGER + "Prefix: AUS",
                 UiTheme.TEXT + cosmetic,
-                UiTheme.MUTED + "Kosmetisch und permanent."));
+                UiItems.action("Klicken zum Umschalten")), (p,e,s) -> {
+            displayService.setCosmeticPrefixShown(p, !displayService.isCosmeticPrefixShown(p));
+            SoundFeedback.success(p);
+            openPrefixMenu(p);
+        });
         gui.setItem(15, UiItems.item(showRank ? Material.EMERALD : Material.REDSTONE,
-                showRank ? UiTheme.SUCCESS + "Rang anzeigen: AN" : UiTheme.DANGER + "Rang anzeigen: AUS",
-                UiTheme.MUTED + "Nur fuer die Chat-Anzeige.",
-                "",
+                showRank ? UiTheme.SUCCESS + "Rang daneben: AN" : UiTheme.DANGER + "Rang daneben: AUS",
+                UiTheme.MUTED + "Wirkt nur bei sichtbarem Prefix.",
                 UiItems.action("Klicken zum Umschalten")), (p,e,s) -> {
             displayService.setRankShownWithCosmetic(p, !displayService.isRankShownWithCosmetic(p));
             SoundFeedback.success(p);
