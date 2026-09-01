@@ -31,36 +31,64 @@ public final class DailyRewardService {
         this.jackpotService = new JackpotService(plugin, economy);
     }
 
-    public JackpotService getJackpotService() {
-        return jackpotService;
-    }
+    public JackpotService getJackpotService() { return jackpotService; }
 
-    public boolean claim(Player player) {
+    /** Claim wird persistent reserviert, bevor irgendein Reward ausgezahlt wird. */
+    public synchronized boolean claim(Player player) {
         UUID uuid = player.getUniqueId();
         int today = dayId();
-        int last = data.getInt("players." + uuid + ".last-day", -1);
+        String base = "players." + uuid;
+        int last = data.getInt(base + ".last-day", -1);
         if (last == today) return false;
-        int streak = data.getInt("players." + uuid + ".streak", 0);
-        if (last == yesterdayId()) streak++; else streak = 1;
+
+        int previousStreak = data.getInt(base + ".streak", 0);
+        int streak = last == yesterdayId() ? previousStreak + 1 : 1;
         if (streak > 7) streak = 1;
+
+        // Erst Claim + Streak persistent reservieren. Ein Rapid-Click sieht danach sofort last-day=today.
+        data.set(base + ".last-day", today);
+        data.set(base + ".streak", streak);
+        if (!saveNow()) {
+            if (last < 0) data.set(base + ".last-day", null); else data.set(base + ".last-day", last);
+            if (previousStreak <= 0) data.set(base + ".streak", null); else data.set(base + ".streak", previousStreak);
+            player.sendMessage(ChatColor.RED + "Daily Reward konnte nicht sicher gespeichert werden. Bitte spaeter erneut versuchen.");
+            return false;
+        }
 
         long coins = 50_000L + (streak - 1L) * 25_000L;
         int stars = streak >= 7 ? 3 : (streak >= 4 ? 2 : 1);
-        economy.deposit(uuid, coins, "DAILY_REWARD", "Daily Tag " + streak);
-        Map<Integer, ItemStack> left = player.getInventory().addItem(new ItemStack(Material.NETHER_STAR, stars));
-        for (ItemStack stack : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), stack);
-        data.set("players." + uuid + ".last-day", today);
-        data.set("players." + uuid + ".streak", streak);
-        save();
+        try {
+            economy.deposit(uuid, coins, "DAILY_REWARD", "Daily Tag " + streak);
+        } catch (RuntimeException ex) {
+            // Keine Coin-Auszahlung erfolgt: Claim wieder freigeben und persistent zurueckrollen.
+            if (last < 0) data.set(base + ".last-day", null); else data.set(base + ".last-day", last);
+            if (previousStreak <= 0) data.set(base + ".streak", null); else data.set(base + ".streak", previousStreak);
+            if (!saveNow()) {
+                plugin.getLogger().severe("Daily-Reward-Claim konnte nach Economy-Fehler nicht freigegeben werden: " + uuid);
+            }
+            plugin.getLogger().warning("Daily-Reward-Auszahlung fehlgeschlagen fuer " + uuid + ": " + ex.getMessage());
+            player.sendMessage(ChatColor.RED + "Daily Reward konnte nicht ausgezahlt werden. Der Claim wurde nicht verbraucht.");
+            return false;
+        }
+
+        try {
+            Map<Integer, ItemStack> left = player.getInventory().addItem(new ItemStack(Material.NETHER_STAR, stars));
+            for (ItemStack stack : left.values()) player.getWorld().dropItemNaturally(player.getLocation(), stack);
+        } catch (RuntimeException ex) {
+            // Coins wurden bereits sicher ausgezahlt: Claim bleibt verbraucht, damit kein Coin-Dupe entsteht.
+            plugin.getLogger().warning("Daily-Nethersterne konnten nicht ausgegeben werden fuer " + uuid + ": " + ex.getMessage());
+            player.sendMessage(ChatColor.YELLOW + "Coins wurden ausgezahlt, Nethersterne konnten nicht ausgegeben werden. Bitte Staff informieren.");
+        }
+
         player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "DAILY REWARD " + ChatColor.YELLOW + "Tag " + streak
                 + ChatColor.GRAY + " - +" + coins + " Coins, +" + stars + " Netherstern" + (stars == 1 ? "" : "e"));
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.75F, 1.4F);
         return true;
     }
 
-    public int getStreak(UUID uuid) { return data.getInt("players." + uuid + ".streak", 0); }
+    public synchronized int getStreak(UUID uuid) { return data.getInt("players." + uuid + ".streak", 0); }
 
-    public long secondsUntilNext(UUID uuid) {
+    public synchronized long secondsUntilNext(UUID uuid) {
         int today = dayId();
         if (data.getInt("players." + uuid + ".last-day", -1) != today) return 0L;
         Calendar next = Calendar.getInstance();
@@ -80,12 +108,19 @@ public final class DailyRewardService {
     }
     private int dayId(Calendar c) { return c.get(Calendar.YEAR) * 1000 + c.get(Calendar.DAY_OF_YEAR); }
 
-    public void save() {
+    public synchronized void save() { saveNow(); }
+
+    private boolean saveNow() {
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                plugin.getLogger().warning("Daily-Reward-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
             data.save(file);
-        } catch (IOException ex) {
+            return true;
+        } catch (IOException | RuntimeException ex) {
             plugin.getLogger().warning("daily-rewards.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            return false;
         }
     }
 }
