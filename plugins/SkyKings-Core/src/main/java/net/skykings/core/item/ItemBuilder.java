@@ -1,5 +1,6 @@
 package net.skykings.core.item;
 
+import net.skykings.core.ui.UiItems;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -68,11 +69,9 @@ public final class ItemBuilder {
     public ItemBuilder lore(List<String> lines) {
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            List<String> translated = new ArrayList<>(lines.size());
-            for (String line : lines) {
-                translated.add(translateColors(line));
-            }
-            meta.setLore(translated);
+            List<String> translated = new ArrayList<String>(lines.size());
+            for (String line : lines) translated.add(translateColors(line));
+            meta.setLore(UiItems.wrapLore(translated.toArray(new String[translated.size()])));
             stack.setItemMeta(meta);
         }
         return this;
