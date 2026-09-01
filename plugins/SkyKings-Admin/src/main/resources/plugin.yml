@@ -1,7 +1,7 @@
 name: SkyKings-Admin
 version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
-depend: [SkyKings-Core, SkyKings-Combat]
+depend: [SkyKings-Core, SkyKings-Combat, SkyKings-Crates]
 description: >
   Admin-Modul für Staff-Commands, Warps, Audit, Events, Diagnose und Discord-Logging.
 authors: [SkyKings Team]
@@ -41,6 +41,14 @@ commands:
     description: Staff-Schnellreise zu den offiziellen SkyKings-Welten.
     usage: /maptp <main|plots|islands|community>
     permission: skykings.admin.maptp
+  freitag:
+    description: Startet den grossen SkyKings-Freitags-Community-Abend.
+    usage: /freitag [status|stop]
+    permission: skykings.admin.friday
+  verlosen:
+    description: Verlost im Freitags-Event den gehaltenen Item-Stack oder beendet die Phase.
+    usage: /verlosen [fertig]
+    permission: skykings.admin.friday
   skcheck:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
     usage: /skcheck
@@ -67,6 +75,9 @@ permissions:
     default: false
   skykings.admin.maptp:
     description: Darf technische SkyKings-Welten direkt ansteuern.
+    default: false
+  skykings.admin.friday:
+    description: Darf das Freitags-Event starten, verwalten und Hand-Items verlosen.
     default: false
   skykings.staff.announcement:
     description: Darf Server-Ankündigungen senden.
