@@ -39,15 +39,18 @@ public final class PlayerDisplayService {
         this.preferences = new ChatDisplayPreferenceStore(JavaPlugin.getProvidingPlugin(PlayerDisplayService.class));
     }
 
-    /** Chat: Rang bleibt sichtbar, auch wenn der kosmetische Prefix bewusst ausgeblendet wurde. */
+    /** Chat-Identitaet: Cosmetic und Rang sind zwei unabhaengige Layer. */
     public String prefixFor(Player player) {
-        String rankPrefix = rankPrefixFor(player);
+        StringBuilder out = new StringBuilder();
         String cosmetic = cosmeticPrefix(player);
-        if (cosmetic == null || !preferences.showCosmeticPrefix(player.getUniqueId())) return rankPrefix;
-        String cosmeticBlock = ChatColor.DARK_GRAY + "[" + cosmetic + ChatColor.DARK_GRAY + "]";
-        return preferences.showRankWithCosmeticPrefix(player.getUniqueId())
-                ? cosmeticBlock + " " + rankPrefix
-                : cosmeticBlock;
+        if (cosmetic != null && preferences.showCosmeticPrefix(player.getUniqueId())) {
+            out.append(ChatColor.DARK_GRAY).append("[").append(cosmetic).append(ChatColor.DARK_GRAY).append("]");
+        }
+        if (preferences.showRank(player.getUniqueId())) {
+            if (out.length() > 0) out.append(" ");
+            out.append(rankPrefixFor(player));
+        }
+        return out.toString();
     }
 
     public String cosmeticPrefixFor(Player player) {
@@ -73,18 +76,36 @@ public final class PlayerDisplayService {
         preferences.setShowCosmeticPrefix(player.getUniqueId(), show);
     }
 
-    public boolean isRankShownWithCosmetic(Player player) {
-        return preferences.showRankWithCosmeticPrefix(player.getUniqueId());
+    public boolean isRankShown(Player player) {
+        return preferences.showRank(player.getUniqueId());
     }
 
+    public void setRankShown(Player player, boolean show) {
+        preferences.setShowRank(player.getUniqueId(), show);
+    }
+
+    /** Backward-compatible Namen fuer bestehenden Code. */
+    public boolean isRankShownWithCosmetic(Player player) {
+        return isRankShown(player);
+    }
+
+    /** Backward-compatible Namen fuer bestehenden Code. */
     public void setRankShownWithCosmetic(Player player, boolean show) {
-        preferences.setShowRankWithCosmeticPrefix(player.getUniqueId(), show);
+        setRankShown(player, show);
+    }
+
+    public boolean isClanTagShown(Player player) {
+        return preferences.showClanTag(player.getUniqueId());
+    }
+
+    public void setClanTagShown(Player player, boolean show) {
+        preferences.setShowClanTag(player.getUniqueId(), show);
     }
 
     /**
      * Tab bleibt bewusst kompakt: Rang + vollstaendiger Spielername.
-     * Clan-Tags bleiben im Chat/Clan-System, weil Rang + Clan + Name unter 1.8
-     * den Spielernamen sonst abschneiden kann. Der Name selbst wird niemals gekuerzt.
+     * Clan-Tags bleiben dort grundsaetzlich draussen, weil Rang + Clan + Name unter 1.8
+     * den Spielernamen sonst abschneiden kann. Chat-Praeferenzen beeinflussen den Tab nicht.
      */
     public void refreshTab(Player player) {
         player.setPlayerListName(formatTabName(rankPrefixFor(player), player.getName()));
