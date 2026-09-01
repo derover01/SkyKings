@@ -98,9 +98,9 @@ commands:
     usage: /spawnerstack
     aliases: [spawner, ams]
   dailyrewards:
-    description: Holt den täglichen SkyKings-Reward ab.
+    description: Holt den täglichen SkyKings-Reward ab; /jackpot öffnet den Coin-Jackpot.
     usage: /dailyrewards
-    aliases: [daily, dailyreward]
+    aliases: [daily, dailyreward, jackpot]
   gm:
     description: Staff-Gamemode-Befehl.
     usage: /gm <0|1|2|3> [Spieler]
