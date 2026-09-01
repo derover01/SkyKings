@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class KillstreakServiceImpl implements KillstreakService {
 
+    private static volatile KillstreakServiceImpl active;
+
     private final Map<UUID, AtomicInteger> streaks = new ConcurrentHashMap<>();
     private final List<KillstreakTier> tiers;
 
@@ -20,6 +22,13 @@ public final class KillstreakServiceImpl implements KillstreakService {
         all.addAll(additionalTiers);
         all.sort(Comparator.comparingInt(KillstreakTier::getThreshold));
         this.tiers = Collections.unmodifiableList(all);
+        active = this;
+    }
+
+    /** Loescht auch die gerade im RAM laufende Streak beim persoenlichen Stats-Reset. */
+    public static void resetActive(UUID uuid) {
+        KillstreakServiceImpl service = active;
+        if (service != null && uuid != null) service.reset(uuid);
     }
 
     @Override
