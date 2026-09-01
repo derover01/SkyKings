@@ -22,16 +22,26 @@ public final class ChatDisplayPreferenceStore {
 
     /** Standard AN, damit bestehendes Verhalten fuer alle Spieler erhalten bleibt. */
     public boolean showRankWithCosmeticPrefix(UUID uuid) {
-        return yaml.getBoolean(path(uuid), true);
+        return yaml.getBoolean(path(uuid, "show-rank-with-prefix"), true);
     }
 
     public void setShowRankWithCosmeticPrefix(UUID uuid, boolean show) {
-        yaml.set(path(uuid), show);
+        yaml.set(path(uuid, "show-rank-with-prefix"), show);
         save();
     }
 
-    private String path(UUID uuid) {
-        return "players." + uuid.toString() + ".show-rank-with-prefix";
+    /** Der Besitz bleibt erhalten; nur die sichtbare Chat-Ausgabe kann ausgeblendet werden. */
+    public boolean showCosmeticPrefix(UUID uuid) {
+        return yaml.getBoolean(path(uuid, "show-cosmetic-prefix"), true);
+    }
+
+    public void setShowCosmeticPrefix(UUID uuid, boolean show) {
+        yaml.set(path(uuid, "show-cosmetic-prefix"), show);
+        save();
+    }
+
+    private String path(UUID uuid, String key) {
+        return "players." + uuid.toString() + "." + key;
     }
 
     private void save() {
