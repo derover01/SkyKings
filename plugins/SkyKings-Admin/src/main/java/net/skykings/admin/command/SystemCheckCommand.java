@@ -47,8 +47,6 @@ public final class SystemCheckCommand implements CommandExecutor {
         command(sender, "kit");
         command(sender, "duel");
         command(sender, "lms");
-        command(sender, "tournament");
-        command(sender, "juggernaut");
         command(sender, "clanwar");
         command(sender, "eventarena");
 
