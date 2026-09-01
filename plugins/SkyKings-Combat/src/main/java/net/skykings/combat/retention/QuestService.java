@@ -34,9 +34,12 @@ public final class QuestService implements Listener {
         this.data = YamlConfiguration.loadConfiguration(file);
     }
 
-    /** Nur der bereits validierte SkyKings-Killpfad darf PvP-Quests fortschreiben. */
+    /** Nur volle, validierte SkyKings-Kills duerfen PvP-Quests fortschreiben. */
     @EventHandler
     public void onKill(SkyKingsPlayerKillEvent event) {
+        // Wiederholte/Farm-Kills koennen im normalen Rewardpfad reduziert werden. Fuer Quests
+        // sind wir absichtlich strenger: nur ein voller Anti-Farm-Multiplikator zaehlt.
+        if (event.getAntiFarmMultiplier() < 1.0D) return;
         Player killer = Bukkit.getPlayer(event.getKillerUuid());
         if (killer == null) return;
         prepare(killer.getUniqueId());
