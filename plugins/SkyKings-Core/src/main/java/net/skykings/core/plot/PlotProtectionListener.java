@@ -25,7 +25,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
         }
@@ -33,7 +33,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
         }
@@ -44,7 +44,7 @@ public final class PlotProtectionListener implements Listener {
         if (event.getClickedBlock() == null) return;
         Material type = event.getClickedBlock().getType();
         if (!protectedInteraction(type)) return;
-        if (!plots.canBuild(event.getPlayer(), event.getClickedBlock().getLocation())) {
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getClickedBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
         }
@@ -52,7 +52,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucket(PlayerBucketEmptyEvent event) {
-        if (!plots.canBuild(event.getPlayer(), event.getBlockClicked().getLocation())) {
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlockClicked().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
         }
@@ -60,28 +60,29 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onExplosion(EntityExplodeEvent event) {
-        if (!plots.isPlotWorld(event.getLocation().getWorld())) return;
-        if (plots.getPlotAt(event.getLocation()) == null || !plots.isExplosionsAllowed(event.getLocation())) {
+        if (!plots.isPlotWorld(event.getLocation())) return;
+        if (plots.findAt(event.getLocation()) == null || !plots.areExplosionsAllowed(event.getLocation())) {
             event.blockList().clear();
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBurn(BlockBurnEvent event) {
-        if (!plots.isPlotWorld(event.getBlock().getWorld())) return;
+        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
         if (!plots.isFireAllowed(event.getBlock().getLocation())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onIgnite(BlockIgniteEvent event) {
-        if (!plots.isPlotWorld(event.getBlock().getWorld())) return;
+        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
         if (!plots.isFireAllowed(event.getBlock().getLocation())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSpawn(CreatureSpawnEvent event) {
-        if (!plots.isPlotWorld(event.getLocation().getWorld())) return;
-        if (plots.getPlotAt(event.getLocation()) == null || !plots.isMobSpawningAllowed(event.getLocation())) event.setCancelled(true);
+        if (!plots.isPlotWorld(event.getLocation())) return;
+        PlotService.PlotData plot = plots.findAt(event.getLocation());
+        if (plot == null || !plot.isMobSpawning()) event.setCancelled(true);
     }
 
     private boolean protectedInteraction(Material material) {
