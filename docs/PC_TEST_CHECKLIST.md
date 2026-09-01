@@ -1,8 +1,7 @@
 # SkyKings – PC Test Checklist
 
-Diese Checkliste ist der feste Einstieg, sobald Martin wieder am PC ist.
-
-Trigger im Chat: **„ich bin am PC“**
+Diese Checkliste ist der feste Runtime-Test fuer den aktuellen Pre-Release-Stand.
+Die dauerhafte Setup-Liste steht zusaetzlich in `docs/SERVER_SETUP_TODO.md`.
 
 ## 1. Repository aktualisieren und bauen
 
@@ -14,132 +13,162 @@ git pull
 
 Erwartung: `BUILD SUCCESS`.
 
-Bei Build-Fehlern: kompletten Maven-Fehlerblock an ChatGPT senden, besonders ab dem ersten `[ERROR]` inklusive Datei/Zeilennummer.
-
 ## 2. Server starten
-
-Nur wenn der Build erfolgreich war:
 
 ```powershell
 cd "C:\Users\marti\OneDrive\Desktop\SkyKings\server"
 java -Xms1G -Xmx2G -jar spigot-1.8.8.jar nogui
 ```
 
-Beim Start auf `SEVERE`, `Exception`, `Could not load`, `NoSuchMethodError`, `NoClassDefFoundError` und deaktivierte SkyKings-Module achten.
+Beim Start auf `SEVERE`, `Exception`, `NoSuchMethodError` und deaktivierte SkyKings-Module achten.
 
 ## 3. Runtime-Schnellcheck
-
-Ingame zuerst:
 
 ```text
 /skcheck
 ```
 
-Erwartet werden insbesondere:
+Erwartet insbesondere:
 - SkyKings-Core: OK
 - SkyKings-Combat: OK
 - SkyKings-Crates: OK
 - SkyKings-Admin: OK
-- LuckPerms: OK
-- Vault: OK
-- Core API: OK
-- Island Access API: OK
-- Plot Access API: OK
-- SkyPvP Welt: geladen, sobald Produktionsmap geladen wurde
-- SkyIslands: geladen
-- SkyPlots: geladen
+- LuckPerms / Vault: OK
+- Core API / Island API / Plot API: OK
 
-## 4. Kritische Smoke Tests
+## 4. Aktuelle Regressionstests
 
-### Core / Komfort
-- `/ec` öffnen
-- normale Enderchest rechtsklicken -> Custom `/ec`
-- Seitenwechsel und Kauf testen
-- `/speed 1`, `/speed 5`, `/speed 10`, `/speed reset`
-- `/anvil`
-- `/workbench`
-- `/enchantmenttable`
+### GUI-Crashfix
+Diese Befehle duerfen **keinen ArrayIndexOutOfBoundsException Slot 45** mehr werfen:
+```text
+/prefix
+/top
+/gutscheine
+```
+In `/gutscheine` jede Kategorie einmal oeffnen.
+
+### Gutschein-/Crate-Tooltip
+Neu erzeugte Items testen:
+- technische Serial-/Batch-ID darf Tooltip nicht mehr ueber den Bildschirm ziehen
+- Ranggutschein zeigt konkreten Rang im Namen
+- Rechtegutschein zeigt konkretes Recht
+- Coin/GiveAll zeigt konkreten Betrag
+- Rang/Rechte = Buch
+- Kit = Papier
+- Coin/GiveAll = Sonnenblume
+- Coin-Gewinn aus Crate kommt als Gutschein statt Sofortbuchung
 
 ### Map-Schutz
-- ohne `/buildmode` auf SkyPvP abbauen/platzieren versuchen -> muss blockiert werden
-- `/buildmode` als Staff aktivieren -> bauen muss möglich sein
-- `/buildmode` wieder deaktivieren
+- auf `SkyPvP` Weizenfeld mehrfach anspringen -> Farmland bleibt Farmland
+- ohne `/buildmode` kein Bauen/Abbauen
+- mit `/buildmode` als Staff editierbar
 
-### Trade
-- `/trade <Spieler>`
-- Items einsetzen
-- Coins anbieten
-- bestätigen
-- während Countdown Angebot ändern -> Abschluss muss abbrechen/resetten
-- Disconnect/Close -> Items müssen sicher zurückkommen
+### Profile / Navigation
+```text
+/stats
+/achievements
+/collection
+/legacyhall
+/top
+```
+- Achievements aus `/stats` muss dasselbe `/achievements`-Menue oeffnen wie der Direktcommand
+- Collection Seite 1 -> Zurueck zu Profile
+- Legacy Hall Seite 1 -> Zurueck zu Profile
+- Top -> Zurueck zu Profile
 
-### Shops
-- System-/PvP-/Blacksmith-/Enchant-/Recycler-/Merchant-/Jackpot-NPC öffnen
-- Kauf mit Coins testen
-- Kauf mit physischen Nethersternen testen
-- Blacksmith/Repair prüfen
+### Kopfgeld
+Mit einem zweiten bekannten Spieler:
+```text
+/kopfgeld <Spieler> 25k
+```
+- 25.000 Coins werden beim Setzer abgezogen
+- Ziel erscheint im `/kopfgeld` Board
+- Board zeigt Spieler-Kopfgeld + ggf. Streak-Bounty getrennt
+- legitimer Kill zahlt Spieler-Kopfgeld aus
+- Farm-/Repeat-Kill darf gesetztes Kopfgeld nicht verbrauchen
 
 ### Islands
-- `/is create`
-- `/is home`
-- fremder Spieler darf nicht bauen
-- `/is trust <Spieler>` -> danach darf der Spieler bauen
-- `/is untrust <Spieler>` -> danach wieder gesperrt
+```text
+/is
+/is level
+/is top
+```
+- Grenze in Info: 129x129 / Center +/-64
+- `/is top` zeigt Top 10 nach Island-Level
+- wertvolle Bloecke steigern Level; Abbauen reduziert es wieder
+- `[Welcome]` bleibt Voraussetzung fuer `/is visit <Owner>`
+- Besucher landet direkt am Schild
+
+**Achtung:** Eine alte Testinsel behaelt ihre alte Form. Fuer den neuen klassischen Baum/Chest-Generator siehe Reset-Hinweis in `SERVER_SETUP_TODO.md`.
 
 ### Plots
-- `/plot create`
-- `/plot home`
-- Schutz/Trust wie bei Islands testen
+Nach einmaligem Pre-Release-Reset der alten `SkyPlots`-Testwelt:
+```text
+/p auto
+/p h
+/p add <Spieler>
+/p trust <Spieler>
+/p deny <Spieler>
+/p flag pvp an
+```
+- 65x65 Plot + 7 Block Strassen
+- `add`: Baurecht nur solange Owner online
+- `trust`: dauerhaft
+- `deny`: Zutritt blockiert
+- Flags im GUI testbar
+
+### Kits
+```text
+/kit
+```
+- READY / COOLDOWN sichtbar
+- Linksklick = claim
+- Rechtsklick = echte Item-/Potion-Vorschau
+- Zurueck funktioniert
+
+### Quests / Battle Pass
+```text
+/quests
+/battlepass
+```
+- jedes Quest-Item beschreibt die konkrete Aufgabe
+- Free-Spieler sieht keine Premium-Aufgaben
+- Premium-Spieler hat zusaetzliche Daily-/Weekly-Quests
+- Quest- und Battle-Pass-Sterne sind echte gebrandete SkyKings Sterne
 
 ### PlayerShops
-- auf eigener Island oder eigenem Plot `/playershop create`
+```text
+/playershop kaufen
+```
+- Haendler-Ei nur auf eigener Island/eigenem Plot platzierbar
 - `/playershop set <Menge> <Coins>`
-- passendes Item halten und `/playershop stock <Menge>`
+- Item halten + `/playershop stock <Menge>`
 - Kauf mit zweitem Spieler
-- `/playershop claim`
-- `/playershop withdraw <Menge>`
-- Shop außerhalb eigener Claim-Fläche darf nicht funktionieren
+- Owner-Rechtsklick -> Control Center
+- Claim / Withdraw testen
 
-### Spawner
-- Spawner auf Island/Plot setzen
-- mit weiterem Spawner rechtsklicken -> Stack erhöhen
-- `/spawnerstack`
-- Stack abbauen -> korrekte Anzahl Spawner zurück
-
-### Retention
-- `/daily`
-- `/season`
-- `/pvplevel`
-- `/achievements`
-- `/quests`
-- `/battlepass`
-
-### Peace / Friede
+### Friede
 `/peace` und `/friede` sind dasselbe System.
+- Anfrage / Accept / Deny
+- Partner koennen sich nicht verletzen
+- kein CombatTag durch geblockten Peace-Hit
+- nach Remove normales PvP
 
-Test:
-- `/friede <Spieler>`
-- Gegenüber nimmt an
-- gegenseitiger Schaden muss blockiert sein
-- dabei darf kein CombatTag entstehen
-- `/friede remove <Spieler>` -> PvP danach wieder möglich
+### Event-Welt
+Einmalig spaeter:
+```text
+/skymap event SkyEvents
+```
+- Hub, Duel, LMS, Tournament, Juggernaut optisch pruefen
+- Map darf von normalen Spielern nicht zerstoert werden
+- Event-Welt hat PvP technisch aktiv; Session-Schutz entscheidet, wer kaempfen darf
+- Arena-Punkte danach gemaess `SERVER_SETUP_TODO.md` setzen
 
-### Map Gameplay
-- `/mapsetup`
-- `/kingaltar info`
-- `/hotzone list`
-- `/endzone info`
-- `/secret list`
-- `/route list`
-- `/landmark list`
-- `/mapdisplay list`
-- `/trashbin list`
+## 5. Dauerhaft noch ingame zu konfigurieren
 
-## 5. Danach an ChatGPT schicken
+Siehe:
+```text
+docs/SERVER_SETUP_TODO.md
+```
 
-1. Ergebnis von `deploy-server.ps1`
-2. Start-Log ab dem Laden der SkyKings-Plugins bis `Done`
-3. Ausgabe von `/skcheck`
-4. Auffälligkeiten aus den Smoke Tests
-
-Danach werden zuerst Build-/Runtime-Probleme korrigiert und anschließend Duel/LMS/Tournament, AMS/Mob-Stacking, Hall of Fame, Discord-Logging und der finale Release-Hardening-Pass weitergebaut.
+Dort stehen insbesondere `/mapsetup`, King/HotZone/End/Secrets/Routen/Landmarks, NPC-Bindings, PvP-Regionen, Event-Arenen, Legacy Hall und Discord.
