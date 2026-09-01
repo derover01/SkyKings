@@ -32,6 +32,10 @@ public final class IslandGameplayService {
     private final Map<UUID, MapLandmarkService.Type> lastLandmark = new HashMap<UUID, MapLandmarkService.Type>();
     private int secondsSinceMasterySave;
 
+    public IslandGameplayService(JavaPlugin plugin, MapLandmarkService landmarks, EconomyService economy) {
+        this(plugin, landmarks, economy, requireLiveMastery());
+    }
+
     public IslandGameplayService(JavaPlugin plugin, MapLandmarkService landmarks, EconomyService economy,
                                  MapMasteryService mastery) {
         this.plugin = plugin;
@@ -39,6 +43,12 @@ public final class IslandGameplayService {
         this.economy = economy;
         this.mastery = mastery;
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+    }
+
+    private static MapMasteryService requireLiveMastery() {
+        MapMasteryService service = MapMasteryService.liveInstance();
+        if (service == null) throw new IllegalStateException("MapMasteryService muss vor IslandGameplayService initialisiert werden.");
+        return service;
     }
 
     private void tick() {
