@@ -1,7 +1,10 @@
 package net.skykings.combat.event;
 
 import net.skykings.combat.tag.CombatTagService;
+import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.economy.EconomyService;
+import net.skykings.core.kit.KitDefinition;
+import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.ConfirmationMenu;
 import net.skykings.core.ui.UiFormat;
@@ -21,14 +24,19 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
-/** Sicherer 1v1-Duel-Lifecycle mit optionalem Coin-Wager und Escrow. */
+/** Sicherer 1v1-Duel-Lifecycle mit optionalem Coin-Wager, Kit-Loadout und Escrow. */
 public final class DuelService implements Listener {
 
     private static final long REQUEST_TIMEOUT_MILLIS = 30_000L;
@@ -41,18 +49,23 @@ public final class DuelService implements Listener {
         COMBAT_TAGGED,
         TELEPORT_FAILED,
         NOT_ENOUGH_MONEY,
-        INVALID_WAGER
+        INVALID_WAGER,
+        KIT_NOT_FOUND,
+        LOADOUT_FAILED
     }
 
     private static final class Request {
         final UUID requester;
         final String arena;
         final long wager;
+        final String kitId;
         final long expiresAt;
-        Request(UUID requester, String arena, long wager, long expiresAt) {
+
+        Request(UUID requester, String arena, long wager, String kitId, long expiresAt) {
             this.requester = requester;
             this.arena = arena;
             this.wager = wager;
+            this.kitId = kitId;
             this.expiresAt = expiresAt;
         }
     }
@@ -64,21 +77,30 @@ public final class DuelService implements Listener {
         final Location firstReturn;
         final Location secondReturn;
         final long wager;
+        final String kitId;
+        final DuelInventorySnapshot firstSnapshot;
+        final DuelInventorySnapshot secondSnapshot;
         boolean escrowed;
         boolean wagerSettled;
         boolean finished;
 
-        Session(String id, UUID first, UUID second, Location firstReturn, Location secondReturn, long wager) {
+        Session(String id, UUID first, UUID second, Location firstReturn, Location secondReturn,
+                long wager, String kitId, DuelInventorySnapshot firstSnapshot,
+                DuelInventorySnapshot secondSnapshot) {
             this.id = id;
             this.first = first;
             this.second = second;
             this.firstReturn = firstReturn;
             this.secondReturn = secondReturn;
             this.wager = wager;
+            this.kitId = kitId;
+            this.firstSnapshot = firstSnapshot;
+            this.secondSnapshot = secondSnapshot;
         }
 
         UUID opponent(UUID player) { return first.equals(player) ? second : first; }
         Location returnFor(UUID player) { return first.equals(player) ? firstReturn : secondReturn; }
+        DuelInventorySnapshot snapshotFor(UUID player) { return first.equals(player) ? firstSnapshot : secondSnapshot; }
     }
 
     private final JavaPlugin plugin;
@@ -89,6 +111,7 @@ public final class DuelService implements Listener {
     private final Map<UUID, Request> requests = new HashMap<UUID, Request>();
     private final Map<UUID, Session> sessions = new HashMap<UUID, Session>();
     private final Map<UUID, Location> pendingRespawns = new HashMap<UUID, Location>();
+    private final Map<UUID, DuelInventorySnapshot> pendingSnapshots = new HashMap<UUID, DuelInventorySnapshot>();
 
     public DuelService(JavaPlugin plugin, EventArenaService arenas, CombatTagService combatTags, EconomyService economy) {
         this.plugin = plugin;
@@ -97,27 +120,38 @@ public final class DuelService implements Listener {
         this.economy = economy;
     }
 
-    /** Legacy-Aufruf ohne Einsatz. */
+    /** Legacy-Aufruf ohne Einsatz und mit eigenem Inventar. */
     public boolean request(Player requester, Player target, String arena) {
-        return request(requester, target, arena, 0L);
+        return request(requester, target, arena, 0L, null);
     }
 
+    /** Legacy-Aufruf mit Einsatz und eigenem Inventar. */
     public boolean request(Player requester, Player target, String arena, long wager) {
+        return request(requester, target, arena, wager, null);
+    }
+
+    /** Neue Challenge-Variante: beide Spieler erhalten dasselbe temporaere Rank-Kit. */
+    public boolean request(Player requester, Player target, String arena, long wager, String kitId) {
         if (requester == null || target == null || requester.equals(target)) return false;
         if (wager < 0L || wager > MAX_WAGER) return false;
         if (isBusy(requester.getUniqueId()) || isBusy(target.getUniqueId())) return false;
         if (wager > 0L && !economy.has(requester.getUniqueId(), wager)) return false;
 
+        String normalizedKit = normalizeKit(kitId);
+        if (normalizedKit != null && resolveKit(normalizedKit) == null) return false;
+
         String selectedArena = arena == null || arena.trim().isEmpty()
-                ? "duel" : arena.trim().toLowerCase(java.util.Locale.ROOT);
-        requests.put(target.getUniqueId(), new Request(requester.getUniqueId(), selectedArena, wager,
+                ? "duel" : arena.trim().toLowerCase(Locale.ROOT);
+        requests.put(target.getUniqueId(), new Request(requester.getUniqueId(), selectedArena, wager, normalizedKit,
                 System.currentTimeMillis() + REQUEST_TIMEOUT_MILLIS));
 
         requester.sendMessage(UiTheme.SUCCESS + "Duel-Anfrage gesendet");
         requester.sendMessage(UiTheme.MUTED + target.getName() + " • " + selectedArena
+                + kitSuffix(normalizedKit)
                 + (wager > 0L ? " • " + UiFormat.coins(wager) + " Einsatz" : ""));
         target.sendMessage(UiTheme.PRIMARY + "Duel-Anfrage");
         target.sendMessage(UiTheme.TEXT + requester.getName() + UiTheme.MUTED + " fordert dich heraus."
+                + kitSuffix(normalizedKit)
                 + (wager > 0L ? " Einsatz: " + UiTheme.WARNING + UiFormat.coins(wager) : ""));
         target.sendMessage(UiTheme.WARNING + "/duel accept" + UiTheme.MUTED + " oder " + UiTheme.WARNING + "/duel deny");
         SoundFeedback.notify(target);
@@ -136,13 +170,14 @@ public final class DuelService implements Listener {
 
         if (request.wager <= 0L) {
             requests.remove(target.getUniqueId());
-            return start(requester, target, request.arena, 0L);
+            return start(requester, target, request.arena, 0L, request.kitId);
         }
 
         ConfirmationMenu.open(target,
                 UiItems.item(Material.GOLD_INGOT,
                         UiTheme.TEXT + "Duel Wager",
                         UiTheme.MUTED + "Gegner " + UiTheme.TEXT + requester.getName(),
+                        UiTheme.MUTED + "Kit " + UiTheme.PRIMARY + displayKit(request.kitId),
                         UiTheme.MUTED + "Dein Einsatz " + UiTheme.WARNING + UiFormat.coins(request.wager),
                         UiTheme.MUTED + "Gewinner-Pot " + UiTheme.TEXT + UiFormat.coins(request.wager * 2L)),
                 "Duel Wager",
@@ -166,7 +201,7 @@ public final class DuelService implements Listener {
             SoundFeedback.error(target);
             return;
         }
-        StartResult result = start(requester, target, current.arena, current.wager);
+        StartResult result = start(requester, target, current.arena, current.wager, current.kitId);
         if (result != StartResult.SUCCESS) sendStartError(target, result);
     }
 
@@ -187,7 +222,9 @@ public final class DuelService implements Listener {
     public boolean hasPendingRequest(UUID target) { return validRequest(target) != null; }
     public boolean isBusy(UUID uuid) { return participation.isInEvent(uuid) || sessions.containsKey(uuid); }
 
-    private StartResult start(Player first, Player second, String arena, long wager) {
+    public KitRegistry getKitRegistry() { return kitRegistry(); }
+
+    private StartResult start(Player first, Player second, String arena, long wager, String kitId) {
         if (wager < 0L || wager > MAX_WAGER) return StartResult.INVALID_WAGER;
         if (isBusy(first.getUniqueId()) || isBusy(second.getUniqueId())) return StartResult.PLAYER_BUSY;
         if (combatTags.isTagged(first.getUniqueId()) || combatTags.isTagged(second.getUniqueId())) return StartResult.COMBAT_TAGGED;
@@ -195,8 +232,13 @@ public final class DuelService implements Listener {
         Location b = arenas.get(arena, "b");
         if (a == null || b == null) return StartResult.ARENA_NOT_READY;
 
+        KitDefinition kit = kitId == null ? null : resolveKit(kitId);
+        if (kitId != null && kit == null) return StartResult.KIT_NOT_FOUND;
+        DuelInventorySnapshot firstSnapshot = kit == null ? null : DuelInventorySnapshot.capture(first);
+        DuelInventorySnapshot secondSnapshot = kit == null ? null : DuelInventorySnapshot.capture(second);
+
         Session session = new Session(UUID.randomUUID().toString(), first.getUniqueId(), second.getUniqueId(),
-                first.getLocation().clone(), second.getLocation().clone(), wager);
+                first.getLocation().clone(), second.getLocation().clone(), wager, kitId, firstSnapshot, secondSnapshot);
 
         if (wager > 0L && !takeEscrow(session, first, second)) return StartResult.NOT_ENOUGH_MONEY;
 
@@ -220,10 +262,17 @@ public final class DuelService implements Listener {
             return StartResult.TELEPORT_FAILED;
         }
 
+        if (kit != null && (!applyKit(first, kit) || !applyKit(second, kit))) {
+            rollbackStart(session, first, second);
+            return StartResult.LOADOUT_FAILED;
+        }
+
         prepare(first);
         prepare(second);
-        first.sendMessage(UiTheme.PRIMARY + "Duel" + UiTheme.MUTED + " gegen " + UiTheme.TEXT + second.getName());
-        second.sendMessage(UiTheme.PRIMARY + "Duel" + UiTheme.MUTED + " gegen " + UiTheme.TEXT + first.getName());
+        first.sendMessage(UiTheme.PRIMARY + "Duel" + UiTheme.MUTED + " gegen " + UiTheme.TEXT + second.getName()
+                + kitSuffix(kitId));
+        second.sendMessage(UiTheme.PRIMARY + "Duel" + UiTheme.MUTED + " gegen " + UiTheme.TEXT + first.getName()
+                + kitSuffix(kitId));
         if (wager > 0L) {
             String pot = UiFormat.coins(wager * 2L);
             first.sendMessage(UiTheme.MUTED + "Wager Pot " + UiTheme.WARNING + pot);
@@ -232,6 +281,36 @@ public final class DuelService implements Listener {
         SoundFeedback.notify(first);
         SoundFeedback.notify(second);
         return StartResult.SUCCESS;
+    }
+
+    private boolean applyKit(Player player, KitDefinition kit) {
+        try {
+            DuelInventorySnapshot.clearEffects(player);
+            PlayerInventory inventory = player.getInventory();
+            inventory.clear();
+            inventory.setArmorContents(new ItemStack[4]);
+            player.setLevel(0);
+            player.setExp(0F);
+            player.setTotalExperience(0);
+
+            for (ItemStack original : kit.createItems()) {
+                if (original == null || original.getType() == Material.AIR) continue;
+                ItemStack item = original.clone();
+                String name = item.getType().name();
+                if (name.endsWith("_HELMET")) inventory.setHelmet(item);
+                else if (name.endsWith("_CHESTPLATE")) inventory.setChestplate(item);
+                else if (name.endsWith("_LEGGINGS")) inventory.setLeggings(item);
+                else if (name.endsWith("_BOOTS")) inventory.setBoots(item);
+                else if (!inventory.addItem(item).isEmpty()) return false;
+            }
+            for (PotionEffect effect : kit.getPotionEffects()) player.addPotionEffect(effect, true);
+            inventory.setHeldItemSlot(0);
+            player.updateInventory();
+            return true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Duel-Kit konnte nicht angewendet werden: " + kit.getId() + " - " + ex.getMessage());
+            return false;
+        }
     }
 
     private boolean takeEscrow(Session session, Player first, Player second) {
@@ -250,6 +329,8 @@ public final class DuelService implements Listener {
         participation.leave(session.first);
         participation.leave(session.second);
         refundEscrow(session);
+        restoreSnapshot(session, first);
+        restoreSnapshot(session, second);
         if (first.isOnline()) first.teleport(session.firstReturn);
         if (second.isOnline()) second.teleport(session.secondReturn);
     }
@@ -285,13 +366,17 @@ public final class DuelService implements Listener {
         sessions.remove(session.first);
         sessions.remove(session.second);
 
-        Location loserReturn = session.returnFor(loser.getUniqueId());
-        pendingRespawns.put(loser.getUniqueId(), loserReturn);
+        UUID loserId = loser.getUniqueId();
+        Location loserReturn = session.returnFor(loserId);
+        pendingRespawns.put(loserId, loserReturn);
+        DuelInventorySnapshot loserSnapshot = session.snapshotFor(loserId);
+        if (loserSnapshot != null) pendingSnapshots.put(loserId, loserSnapshot);
 
-        UUID winnerId = session.opponent(loser.getUniqueId());
+        UUID winnerId = session.opponent(loserId);
         settleWinner(session, winnerId);
         if (winner != null && winner.isOnline()) {
             participation.leave(winner.getUniqueId());
+            restoreSnapshot(session, winner);
             Location winnerReturn = session.returnFor(winner.getUniqueId());
             winner.teleport(winnerReturn);
             prepare(winner);
@@ -308,8 +393,10 @@ public final class DuelService implements Listener {
         Location back = pendingRespawns.remove(player.getUniqueId());
         if (back == null) return;
         event.setRespawnLocation(back);
+        final DuelInventorySnapshot snapshot = pendingSnapshots.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(plugin, () -> {
             participation.leave(player.getUniqueId());
+            if (snapshot != null) snapshot.restore(player);
             prepare(player);
         });
     }
@@ -328,13 +415,16 @@ public final class DuelService implements Listener {
         sessions.remove(session.first);
         sessions.remove(session.second);
         pendingRespawns.remove(quitter.getUniqueId());
+        pendingSnapshots.remove(quitter.getUniqueId());
         participation.leave(quitter.getUniqueId());
+        restoreSnapshot(session, quitter);
 
         UUID opponentId = session.opponent(quitter.getUniqueId());
         settleWinner(session, opponentId);
         Player opponent = Bukkit.getPlayer(opponentId);
         participation.leave(opponentId);
         if (opponent != null && opponent.isOnline()) {
+            restoreSnapshot(session, opponent);
             opponent.teleport(session.returnFor(opponentId));
             prepare(opponent);
             opponent.sendMessage(UiTheme.SUCCESS + "Duel gewonnen" + UiTheme.MUTED + " • Gegner hat aufgegeben.");
@@ -367,7 +457,7 @@ public final class DuelService implements Listener {
     public void onCommand(PlayerCommandPreprocessEvent event) {
         if (!isDuel(event.getPlayer().getUniqueId())) return;
         if (event.getPlayer().hasPermission("skykings.admin.event.bypass")) return;
-        String lower = event.getMessage().toLowerCase(java.util.Locale.ROOT);
+        String lower = event.getMessage().toLowerCase(Locale.ROOT);
         if (lower.equals("/duel") || lower.startsWith("/duel ")) return;
         event.setCancelled(true);
         event.getPlayer().sendMessage(UiTheme.DANGER + "Commands sind waehrend eines Duels deaktiviert.");
@@ -379,12 +469,13 @@ public final class DuelService implements Listener {
             if (session.finished) continue;
             session.finished = true;
             refundEscrow(session);
-            restoreIfOnline(session.first, session.firstReturn);
-            restoreIfOnline(session.second, session.secondReturn);
+            restoreIfOnline(session, session.first, session.firstReturn);
+            restoreIfOnline(session, session.second, session.secondReturn);
         }
         sessions.clear();
         requests.clear();
         pendingRespawns.clear();
+        pendingSnapshots.clear();
         participation.clear();
     }
 
@@ -403,10 +494,18 @@ public final class DuelService implements Listener {
         economy.deposit(session.second, session.wager, "DUEL_WAGER_REFUND", "Duel nicht abgeschlossen " + session.id);
     }
 
-    private void restoreIfOnline(UUID uuid, Location location) {
+    private void restoreIfOnline(Session session, UUID uuid, Location location) {
         participation.leave(uuid);
         Player player = Bukkit.getPlayer(uuid);
-        if (player != null && player.isOnline() && location != null) player.teleport(location);
+        if (player != null && player.isOnline()) {
+            restoreSnapshot(session, player);
+            if (location != null) player.teleport(location);
+        }
+    }
+
+    private void restoreSnapshot(Session session, Player player) {
+        DuelInventorySnapshot snapshot = session.snapshotFor(player.getUniqueId());
+        if (snapshot != null) snapshot.restore(player);
     }
 
     private boolean isDuel(UUID uuid) {
@@ -429,15 +528,61 @@ public final class DuelService implements Listener {
         while (iterator.hasNext()) if (requester.equals(iterator.next().getValue().requester)) iterator.remove();
     }
 
+    private KitRegistry kitRegistry() {
+        SkyKingsCoreAPI core = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        return core == null ? null : core.getKitRegistry();
+    }
+
+    private KitDefinition resolveKit(String kitId) {
+        KitRegistry registry = kitRegistry();
+        if (registry == null || kitId == null) return null;
+        Optional<KitDefinition> kit = registry.get(kitId);
+        return kit.isPresent() ? kit.get() : null;
+    }
+
+    private String normalizeKit(String raw) {
+        if (raw == null || raw.trim().isEmpty() || "own".equalsIgnoreCase(raw) || "eigen".equalsIgnoreCase(raw)) return null;
+        return raw.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String displayKit(String kitId) {
+        if (kitId == null) return "Eigenes Gear";
+        KitDefinition kit = resolveKit(kitId);
+        return kit == null ? kitId : kit.getDisplayName();
+    }
+
+    private String kitSuffix(String kitId) {
+        return " • Kit " + displayKit(kitId);
+    }
+
     private void sendStartError(Player player, StartResult result) {
         switch (result) {
-            case ARENA_NOT_READY: player.sendMessage(UiTheme.DANGER + "Duel-Arena ist nicht eingerichtet."); break;
-            case COMBAT_TAGGED: player.sendMessage(UiTheme.DANGER + "Einer von euch ist noch im normalen Combat."); break;
-            case TELEPORT_FAILED: player.sendMessage(UiTheme.DANGER + "Duel-Teleport fehlgeschlagen. Einsatz wurde erstattet."); break;
-            case NOT_ENOUGH_MONEY: player.sendMessage(UiTheme.DANGER + "Einer von euch hat nicht mehr genug Coins fuer den Einsatz."); break;
-            case INVALID_WAGER: player.sendMessage(UiTheme.DANGER + "Ungueltiger Duel-Einsatz."); break;
+            case ARENA_NOT_READY:
+                player.sendMessage(UiTheme.DANGER + "Duel-Arena ist noch nicht eingerichtet.");
+                player.sendMessage(UiTheme.MUTED + "Staff: /eventarena set duel a|b");
+                break;
+            case COMBAT_TAGGED:
+                player.sendMessage(UiTheme.DANGER + "Einer von euch ist noch im normalen Combat.");
+                break;
+            case TELEPORT_FAILED:
+                player.sendMessage(UiTheme.DANGER + "Duel-Teleport fehlgeschlagen.");
+                break;
+            case NOT_ENOUGH_MONEY:
+                player.sendMessage(UiTheme.DANGER + "Einer von euch hat nicht mehr genug Coins fuer den Einsatz.");
+                break;
+            case INVALID_WAGER:
+                player.sendMessage(UiTheme.DANGER + "Ungueltiger Duel-Einsatz.");
+                break;
+            case KIT_NOT_FOUND:
+                player.sendMessage(UiTheme.DANGER + "Das gewaehlte Duel-Kit existiert nicht mehr.");
+                break;
+            case LOADOUT_FAILED:
+                player.sendMessage(UiTheme.DANGER + "Duel-Kit konnte nicht sicher geladen werden. Inventare wurden wiederhergestellt.");
+                break;
             case PLAYER_BUSY:
-            default: player.sendMessage(UiTheme.DANGER + "Duel-Anfrage ist nicht mehr gueltig."); break;
+            default:
+                player.sendMessage(UiTheme.DANGER + "Keine gueltige Anfrage oder Spieler bereits beschaeftigt.");
+                break;
         }
         SoundFeedback.error(player);
     }
