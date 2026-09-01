@@ -29,7 +29,8 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 
 ## 3. Economy, Shops & Handel
 
-- `/shop` - zentraler Systemshop.
+- `/shop` - Premium-Kategorien-Shop mit Raengen, Crates, Rechten, Schwertern, Boegen, Ruestung, Enderperlen, Essen, Potions und Utility. Starke Items sind bewusst sehr teuer; Mythic-Tiers sind langfristige Grind-Ziele.
+- `/casino` - Void Crown Casino fuer Ingame-Coins oder gespeicherte SkyKings Sterne. Spiele: Coin Flip, Crown Dice, Lucky 7, Wheel of Fortune und direkter Server-Jackpot-Zugang. Alias: `/voidcrown`.
 - `/worth` - Verkaufswert des gehaltenen Items.
 - `/sell <hand|all>` - whitelisted Items verkaufen.
 - `/trade <Spieler|accept|deny>` - sicherer Zwei-Spieler-Handel mit Items und Coins.
@@ -47,6 +48,8 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 - `/spawnerstack` - Stackgroesse des angesehenen Spawners anzeigen. Aliases: `/spawner`, `/ams`.
 
 Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort neue PlayerShops platzieren. Laeuft die Miete ab, verkauft der dortige PlayerShop nicht weiter; der letzte Mieter darf vorhandenen Stock/Einnahmen aber noch aufraeumen und den Shop entfernen.
+
+Casino-Regel: Das Casino verwendet ausschliesslich Ingame-Waehrungen. Die GUIs zeigen die Spielmechanik und RTP/Multiplikatoren transparent. Die Spiele haben einen kleinen House-Edge als Economy-Sink.
 
 ## 4. Islands & Plots
 
@@ -117,13 +120,13 @@ Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort
 - `/clanwar <Clan-Owner|accept|deny|status|stop>` - sichere 2v2- bis 5v5-Clan Wars.
 - `/targetevent <status|start|stop> [Spieler]` - Most Wanted.
 - `/verlosung <join|start|stop>` - normale serverweite Coin-Verlosung.
-- `/freitag` - Staff: startet den kompletten Freitags-Community-Abend mit Intro, Auto-Verlosung, manueller Gewinnphase und Drop-Event.
+- `/freitag` - Staff: startet den kompletten Freitags-Community-Abend mit Intro, zehn Auto-Ziehungen, manueller Gewinnphase und Drop-Event.
 - `/freitag status` - aktuelle Freitags-Eventphase anzeigen.
 - `/freitag stop` - laufenden Freitags-Flow und seine Tasks sauber abbrechen.
 - `/verlosen` - waehrend der Freitags-Gewinnphase den aktuell gehaltenen Item-Stack inklusive Menge an einen zufaelligen Online-Spieler verlosen.
 - `/verlosen fertig` - manuelle Gewinnphase abschliessen und den 15-Sekunden-Countdown zum Drop-Event bei `/warp Event` starten.
 
-Freitags-Ablauf: Das Intro nutzt serverweite Sounds und Feuerwerk. Die automatische Ziehung vergibt einen zufaelligen Reward aus Coins, SkyKings-Sternen oder echten server-issued Crates. Danach kann Staff beliebig viele gehaltene Item-Stacks verlosen. Das Finale droppt kontrolliert hochwertige Crates/PvP-Gear/Consumables rund um den Warp `Event`.
+Freitags-Ablauf: Das Intro nutzt serverweite Sounds und Feuerwerk. Danach laufen zehn automatische Ziehungen ueber etwa eine Minute. Der Hauptpool besteht aus stapelbaren Build-/Fight-/Money-/Utility-/Common-Crates; dazu Coins, SkyKings-Sterne und selten echte Free-Rang-Upgrades bis Diamond. Rare/Epic/Legendary-Crates sind deutlich seltener. Danach kann Staff beliebig viele gehaltene Item-Stacks verlosen. Das Finale droppt 72 kontrollierte Gewinne rund um den Warp `Event`, mit starkem Fokus auf normale Crate-Stacks und deutlich kleinerer Chance auf High-End-Crates.
 
 Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 
@@ -132,6 +135,10 @@ Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 - `/crate give <Spieler> <Typ> [Anzahl]` - Crates administrativ ausgeben.
 - `/craterewards` - Crate-/Paid-Rank-Reward Center.
 - `/gutscheine` - Admin-GUI zur Voucher-Erzeugung. Aliases: `/voucher`, `/vouchers`.
+
+Zusaetzliche haeufige Event-Crates: `build`, `fight`, `money`, `utility`, `event`. Diese Tabellen liegen getrennt in `event-crates.yml` und sind fuer groessere Event-Mengen balanciert. Build/Fight/Money/Utility enthalten vorwiegend solide Alltags-Rewards; starke Free-Raenge liegen nur mit kleiner Chance in der Community Event Crate.
+
+Rang- und Rechte-Gutscheine oeffnen vor der Einloesung ein Annehmen/Ablehnen-Menue. Ablehnen verbraucht den Gutschein nicht; er bleibt erhalten und kann spaeter erneut benutzt werden. Annehmen prueft die echte Serial erneut und reserviert sie erst dann persistent.
 
 ## 9. Staff / Administration
 
@@ -159,6 +166,8 @@ Die offiziellen SkyKings-Welten sind `SkyPvP`, `SkyPlots`, `SkyIslands` und `Sky
 - `/skymap generate [Weltname]` - alte lokale Test-Arena V3 erzeugen; kein Produktionsbestandteil.
 
 **Freitags-Setup Pflicht:** Ein persistenter Warp mit exakt dem Namen `Event` muss gesetzt sein. An der Mitte der gewuenschten Drop-Area stehen und einmal `/setwarp Event` ausfuehren. `/freitag` startet nicht, solange dieser Warp fehlt oder seine Welt nicht geladen ist.
+
+**Casino-Setup empfohlen:** Sobald die finale Casino-Map eingebaut ist, einen Warp `Casino` am Haupteingang setzen. `/casino` funktioniert technisch auch ohne Map, die Map dient als physischer Hub/NPC-Bereich.
 
 Auto-Load-Regel: `SkyPlots` und `SkyIslands` werden beim Core-Start mit ihren Spezialgeneratoren geladen. `SkyPvP` und `SkyCommunityEvent` werden beim Combat-Start automatisch geladen, sobald ihre Weltordner existieren.
 
@@ -242,11 +251,12 @@ In der Naehe des gewuenschten Villagers:
 9. Shop-NPCs binden und Markt-Mietstaende mit `/shoprent pos1|pos2|create` definieren.
 10. Duel/LMS/Clan-War-Arenen in einer gewuenschten bestehenden Welt setzen.
 11. Plot-/Island-Schutz, erhoehten Rand, Merge, Trust testen.
-12. Kits, 100-Level-Battle-Pass, Quests, Crates, Voucher, Jackpot testen.
-13. `/freitag` einmal mit Auto-Ziehung, mindestens einer `/verlosen`-Runde und `/verlosen fertig` bis zum kompletten Drop-Finale testen.
-14. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
-15. Restart-/Persistenz- und Backup/Restore-Gates.
-16. Economy-/Reward-Balance, dann Soft Launch.
+12. Kits, 100-Level-Battle-Pass, Quests, neue Event-Crates, Voucher, Shop und Jackpot testen.
+13. `/freitag` einmal mit allen zehn Auto-Ziehungen, mindestens einer `/verlosen`-Runde und `/verlosen fertig` bis zum kompletten Drop-Finale testen.
+14. `/casino` mit Coins und Sternen in allen vier Spielen und mehreren Einsatzstufen testen; Guthaben vor/nach jedem Spiel pruefen.
+15. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
+16. Restart-/Persistenz- und Backup/Restore-Gates.
+17. Economy-/Reward-Balance, dann Soft Launch.
 
 ## 15. Pflege-Regel
 
