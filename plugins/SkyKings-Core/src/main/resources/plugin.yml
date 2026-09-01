@@ -77,20 +77,24 @@ commands:
   shopnpc:
     description: Bindet Villager persistent an SkyKings-Shops.
     usage: /shopnpc <bind|unbind|info> [system|pvp|blacksmith|enchant|recycler|merchant|jackpot]
+  shoprent:
+    description: Öffnet die geschützten SkyKings-Marktstände oder verwaltet eine Miete.
+    usage: /shoprent [rent|release|tp|pos1|pos2|create|remove|list] [Stand]
+    aliases: [marktmiete, mietshop]
   island:
     description: Private SkyKings-Islands mit Trust-, Welcome-, Level- und Schutzsystem.
     usage: /is [menu|create|home|sethome|level|top|trust|untrust|visit|info]
     aliases: [is]
   plot:
     description: PlotSquared-inspirierte private SkyKings-Plots mit Add/Trust/Deny und Flags.
-    usage: /plot [menu|auto|home|sethome|add|trust|remove|deny|undeny|flags|flag|visit|info]
+    usage: /plot [menu|auto|home|sethome|add|trust|remove|deny|undeny|flags|flag|visit|info|merge|rand]
     aliases: [p, plots]
   clan:
     description: Erstellt und verwaltet deinen SkyKings-Clan.
     usage: /clan [create|invite|accept|leave|kick|disband|info]
     aliases: [clans, c]
   playershop:
-    description: Händler-Ei-basierte Villager-PlayerShops auf eigener Insel oder eigenem Plot.
+    description: Händler-Ei-basierte Villager-PlayerShops auf Island, Plot oder aktivem Mietstand.
     usage: /playershop <kaufen|set|stock|withdraw|claim|info|remove>
     aliases: [pshop]
   spawnerstack:
@@ -118,6 +122,12 @@ permissions:
     default: false
   skykings.admin.shopnpc:
     description: Darf Villager an SkyKings-Shoptypen binden.
+    default: false
+  skykings.admin.shoprents:
+    description: Darf Markt-Mietflächen definieren und entfernen.
+    default: false
+  skykings.admin.shoprents.bypass:
+    description: Darf den Schutz von Markt-Mietflächen umgehen.
     default: false
   skykings.admin.buildmode:
     description: Darf den Map-Schutz mit /buildmode persönlich umgehen.
