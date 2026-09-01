@@ -1,18 +1,22 @@
 package net.skykings.combat.cosmetic;
 
 import net.skykings.combat.cosmetic.KillCosmeticService.KillEffect;
+import net.skykings.combat.kill.KillMessageService;
+import net.skykings.combat.kill.KillMessageService.MessageStyle;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
+import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.ui.UiItems;
+import net.skykings.core.ui.UiTheme;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.Arrays;
-
-/** Auswahl-GUI für rein kosmetische Kill-Effects. */
+/** Custom-Panel Cosmetics Center für Kill-Effects und Death-Messages. */
 public final class KillEffectGui {
+
+    private enum Tab { EFFECTS, MESSAGES }
 
     private final GuiManager guiManager;
     private final KillCosmeticService service;
@@ -23,33 +27,130 @@ public final class KillEffectGui {
     }
 
     public void open(Player player) {
-        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Kill Effects", 27);
-        add(gui, player, 10, Material.BARRIER, KillEffect.NONE, ChatColor.GRAY);
-        add(gui, player, 12, Material.BLAZE_POWDER, KillEffect.FLAME, ChatColor.GOLD);
-        add(gui, player, 13, Material.RED_ROSE, KillEffect.HEART, ChatColor.LIGHT_PURPLE);
-        add(gui, player, 14, Material.ENDER_PEARL, KillEffect.ENDER, ChatColor.DARK_PURPLE);
-        add(gui, player, 16, Material.NETHER_STAR, KillEffect.LIGHTNING, ChatColor.AQUA);
-        guiManager.open(gui);
+        open(player, Tab.EFFECTS);
     }
 
-    private void add(GuiSession gui, Player player, int slot, Material material, KillEffect effect, ChatColor color) {
+    private void open(Player player, Tab tab) {
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Cosmetics Center"), 54);
+
+        gui.setItem(4, UiItems.item(Material.NETHER_STAR,
+                UiTheme.ACCENT + "COSMETICS CENTER",
+                UiTheme.MUTED + "Dein visueller PvP-Stil.",
+                UiTheme.TEXT + "Keine Gameplay-Vorteile."), null);
+
+        gui.setItem(11, UiItems.item(Material.BLAZE_POWDER,
+                tab == Tab.EFFECTS ? UiTheme.ACCENT + "Kill Effects • ACTIVE" : UiTheme.TEXT + "Kill Effects",
+                UiTheme.MUTED + "Effekt direkt nach deinem Kill.",
+                tab == Tab.EFFECTS ? UiTheme.SUCCESS + "Ausgewählter Bereich" : UiItems.action("Klicken zum Öffnen")),
+                (p,e,s) -> { SoundFeedback.click(p); open(p, Tab.EFFECTS); });
+
+        gui.setItem(15, UiItems.item(Material.PAPER,
+                tab == Tab.MESSAGES ? UiTheme.ACCENT + "Death Messages • ACTIVE" : UiTheme.TEXT + "Death Messages",
+                UiTheme.MUTED + "Dein Stil in der Kill-Nachricht.",
+                tab == Tab.MESSAGES ? UiTheme.SUCCESS + "Ausgewählter Bereich" : UiItems.action("Klicken zum Öffnen")),
+                (p,e,s) -> { SoundFeedback.click(p); open(p, Tab.MESSAGES); });
+
+        if (tab == Tab.EFFECTS) renderEffects(gui, player);
+        else renderMessages(gui, player);
+
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
+            SoundFeedback.back(p);
+            Bukkit.dispatchCommand(p, "commands");
+        });
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS, UiTheme.ACCENT + "Home",
+                UiTheme.MUTED + "Zur SkyKings Übersicht.", UiItems.action("Klicken")), (p,e,s) -> {
+            SoundFeedback.back(p);
+            Bukkit.dispatchCommand(p, "commands");
+        });
+
+        guiManager.open(gui);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void renderEffects(GuiSession gui, Player player) {
+        addEffect(gui, player, 20, Material.BARRIER, KillEffect.NONE);
+        addEffect(gui, player, 21, Material.BLAZE_POWDER, KillEffect.FLAME);
+        addEffect(gui, player, 22, Material.RED_ROSE, KillEffect.HEART);
+        addEffect(gui, player, 23, Material.ENDER_PEARL, KillEffect.ENDER);
+        addEffect(gui, player, 24, Material.NETHER_STAR, KillEffect.LIGHTNING);
+
+        KillEffect selected = service.getSelected(player.getUniqueId());
+        gui.setItem(31, UiItems.item(Material.NAME_TAG,
+                UiTheme.TEXT + "Aktiver Kill Effect",
+                UiTheme.ACCENT + selected.getDisplayName(),
+                UiTheme.MUTED + "Wird direkt nach einem Kill abgespielt."), null);
+    }
+
+    private void addEffect(GuiSession gui, Player player, int slot, Material material, KillEffect effect) {
         boolean unlocked = service.canUse(player, effect);
         boolean selected = service.getSelected(player.getUniqueId()) == effect;
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(color + effect.getDisplayName());
-        meta.setLore(Arrays.asList(
-                selected ? ChatColor.GREEN + "Ausgewählt" : unlocked ? ChatColor.YELLOW + "Klicken zum Auswählen" : ChatColor.RED + "Noch nicht freigeschaltet",
-                effect == KillEffect.NONE ? ChatColor.GRAY + "Deaktiviert deinen Kill-Effect." : ChatColor.DARK_GRAY + "Nur kosmetisch • kein Vorteil"
-        ));
-        item.setItemMeta(meta);
-        gui.setItem(slot, item, (p, e, s) -> {
-            if (!service.select(p, effect)) {
-                p.sendMessage(ChatColor.RED + "Diesen Kill-Effect hast du noch nicht freigeschaltet.");
-                return;
-            }
-            p.sendMessage(ChatColor.GOLD + "Kill-Effect: " + ChatColor.WHITE + effect.getDisplayName());
-            open(p);
-        });
+        String state = selected ? UiTheme.SUCCESS + "SELECTED"
+                : unlocked ? UiTheme.WARNING + "READY" : UiTheme.MUTED + "LOCKED";
+        gui.setItem(slot, UiItems.item(material,
+                (selected ? UiTheme.ACCENT : UiTheme.TEXT) + effect.getDisplayName(),
+                state,
+                effect == KillEffect.NONE ? UiTheme.MUTED + "Deaktiviert deinen Kill Effect."
+                        : UiTheme.MUTED + "Rein kosmetischer PvP-Effekt.",
+                selected ? UiTheme.SUCCESS + "Aktuell ausgewählt"
+                        : unlocked ? UiItems.action("Klicken zum Auswählen") : UiTheme.DANGER + "Noch nicht freigeschaltet"),
+                (p,e,s) -> {
+                    if (!service.select(p, effect)) {
+                        SoundFeedback.error(p);
+                        p.sendMessage(UiTheme.DANGER + "Diesen Kill Effect hast du noch nicht freigeschaltet.");
+                        return;
+                    }
+                    SoundFeedback.success(p);
+                    open(p, Tab.EFFECTS);
+                });
+    }
+
+    private void renderMessages(GuiSession gui, Player player) {
+        KillMessageService messages = KillMessageService.liveInstance();
+        if (messages == null) {
+            gui.setItem(22, UiItems.item(Material.BARRIER, UiTheme.DANGER + "Death Messages nicht verfügbar",
+                    UiTheme.MUTED + "Der Runtime-Service wurde nicht geladen."), null);
+            return;
+        }
+
+        addMessage(gui, player, messages, 20, Material.PAPER, MessageStyle.CLASSIC,
+                "Neutraler SkyKings PvP-Stil.");
+        addMessage(gui, player, messages, 21, Material.GOLD_INGOT, MessageStyle.ROYAL,
+                "Krone, Thron und Royal-Vibes.");
+        addMessage(gui, player, messages, 22, Material.ENDER_PEARL, MessageStyle.VOID,
+                "Dunkler Void-/Sky-Stil.");
+        addMessage(gui, player, messages, 23, Material.BOW, MessageStyle.HUNTER,
+                "Jagd- und Target-Vibes.");
+        addMessage(gui, player, messages, 24, Material.NETHER_STAR, MessageStyle.LEGEND,
+                "Seltene Legend-Nachrichten.");
+
+        MessageStyle selected = messages.getSelected(player.getUniqueId());
+        gui.setItem(31, UiItems.item(Material.BOOK,
+                UiTheme.TEXT + "Aktive Death Message",
+                selected.getColor() + selected.getDisplayName(),
+                UiTheme.MUTED + "Wird bei deinen Open-World-PvP-Kills genutzt."), null);
+    }
+
+    private void addMessage(GuiSession gui, Player player, KillMessageService messages, int slot,
+                            Material material, MessageStyle style, String description) {
+        boolean unlocked = messages.canUse(player, style);
+        boolean selected = messages.getSelected(player.getUniqueId()) == style;
+        String state = selected ? UiTheme.SUCCESS + "SELECTED"
+                : unlocked ? UiTheme.WARNING + "READY" : UiTheme.MUTED + "LOCKED";
+        gui.setItem(slot, UiItems.item(material,
+                (selected ? UiTheme.ACCENT : style.getColor()) + style.getDisplayName(),
+                state,
+                UiTheme.MUTED + description,
+                selected ? UiTheme.SUCCESS + "Aktuell ausgewählt"
+                        : unlocked ? UiItems.action("Klicken zum Auswählen")
+                        : UiTheme.DANGER + "Benötigt Freischaltung"),
+                (p,e,s) -> {
+                    if (!messages.select(p, style)) {
+                        SoundFeedback.error(p);
+                        p.sendMessage(UiTheme.DANGER + "Diese Death Message hast du noch nicht freigeschaltet.");
+                        return;
+                    }
+                    SoundFeedback.success(p);
+                    open(p, Tab.MESSAGES);
+                });
     }
 }
