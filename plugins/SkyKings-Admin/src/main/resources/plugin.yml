@@ -3,7 +3,7 @@ version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
 depend: [SkyKings-Core, SkyKings-Combat, SkyKings-Crates]
 description: >
-  Admin-Modul für Staff-Commands, Warps, Audit, Events, Diagnose und Discord-Logging.
+  Admin-Modul für Staff-Commands, Warps, Audit, Events, Casino, Diagnose und Discord-Logging.
 authors: [SkyKings Team]
 commands:
   rang:
@@ -49,6 +49,10 @@ commands:
     description: Verlost im Freitags-Event den gehaltenen Item-Stack oder beendet die Phase.
     usage: /verlosen [fertig]
     permission: skykings.admin.friday
+  casino:
+    description: Öffnet das Void Crown Casino für Coins und SkyKings Sterne.
+    usage: /casino
+    aliases: [voidcrown]
   skcheck:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
     usage: /skcheck
