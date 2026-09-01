@@ -1,6 +1,7 @@
 package net.skykings.core.plot;
 
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,59 +16,64 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-/** Schutz ausschliesslich fuer die SkyPlots-Welt. Andere Maps werden vom normalen Map-/Buildmode-Schutz verwaltet. */
+/** Schutz ausschliesslich fuer SkyPlots. Stone-Brick-Strassen sind serverneutral und unantastbar. */
 public final class PlotProtectionListener implements Listener {
     private final PlotService plots;
 
-    public PlotProtectionListener(PlotService plots) {
-        this.plots = plots;
-    }
+    public PlotProtectionListener(PlotService plots) { this.plots = plots; }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
-        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
+        Location location = event.getBlock().getLocation();
+        if (!plots.isPlotWorld(location)) return;
+        if (plots.isManagedBorder(location)) {
             event.setCancelled(true);
-            deny(event.getPlayer());
+            event.getPlayer().sendMessage(ChatColor.YELLOW + "Dein Plot-Rand wird ueber /p rand verwaltet.");
+            return;
+        }
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), location)) {
+            event.setCancelled(true);
+            deny(event.getPlayer(), location);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
-        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
+        Location location = event.getBlock().getLocation();
+        if (!plots.isPlotWorld(location)) return;
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), location)) {
             event.setCancelled(true);
-            deny(event.getPlayer());
+            deny(event.getPlayer(), location);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getClickedBlock() == null) return;
-        if (!plots.isPlotWorld(event.getClickedBlock().getLocation())) return;
+        Location location = event.getClickedBlock().getLocation();
+        if (!plots.isPlotWorld(location)) return;
         Material type = event.getClickedBlock().getType();
         if (!protectedInteraction(type)) return;
-        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getClickedBlock().getLocation())) {
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), location)) {
             event.setCancelled(true);
-            deny(event.getPlayer());
+            deny(event.getPlayer(), location);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucket(PlayerBucketEmptyEvent event) {
-        if (!plots.isPlotWorld(event.getBlockClicked().getLocation())) return;
-        if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlockClicked().getLocation())) {
+        Location location = event.getBlockClicked().getLocation();
+        if (!plots.isPlotWorld(location)) return;
+        if (!plots.canBuild(event.getPlayer().getUniqueId(), location)) {
             event.setCancelled(true);
-            deny(event.getPlayer());
+            deny(event.getPlayer(), location);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onExplosion(EntityExplodeEvent event) {
         if (!plots.isPlotWorld(event.getLocation())) return;
-        if (plots.findAt(event.getLocation()) == null || !plots.areExplosionsAllowed(event.getLocation())) {
-            event.blockList().clear();
-        }
+        if (plots.findAt(event.getLocation()) == null || !plots.areExplosionsAllowed(event.getLocation())) event.blockList().clear();
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -99,7 +105,13 @@ public final class PlotProtectionListener implements Listener {
                 || material == Material.DISPENSER || material == Material.DROPPER;
     }
 
-    private void deny(Player player) {
-        player.sendMessage(ChatColor.RED + "Du hast auf diesem Plot keine Baurechte.");
+    private void deny(Player player, Location location) {
+        if (plots.isNeutralRoad(location)) {
+            player.sendMessage(ChatColor.RED + "Die Stone-Brick-Strasse ist geschuetzt und gehoert keinem Plot.");
+        } else if (plots.isUnclaimedPlotCell(location)) {
+            player.sendMessage(ChatColor.YELLOW + "Diese Grasflaeche ist noch nicht geclaimt.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Du hast auf diesem Plot keine Baurechte.");
+        }
     }
 }
