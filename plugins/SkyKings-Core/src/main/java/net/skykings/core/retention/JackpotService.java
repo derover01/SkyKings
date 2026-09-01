@@ -24,15 +24,17 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Persistenter serverweiter Coin-Jackpot. Gewinnchance entspricht exakt dem Anteil am Pot.
- * Ausschliesslich SkyKings-Coins; keine Echtgeld-/Store-Waehrung.
+ * Einzige autoritative Jackpot-Runtime fuer Command und Shop-NPC.
+ * Gewinnchance entspricht dem Anteil am Pot; 5% jeder Ziehung sind Economy-Sink.
  */
 public final class JackpotService {
     private static final long ROUND_MILLIS = 10L * 60L * 1000L;
     private static final long RETRY_MILLIS = 5L * 60L * 1000L;
     private static final long MIN_ENTRY = 10_000L;
     private static final long MAX_ENTRY = 1_000_000L;
+    private static final double FEE_RATE = 0.05D;
     private static final long[] QUICK_ENTRIES = {10_000L, 50_000L, 100_000L, 250_000L, 500_000L};
+    private static volatile JackpotService liveInstance;
 
     private final JavaPlugin plugin;
     private final EconomyService economy;
@@ -44,11 +46,17 @@ public final class JackpotService {
         this.economy = economy;
         this.file = new File(plugin.getDataFolder(), "jackpot.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        migrateLegacyEntries();
         if (!data.contains("round.next-draw")) {
             data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
             save();
         }
+        liveInstance = this;
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
+    }
+
+    public static JackpotService liveInstance() {
+        return liveInstance;
     }
 
     public void open(Player player) {
@@ -86,11 +94,12 @@ public final class JackpotService {
                 UiTheme.MUTED + "Mindestens 2 Spieler fuer Ziehung."), null);
 
         String lastWinner = data.getString("history.last-winner-name", "-");
-        long lastPot = data.getLong("history.last-pot", 0L);
+        long lastPayout = data.getLong("history.last-payout", 0L);
         gui.setItem(33, UiItems.item(Material.BOOK,
                 UiTheme.MYTHIC + "Letzte Runde",
                 UiTheme.MUTED + "Gewinner: " + UiTheme.TEXT + lastWinner,
-                UiTheme.MUTED + "Pot: " + UiTheme.TEXT + formatCoins(lastPot)), null);
+                UiTheme.MUTED + "Auszahlung: " + UiTheme.TEXT + formatCoins(lastPayout),
+                UiTheme.DISABLED + "5% jeder Ziehung = Economy-Sink"), null);
 
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
             SoundFeedback.back(p);
@@ -178,18 +187,40 @@ public final class JackpotService {
             name = offline.getName() == null ? winner.toString().substring(0, 8) : offline.getName();
         }
 
-        economy.deposit(winner, pot, "JACKPOT", "Jackpot win");
+        long payout = Math.max(1L, (long) Math.floor(pot * (1D - FEE_RATE)));
+        economy.deposit(winner, payout, "JACKPOT", "Jackpot win");
         data.set("history.last-winner", winner.toString());
         data.set("history.last-winner-name", name);
         data.set("history.last-pot", pot);
+        data.set("history.last-payout", payout);
         data.set("history.last-draw", System.currentTimeMillis());
         clearRound(ROUND_MILLIS);
 
         Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + ChatColor.GOLD + "JACKPOT" + ChatColor.DARK_GRAY + "] "
-                + ChatColor.WHITE + name + ChatColor.GRAY + " gewinnt " + ChatColor.GOLD + formatCoins(pot)
+                + ChatColor.WHITE + name + ChatColor.GRAY + " gewinnt " + ChatColor.GOLD + formatCoins(payout)
                 + ChatColor.GRAY + " Coins!");
         Player online = Bukkit.getPlayer(winner);
         if (online != null) online.playSound(online.getLocation(), Sound.LEVEL_UP, 1F, 1.15F);
+    }
+
+    private void migrateLegacyEntries() {
+        ConfigurationSection legacy = data.getConfigurationSection("entries");
+        if (legacy == null || data.getConfigurationSection("round.entries") != null) return;
+        int migrated = 0;
+        for (String raw : legacy.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(raw);
+                long amount = legacy.getLong(raw, 0L);
+                if (amount <= 0L) continue;
+                data.set("round.entries." + uuid + ".amount", amount);
+                OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+                if (player.getName() != null) data.set("round.entries." + uuid + ".name", player.getName());
+                migrated++;
+            } catch (IllegalArgumentException ignored) { }
+        }
+        data.set("entries", null);
+        if (migrated > 0) plugin.getLogger().info("Legacy-Jackpot migriert: " + migrated + " Teilnehmer.");
+        save();
     }
 
     private void clearRound(long delayMillis) {
