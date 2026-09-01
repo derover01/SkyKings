@@ -92,6 +92,7 @@ import net.skykings.core.shop.player.IslandShopPlacementPolicy;
 import net.skykings.core.shop.player.PlayerShopController;
 import net.skykings.core.shop.player.PlayerShopService;
 import net.skykings.core.shop.player.PlayerShopStore;
+import net.skykings.core.spawner.MobStackService;
 import net.skykings.core.spawner.SpawnerStackService;
 import net.skykings.core.storage.DataStore;
 import net.skykings.core.storage.DataStoreException;
@@ -140,6 +141,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     private DailyRewardService dailyRewardService;
     private PlayerShopStore playerShopStore;
     private SpawnerStackService spawnerStackService;
+    private MobStackService mobStackService;
 
     @Override
     public void onEnable() {
@@ -182,13 +184,14 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         playerShopService.setPlacementPolicy(new IslandShopPlacementPolicy(islandService, plotService));
         PlayerShopController playerShopController = new PlayerShopController(playerShopService);
         this.spawnerStackService = new SpawnerStackService(this, islandService, plotService);
+        this.mobStackService = new MobStackService(this, islandService, plotService);
 
         ShopPriceRegistry shopPrices = new ShopPriceRegistry(this);
         MapProtectionService mapProtectionService = new MapProtectionService();
         TradeService tradeService = new TradeService();
         TradeGuiService tradeGuiService = new TradeGuiService(this, tradeService, economyService, loggingService);
         RankDisplayConfig rankDisplayConfig = new RankDisplayConfig(this);
-        PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig);
+        PlayerDisplayService displayService = new PlayerDisplayService(playerProfileService, rankDisplayConfig, clanService);
         SkyKingsScoreboardService scoreboardService = new SkyKingsScoreboardService(playerProfileService, rankDisplayConfig);
         RanksGui ranksGui = new RanksGui(guiManager, rankService, rankProgressionService, rankProgressionConfig, economyService);
         KitGui kitGui = new KitGui(guiManager, kitGrantService, cooldownService);
@@ -220,6 +223,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(clanBaseService, this);
         getServer().getPluginManager().registerEvents(playerShopController, this);
         getServer().getPluginManager().registerEvents(spawnerStackService, this);
+        getServer().getPluginManager().registerEvents(mobStackService, this);
 
         getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(player -> {
             displayService.refreshTab(player); paidRankHolograms.refresh(player); scoreboardService.refresh(player);
@@ -258,7 +262,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Claims + Plots + Clans/ClanBase + PlayerShops + SpawnerStacking + Retention) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Claims + Plots + Clans/ClanBase + PlayerShops + Spawner/Mob-Stacking + Retention) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
