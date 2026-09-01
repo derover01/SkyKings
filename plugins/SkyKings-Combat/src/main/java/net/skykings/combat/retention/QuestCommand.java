@@ -33,7 +33,7 @@ public final class QuestCommand implements CommandExecutor {
         gui.setItem(4, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "QUEST CENTER",
                 UiTheme.MUTED + "Free Quests oben.",
                 UiTheme.MUTED + "Premium Quests unten.",
-                UiTheme.MUTED + "Belohnungen werden automatisch ausgezahlt.",
+                UiTheme.MUTED + "Rewards werden automatisch ausgezahlt.",
                 premium ? UiTheme.LEGENDARY + "PREMIUM ACTIVE" : UiTheme.MUTED + "FREE PASS"));
 
         gui.setItem(9, panel((short) 7, UiTheme.TEXT + "FREE QUESTS"));
@@ -50,6 +50,9 @@ public final class QuestCommand implements CommandExecutor {
         gui.setItem(16, quest(Material.NETHER_STAR, "Weekly • Kampfkoenig",
                 "30 legitime PvP-Kills", quests.get(uuid, "weekly.kills"), 30,
                 quests.claimed(uuid, "weekly.claimed-kills"), "500k Coins • 5 Sterne • 2.000 XP", false));
+        gui.setItem(22, quest(Material.BEACON, "Weekly • Kingmaker",
+                "King Altar 3x erobern", quests.get(uuid, "weekly.altar"), 3,
+                quests.claimed(uuid, "weekly.claimed-altar"), "350k Coins • 4 Sterne • 1.500 XP", false));
 
         gui.setItem(27, panel((short) (premium ? 5 : 15), premium ? UiTheme.SUCCESS + "PREMIUM QUESTS" : UiTheme.DISABLED + "PREMIUM LOCKED"));
         gui.setItem(35, panel((short) (premium ? 5 : 15), premium ? UiTheme.SUCCESS + "PREMIUM QUESTS" : UiTheme.DISABLED + "PREMIUM LOCKED"));
@@ -57,12 +60,15 @@ public final class QuestCommand implements CommandExecutor {
             gui.setItem(28, quest(Material.GOLD_SWORD, "Premium Daily • Hunter",
                     "10 legitime PvP-Kills", quests.get(uuid, "premium.daily.kills"), 10,
                     quests.claimed(uuid, "premium.daily.claimed-kills"), "300k Coins • 4 Sterne • 800 XP", true));
-            gui.setItem(31, quest(Material.EYE_OF_ENDER, "Premium Daily • Void Runner",
+            gui.setItem(30, quest(Material.EYE_OF_ENDER, "Premium Daily • Void Runner",
                     "40 Enderperlen nutzen", quests.get(uuid, "premium.daily.pearls"), 40,
                     quests.claimed(uuid, "premium.daily.claimed-pearls"), "150k Coins • 3 Sterne • 600 XP", true));
-            gui.setItem(34, quest(Material.GOLDEN_APPLE, "Premium Weekly • Dominator",
+            gui.setItem(32, quest(Material.GOLDEN_APPLE, "Premium Weekly • Dominator",
                     "75 legitime PvP-Kills", quests.get(uuid, "premium.weekly.kills"), 75,
                     quests.claimed(uuid, "premium.weekly.claimed-kills"), "1.25m Coins • 12 Sterne • 3.500 XP", true));
+            gui.setItem(34, quest(Material.BEACON, "Premium Weekly • Crowned",
+                    "King Altar 7x erobern", quests.get(uuid, "premium.weekly.altar"), 7,
+                    quests.claimed(uuid, "premium.weekly.claimed-altar"), "750k Coins • 8 Sterne • 2.500 XP", true));
         } else {
             gui.setItem(31, UiItems.item(Material.GOLD_INGOT, UiTheme.LEGENDARY + "Premium Questpool",
                     UiTheme.MUTED + "Zusaetzliche Daily-/Weekly-Aufgaben.",
@@ -71,7 +77,7 @@ public final class QuestCommand implements CommandExecutor {
         }
 
         gui.setItem(40, UiItems.item(Material.CHEST, UiTheme.LEGENDARY + "Reward Track",
-                UiTheme.MUTED + "Deine Quest-XP schiebt den",
+                UiTheme.MUTED + "Quest-XP schiebt den",
                 UiTheme.MUTED + "Battle-Pass-Levelpfad nach vorne.",
                 "", UiItems.action("Rewards ansehen")), (p,e,s) -> {
             BattlePassService pass = BattlePassService.active();
