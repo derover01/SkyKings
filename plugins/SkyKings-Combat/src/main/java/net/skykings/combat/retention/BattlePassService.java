@@ -25,13 +25,10 @@ import java.util.UUID;
 
 /**
  * Season Battle Pass mit eigenem Hub, Quest-Portal und horizontalem Free/Premium-Reward-Track.
- * Die Logik bleibt 1.8-kompatibel; die Ansichten sind bewusst wie Panels aufgebaut statt als Item-Wand.
+ * Jedes Season-Level von 1 bis 100 besitzt einen Free-Reward und optional einen Premium-Reward.
  */
 public final class BattlePassService implements Listener {
-    private static final int[] MILESTONES = {
-            5, 10, 15, 20, 25, 30, 35, 40, 45, 50,
-            55, 60, 65, 70, 75, 80, 85, 90, 95, 100
-    };
+    private static final int MAX_LEVEL = 100;
     private static final int[] TRACK_SLOTS = {10, 11, 12, 13, 14, 15, 16};
     private static final int[] RAIL_SLOTS = {19, 20, 21, 22, 23, 24, 25};
     private static final int[] PREMIUM_SLOTS = {28, 29, 30, 31, 32, 33, 34};
@@ -64,13 +61,13 @@ public final class BattlePassService implements Listener {
 
         gui.setItem(10, UiItems.item(Material.EXP_BOTTLE, UiTheme.PRIMARY.toString() + ChatColor.BOLD + "DEIN PASS",
                 UiTheme.MUTED + "Season " + UiTheme.TEXT + progress.getSeason(),
-                UiTheme.MUTED + "Level " + UiTheme.TEXT + level + "/100",
+                UiTheme.MUTED + "Level " + UiTheme.TEXT + level + "/" + MAX_LEVEL,
                 UiTheme.MUTED + "XP " + UiTheme.TEXT + numbers.format(progress.getXp(uuid)),
                 "", seasonBar(level),
-                level >= 100 ? UiTheme.STATUS_COMPLETED : UiTheme.STATUS_ACTIVE));
+                level >= MAX_LEVEL ? UiTheme.STATUS_COMPLETED : UiTheme.STATUS_ACTIVE));
         gui.setItem(19, panel((short) 9, UiTheme.PRIMARY + "PASS"));
         gui.setItem(28, UiItems.item(Material.NETHER_STAR, UiTheme.PRIMARY + "Naechstes Level",
-                level >= 100 ? UiTheme.SUCCESS + "Season-Pfad abgeschlossen"
+                level >= MAX_LEVEL ? UiTheme.SUCCESS + "Season-Pfad abgeschlossen"
                         : UiTheme.MUTED + "Noch " + UiTheme.TEXT + numbers.format(progress.xpToNext(uuid)) + " XP",
                 UiTheme.MUTED + "Quests und legitime PvP-Aktivitaet",
                 UiTheme.MUTED + "fuellen deinen Season-Pfad."));
@@ -80,13 +77,13 @@ public final class BattlePassService implements Listener {
                 UiTheme.MUTED + "Aufgaben treiben deinen Pass voran.",
                 "", UiItems.action("Questboard oeffnen")), (p,e,s) -> Bukkit.dispatchCommand(p, "quests"));
         gui.setItem(23, UiItems.item(Material.CHEST, UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "REWARDS",
-                UiTheme.MUTED + "20 Season-Meilensteine.",
+                UiTheme.MUTED + "100 Level-Rewards.",
                 UiTheme.MUTED + "Free- und Premium-Track getrennt.",
                 "", UiItems.action("Reward Track oeffnen")), (p,e,s) -> openRewards(p, 0));
         gui.setItem(32, UiItems.item(Material.GOLD_INGOT,
                 isPremium(uuid) ? UiTheme.SUCCESS.toString() + ChatColor.BOLD + "PREMIUM AKTIV"
                         : UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "PREMIUM",
-                isPremium(uuid) ? UiTheme.MUTED + "Premium-Track + Premium-Quests"
+                isPremium(uuid) ? UiTheme.MUTED + "100 Premium-Rewards + Premium-Quests"
                         : UiTheme.MUTED + "Zusaetzlicher Reward-Track",
                 isPremium(uuid) ? UiTheme.STATUS_ACTIVE : UiTheme.STATUS_LOCKED));
 
@@ -97,22 +94,22 @@ public final class BattlePassService implements Listener {
         gui.setItem(40, UiItems.item(Material.BOOK_AND_QUILL, UiTheme.TEXT + "Season System",
                 UiTheme.MUTED + "Free Track fuer alle.",
                 UiTheme.MUTED + "Premium erweitert statt ersetzt.",
-                UiTheme.MUTED + "Season-Fortschritt bleibt persistent."));
+                UiTheme.MUTED + "Jedes Level hat eine Belohnung."));
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> Bukkit.dispatchCommand(p, "profile"));
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
     }
 
-    /** Horizontale Free/Premium-Rails, angelehnt an moderne Battle-Pass-UIs. */
+    /** Horizontale Free/Premium-Rails mit sieben Leveln pro Seite. */
     public void openRewards(Player player, int requestedPage) {
-        int maxPage = (MILESTONES.length - 1) / PER_PAGE;
+        int maxPage = (MAX_LEVEL - 1) / PER_PAGE;
         final int page = Math.max(0, Math.min(maxPage, requestedPage));
         UUID uuid = player.getUniqueId();
         int playerLevel = progress.getLevel(uuid);
         GuiSession gui = GuiSession.create(player, UiTheme.title("Pass Rewards " + (page + 1) + "/" + (maxPage + 1)), 54);
 
         gui.setItem(4, UiItems.item(Material.EXP_BOTTLE, UiTheme.PRIMARY.toString() + ChatColor.BOLD + "SEASON " + progress.getSeason(),
-                UiTheme.MUTED + "Level " + UiTheme.TEXT + playerLevel + "/100",
+                UiTheme.MUTED + "Level " + UiTheme.TEXT + playerLevel + "/" + MAX_LEVEL,
                 seasonBar(playerLevel),
                 isPremium(uuid) ? UiTheme.LEGENDARY + "PREMIUM ACTIVE" : UiTheme.MUTED + "FREE PASS"));
         gui.setItem(9, UiItems.item(Material.IRON_INGOT, UiTheme.TEXT.toString() + ChatColor.BOLD + "FREE",
@@ -120,26 +117,25 @@ public final class BattlePassService implements Listener {
         gui.setItem(27, UiItems.item(Material.GOLD_INGOT, UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "PREMIUM",
                 isPremium(uuid) ? UiTheme.SUCCESS + "Freigeschaltet" : UiTheme.STATUS_LOCKED));
 
-        int start = page * PER_PAGE;
+        int firstLevel = page * PER_PAGE + 1;
         for (int column = 0; column < PER_PAGE; column++) {
-            int rewardIndex = start + column;
-            if (rewardIndex >= MILESTONES.length) {
+            final int rewardLevel = firstLevel + column;
+            if (rewardLevel > MAX_LEVEL) {
                 gui.setItem(TRACK_SLOTS[column], panel((short) 15, " "));
                 gui.setItem(RAIL_SLOTS[column], panel((short) 15, " "));
                 gui.setItem(PREMIUM_SLOTS[column], panel((short) 15, " "));
                 continue;
             }
-            final int milestone = MILESTONES[rewardIndex];
-            gui.setItem(TRACK_SLOTS[column], rewardItem(player, false, milestone),
-                    (p,e,s) -> { claim(p, false, milestone); openRewards(p, page); });
-            gui.setItem(RAIL_SLOTS[column], railItem(playerLevel, milestone));
-            gui.setItem(PREMIUM_SLOTS[column], rewardItem(player, true, milestone),
-                    (p,e,s) -> { claim(p, true, milestone); openRewards(p, page); });
+            gui.setItem(TRACK_SLOTS[column], rewardItem(player, false, rewardLevel),
+                    (p,e,s) -> { claim(p, false, rewardLevel); openRewards(p, page); });
+            gui.setItem(RAIL_SLOTS[column], railItem(playerLevel, rewardLevel));
+            gui.setItem(PREMIUM_SLOTS[column], rewardItem(player, true, rewardLevel),
+                    (p,e,s) -> { claim(p, true, rewardLevel); openRewards(p, page); });
         }
 
         gui.setItem(38, UiItems.item(Material.NETHER_STAR, UiTheme.PRIMARY + "Reward-Regel",
-                UiTheme.MUTED + "Erreichtes Level + nicht abgeholt",
-                UiTheme.MUTED + "= READY. Premium benoetigt Premium."));
+                UiTheme.MUTED + "Jedes Level besitzt einen Free-Reward.",
+                UiTheme.MUTED + "Premium schaltet den zweiten Reward frei."));
         if (page > 0) gui.setItem(46, UiItems.item(Material.ARROW, UiTheme.MUTED + "Vorherige Seite"), (p,e,s) -> openRewards(p, page - 1));
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p));
         gui.setItem(UiTheme.NAV_HOME, UiItems.home(), (p,e,s) -> open(p));
@@ -158,13 +154,16 @@ public final class BattlePassService implements Listener {
 
     private void claim(Player player, boolean premium, int level) {
         UUID uuid = player.getUniqueId();
+        if (level < 1 || level > MAX_LEVEL) return;
         if (progress.getLevel(uuid) < level) {
             player.sendMessage(UiTheme.DANGER + "Dafuer brauchst du Season-Level " + level + ".");
-            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F); return;
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+            return;
         }
         if (premium && !isPremium(uuid)) {
             player.sendMessage(UiTheme.LEGENDARY + "Dieser Reward gehoert zum Premium Track.");
-            player.playSound(player.getLocation(), Sound.CLICK, 0.6F, 0.6F); return;
+            player.playSound(player.getLocation(), Sound.CLICK, 0.6F, 0.6F);
+            return;
         }
         String path = claimPath(uuid, premium, level);
         if (data.getBoolean(path, false)) {
@@ -175,10 +174,13 @@ public final class BattlePassService implements Listener {
         long coins = rewardCoins(premium, level);
         int stars = rewardStars(premium, level);
         economy.deposit(uuid, coins, "BATTLE_PASS", (premium ? "Premium" : "Free") + " Level " + level);
-        SkyKingsCurrencyItems.give(player, stars);
-        data.set(path, true); save();
+        if (stars > 0) SkyKingsCurrencyItems.give(player, stars);
+        data.set(path, true);
+        save();
+
+        String starText = stars > 0 ? " • +" + stars + " Sterne" : "";
         player.sendMessage(UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "BATTLE PASS " + UiTheme.SUCCESS + "Level " + level
-                + UiTheme.MUTED + " • +" + numbers.format(coins) + " Coins • +" + stars + " Sterne");
+                + UiTheme.MUTED + " • +" + numbers.format(coins) + " Coins" + starText);
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, premium ? 1.6F : 1.3F);
     }
 
@@ -195,42 +197,52 @@ public final class BattlePassService implements Listener {
                 : premiumLocked ? UiTheme.DISABLED + "Premium erforderlich"
                 : unlocked ? UiItems.action("Klicken zum Abholen")
                 : UiTheme.MUTED + "Erreiche Level " + level;
+        int stars = rewardStars(premium, level);
         return UiItems.item(material,
                 (premium ? UiTheme.LEGENDARY : UiTheme.TEXT) + "Level " + level,
                 UiTheme.MUTED + numbers.format(rewardCoins(premium, level)) + " Coins",
-                UiTheme.MUTED.toString() + rewardStars(premium, level) + " SkyKings Sterne",
+                stars > 0 ? UiTheme.MUTED.toString() + stars + " SkyKings Sterne" : UiTheme.DARK + "Coin Reward",
                 "", state, action);
     }
 
-    private ItemStack railItem(int currentLevel, int milestone) {
-        boolean reached = currentLevel >= milestone;
-        boolean next = currentLevel < milestone && currentLevel >= milestone - 5;
+    private ItemStack railItem(int currentLevel, int level) {
+        boolean reached = currentLevel >= level;
+        boolean next = currentLevel + 1 == level;
         short dataValue = reached ? (short) 5 : next ? (short) 4 : (short) 7;
-        String name = reached ? UiTheme.SUCCESS + "▼ " + milestone
-                : next ? UiTheme.WARNING + "▼ " + milestone
-                : UiTheme.DISABLED + "▼ " + milestone;
+        String name = reached ? UiTheme.SUCCESS + "▼ " + level
+                : next ? UiTheme.WARNING + "▼ " + level
+                : UiTheme.DISABLED + "▼ " + level;
         return UiItems.item(Material.STAINED_GLASS_PANE, dataValue, name,
                 reached ? UiTheme.STATUS_COMPLETED : next ? UiTheme.STATUS_ACTIVE : UiTheme.STATUS_LOCKED);
     }
 
     private Material rewardMaterial(int level, boolean premium, boolean claimed) {
         if (claimed) return Material.STAINED_GLASS_PANE;
-        if (level == 100) return Material.NETHER_STAR;
+        if (level == MAX_LEVEL) return Material.NETHER_STAR;
         if (level % 25 == 0) return premium ? Material.DIAMOND : Material.EMERALD;
         if (level % 10 == 0) return premium ? Material.GOLD_INGOT : Material.IRON_INGOT;
-        return premium ? Material.GOLD_NUGGET : Material.QUARTZ;
+        if (level % 5 == 0) return premium ? Material.GOLD_NUGGET : Material.QUARTZ;
+        return premium ? Material.GOLD_NUGGET : Material.PAPER;
     }
 
+    /**
+     * Mit 100 statt 20 Rewards wird der lineare Grundwert bewusst kleiner gehalten,
+     * damit die Season-Economy in etwa in derselben Groessenordnung bleibt.
+     */
     private long rewardCoins(boolean premium, int level) {
-        long base = premium ? level * 12_500L : level * 10_000L;
-        if (level == 100) base += premium ? 500_000L : 250_000L;
+        long base = level * (premium ? 2_500L : 2_000L);
+        if (level % 10 == 0) base += premium ? 100_000L : 75_000L;
+        if (level % 25 == 0) base += premium ? 200_000L : 150_000L;
+        if (level == MAX_LEVEL) base += premium ? 750_000L : 500_000L;
         return base;
     }
 
     private int rewardStars(boolean premium, int level) {
-        int divisor = premium ? 10 : 20;
-        int stars = Math.max(1, level / divisor);
-        if (level == 100) stars += premium ? 10 : 5;
+        int stars = 0;
+        if (level % 5 == 0) stars += premium ? 2 : 1;
+        if (level % 10 == 0) stars += premium ? 2 : 1;
+        if (level % 25 == 0) stars += premium ? 3 : 2;
+        if (level == MAX_LEVEL) stars += premium ? 10 : 5;
         return stars;
     }
 
@@ -239,7 +251,7 @@ public final class BattlePassService implements Listener {
     }
 
     private String seasonBar(int level) {
-        int filled = Math.min(20, Math.max(0, (int) Math.floor(level * 20D / 100D)));
+        int filled = Math.min(20, Math.max(0, (int) Math.floor(level * 20D / MAX_LEVEL)));
         StringBuilder out = new StringBuilder();
         for (int i = 0; i < 20; i++) out.append(i < filled ? UiTheme.SUCCESS + "■" : UiTheme.DISABLED + "■");
         return out.toString();
