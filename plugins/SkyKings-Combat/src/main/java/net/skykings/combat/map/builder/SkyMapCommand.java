@@ -15,11 +15,12 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 
-/** Verwaltet Produktions-SkyPvP, Legacy-Testwelt und die separate SkyKings-Eventfestung. */
+/** Verwaltet Produktions-SkyPvP, Combat-Eventwelt, Community-Eventmap und Legacy-Testwelt. */
 public final class SkyMapCommand implements CommandExecutor {
 
     private static final String IMPORT_WORLD = "SkyPvP";
     private static final String EVENT_WORLD = "SkyEvents";
+    private static final String COMMUNITY_EVENT_WORLD = "SkyCommunityEvent";
     private static final double IMPORT_X = 21.88D;
     private static final double IMPORT_Y = 151.47D;
     private static final double IMPORT_Z = -83.51D;
@@ -55,6 +56,9 @@ public final class SkyMapCommand implements CommandExecutor {
         if (args[0].equalsIgnoreCase("event")) {
             return generateEventWorld(player, args.length >= 2 ? sanitize(args[1]) : EVENT_WORLD);
         }
+        if (args[0].equalsIgnoreCase("community") || args[0].equalsIgnoreCase("giveaway")) {
+            return generateCommunityEventWorld(player, args.length >= 2 ? sanitize(args[1]) : COMMUNITY_EVENT_WORLD);
+        }
         if (args[0].equalsIgnoreCase("generate")) {
             return generateLegacyTestWorld(player, args.length >= 2 ? sanitize(args[1]) : "SkyKingsArenaV3");
         }
@@ -65,8 +69,32 @@ public final class SkyMapCommand implements CommandExecutor {
 
     private void help(Player player) {
         player.sendMessage(ChatColor.YELLOW + "/skymap load [Weltname]" + ChatColor.GRAY + " - handgebaute SkyPvP-Map laden");
-        player.sendMessage(ChatColor.YELLOW + "/skymap event [Weltname]" + ChatColor.GRAY + " - SkyKings Event-Festung erzeugen");
+        player.sendMessage(ChatColor.YELLOW + "/skymap event [Weltname]" + ChatColor.GRAY + " - Combat-Eventwelt fuer Duel/LMS erzeugen");
+        player.sendMessage(ChatColor.AQUA + "/skymap community [Weltname]" + ChatColor.GRAY + " - kleine Giveaway-/Community-Eventmap erzeugen");
         player.sendMessage(ChatColor.DARK_GRAY + "/skymap generate [Weltname] - nur alte Test-Arena V3");
+    }
+
+    private boolean generateCommunityEventWorld(Player player, String worldName) {
+        if (worldName == null || worldName.length() < 1) worldName = COMMUNITY_EVENT_WORLD;
+        if (Bukkit.getWorld(worldName) != null || new File(Bukkit.getWorldContainer(), worldName).exists()) {
+            player.sendMessage(ChatColor.RED + "Die Community-Eventwelt '" + worldName + "' existiert bereits.");
+            player.sendMessage(ChatColor.GRAY + "Sie wird aus Sicherheitsgruenden niemals automatisch ueberschrieben.");
+            return true;
+        }
+
+        player.sendMessage(ChatColor.AQUA + "Erzeuge kompakte SkyKings Community-Eventmap in " + ChatColor.WHITE + worldName + ChatColor.GRAY + " ...");
+        WorldCreator creator = new WorldCreator(worldName);
+        creator.environment(World.Environment.NORMAL);
+        creator.generator(new VoidChunkGenerator());
+        creator.generateStructures(false);
+        World world = creator.createWorld();
+        if (world == null) {
+            player.sendMessage(ChatColor.RED + "Die Community-Eventwelt konnte nicht erstellt werden.");
+            return true;
+        }
+        world.setKeepSpawnInMemory(true);
+        new SkyKingsCommunityEventMapBuilder(world, player).build();
+        return true;
     }
 
     private boolean generateEventWorld(Player player, String worldName) {
