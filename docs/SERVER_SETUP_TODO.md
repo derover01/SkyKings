@@ -253,6 +253,60 @@ Regeln:
 
 Vor Release mit 3, 5 und 9 Spielern testen, ausserdem Boss-Quit, Angreifer-Quit, Pfeile und Restart/Stop waehrend des Events.
 
+### Clan Wars
+Der Gameplay-Controller ist aktiv und verwendet die echten persistenten Core-Clans.
+
+Mindestens fuer 2v2 setzen:
+```text
+/eventarena set clanwar a1
+/eventarena set clanwar a2
+/eventarena set clanwar b1
+/eventarena set clanwar b2
+```
+
+Fuer groessere Wars optional:
+```text
+/eventarena set clanwar a3
+/eventarena set clanwar a4
+/eventarena set clanwar a5
+/eventarena set clanwar b3
+/eventarena set clanwar b4
+/eventarena set clanwar b5
+```
+
+Challenge durch Clan-Owner:
+```text
+/clanwar <gegnerischerOwner>
+```
+
+Ziel-Owner:
+```text
+/clanwar accept
+/clanwar deny
+```
+
+Status / Staff:
+```text
+/clanwar status
+/clanwar stop
+```
+
+Regeln:
+- 2v2 bis 5v5
+- beide echten Clan-Owner muessen online sein
+- beide Clans brauchen mindestens 2 freie Online-Mitglieder
+- Teamgroesse wird automatisch auf die kleinere verfuegbare Seite balanciert
+- Friendly Fire innerhalb des eigenen Clans ist aus
+- nur Gegner koennen Schaden machen
+- tote Spieler sind eliminiert und kehren an ihre Rueckkehrposition zurueck
+- Quit zaehlt als Ausscheiden
+- letzter Clan gewinnt
+- jeder ueberlebende Sieger erhaelt +500.000 Coins
+- Clan-War-Kills bleiben aus Open-World-Stats/Streaks/Bounties heraus
+- Commands, Drop/Pickup und fremde Inventare sind waehrend des Wars blockiert
+
+Vor Release 2v2, 3v3 und 5v5 testen, inklusive Owner-Quit, Member-Quit, Pfeile und `/clanwar stop`.
+
 ## 5. Community-/Giveaway-Eventmap
 
 Diese Map ist fuer die typischen Freitag-/Samstag-Events gedacht, bei denen Staff Items, Ränge, Gutscheine, Crates oder andere Gewinne an Spieler verteilt.
@@ -443,7 +497,6 @@ Permissions:
 ## 14. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
-- Clan-Wars Event-Controller
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
 - Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
 - echtes AMS/Mob-Stacking + Performanceprofil
