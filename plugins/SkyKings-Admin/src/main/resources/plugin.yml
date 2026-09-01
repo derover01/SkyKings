@@ -23,6 +23,7 @@ commands:
   clear:
     description: Startet einen angekündigten Boden-Clear mit 2 Minuten Countdown.
     usage: /clear
+    aliases: [groundclear, bodenclear]
   warp:
     description: Öffnet die SkyKings-Warp-Auswahl oder startet eine 3-Sekunden-Schnellreise.
     usage: /warp [Name]
