@@ -34,10 +34,19 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 - `/sell <hand|all>` - whitelisted Items verkaufen.
 - `/trade <Spieler|accept|deny>` - sicherer Zwei-Spieler-Handel mit Items und Coins.
 - `/playershop <kaufen|set|stock|withdraw|claim|info|remove>` - PlayerShop-Verwaltung.
+- `/shoprent` - Market-Rentals-GUI mit geschuetzten Mietstaenden.
+- `/shoprent rent <Stand>` - freien Marktstand fuer Coins mieten.
+- `/shoprent release <Stand>` - eigene Miete vorzeitig beenden; keine anteilige Rueckerstattung.
+- `/shoprent tp <Stand>` - zum Marktstand teleportieren.
+- `/shoprent pos1` / `/shoprent pos2` - Staff: Cuboid-Ecken fuer einen Mietstand setzen.
+- `/shoprent create <ID> [Preis] [Stunden]` - Staff: Mietstand persistent anlegen. Standard: 500.000 Coins / 24h; max. 168h.
+- `/shoprent remove <ID>` / `/shoprent list` - Staff: Mietstand entfernen bzw. anzeigen.
 - `/dailyrewards` - taeglichen Reward abholen.
 - `/jackpot` - Coin-Jackpot-GUI.
 - `/jackpot <Coins>` - optional direkter Jackpot-Einsatz.
 - `/spawnerstack` - Stackgroesse des angesehenen Spawners anzeigen. Aliases: `/spawner`, `/ams`.
+
+Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort neue PlayerShops platzieren. Laeuft die Miete ab, verkauft der dortige PlayerShop nicht weiter; der letzte Mieter darf vorhandenen Stock/Einnahmen aber noch aufraeumen und den Shop entfernen.
 
 ## 4. Islands & Plots
 
@@ -212,11 +221,11 @@ In der Naehe des gewuenschten Villagers:
 6. King Altar, Hot Zones, End Zone.
 7. Gold-/Level-/Blacksmith-/Merchant-Landmarks.
 8. Secrets, Loot Rooms, Routes, Map Loot, Supply Drops, Displays, Trashbins.
-9. Shop-NPCs binden.
+9. Shop-NPCs binden und Markt-Mietstaende mit `/shoprent pos1|pos2|create` definieren.
 10. Duel/LMS/Clan-War-Arenen setzen.
 11. Plot-/Island-Schutz, Rand, Merge, Trust testen.
 12. Kits, Battle Pass, Quests, Crates, Voucher, Jackpot testen.
-13. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop.
+13. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
 14. Restart-/Persistenz- und Backup/Restore-Gates.
 15. Economy-/Reward-Balance, dann Soft Launch.
 
