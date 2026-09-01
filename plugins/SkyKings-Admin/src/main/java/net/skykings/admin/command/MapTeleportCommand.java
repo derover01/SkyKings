@@ -19,7 +19,7 @@ import java.util.List;
 /** Staff-Schnellreise zu den technischen SkyKings-Welten. */
 public final class MapTeleportCommand implements CommandExecutor, TabCompleter {
     public static final String PERMISSION = "skykings.admin.maptp";
-    private static final List<String> ALIASES = Arrays.asList("main", "plots", "islands", "events", "community");
+    private static final List<String> ALIASES = Arrays.asList("main", "plots", "islands", "community");
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -33,7 +33,7 @@ public final class MapTeleportCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (args.length != 1) {
-            player.sendMessage(UiTheme.WARNING + "Nutze: /maptp <main|plots|islands|events|community>");
+            player.sendMessage(UiTheme.WARNING + "Nutze: /maptp <main|plots|islands|community>");
             return true;
         }
 
@@ -47,7 +47,7 @@ public final class MapTeleportCommand implements CommandExecutor, TabCompleter {
 
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
-            if ("main".equals(alias) || "events".equals(alias) || "community".equals(alias)) {
+            if ("main".equals(alias) || "community".equals(alias)) {
                 player.sendMessage(UiTheme.WARNING + "Map wird geladen …");
                 player.performCommand("skymap load " + worldName);
                 return true;
@@ -68,7 +68,6 @@ public final class MapTeleportCommand implements CommandExecutor, TabCompleter {
         if ("main".equals(alias)) return "SkyPvP";
         if ("plots".equals(alias)) return "SkyPlots";
         if ("islands".equals(alias)) return "SkyIslands";
-        if ("events".equals(alias)) return "SkyEvents";
         if ("community".equals(alias)) return "SkyCommunityEvent";
         return null;
     }
