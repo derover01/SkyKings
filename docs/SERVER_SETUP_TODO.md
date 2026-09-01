@@ -115,13 +115,15 @@ Blacksmith/Merchant vorher in ihren Landmark-Bereichen platzieren.
 
 **Offen:** Shoppreise gemeinsam final balancen. Aktuelle Preise sind noch Test-/Draftwerte.
 
-## 4. Separate Event-Welt
+## 4. Separate Combat-Event-Welt
 
 Einmalig erzeugen:
 
 ```text
 /skymap event SkyEvents
 ```
+
+Diese Welt ist **nur fuer spielbare Combat-Events** gedacht und nicht fuer die Community-Giveaways.
 
 Die Welt besteht aus:
 - zentralem SkyKings Event-Hub
@@ -180,7 +182,34 @@ Ist architektonisch vorbereitet. Gameplay-Controller kommt noch. Vorgesehene Pun
 - spawn1..spawn8
 - spectator
 
-## 5. Legacy Hall
+## 5. Community-/Giveaway-Eventmap
+
+Diese Map ist fuer die typischen Freitag-/Samstag-Events gedacht, bei denen Staff Items, Ränge, Gutscheine, Crates oder andere Gewinne an Spieler verteilt.
+
+Einmalig erzeugen:
+
+```text
+/skymap community SkyCommunityEvent
+```
+
+Ziel der Map:
+- bewusst kompakt, keine riesige Arena
+- PvP deaktiviert
+- zentrale kleine SkyKings-Buehne
+- freie Zuschauerflaeche
+- Giveaway-/Preis-Podeste
+- Host-/Staff-Bereich
+- Void-/Sky-Feeling
+- danach optional manuell mit WorldEdit/Handbau verfeinern
+
+Nach dem Erzeugen pruefen:
+- Spawnpunkt passt
+- keine Mobs
+- kein PvP
+- Buehne und Zuschauerflaeche wirken fuer reale Spielerzahlen nicht zu gross
+- spaeter Event-NPCs/Hologramme/Teleportzugang festlegen, wenn das Community-Eventsystem umgesetzt wird
+
+## 6. Legacy Hall
 
 Erst sinnvoll nach einer abgeschlossenen Season. An die gewuenschte permanente Hall-of-Fame-Position stellen:
 
@@ -190,7 +219,7 @@ Erst sinnvoll nach einer abgeschlossenen Season. An die gewuenschte permanente H
 /legacyhall set <Season> 3
 ```
 
-## 6. Islands
+## 7. Islands
 
 Aktuelle Regeln:
 - Schutzregion: **129 x 129**
@@ -211,7 +240,7 @@ server/plugins/SkyKings-Core/islands.yml
 
 Danach Server starten und `/is create` neu testen.
 
-## 7. Plots
+## 8. Plots
 
 Neue Zielmechanik:
 - 65 x 65 Plot
@@ -225,6 +254,7 @@ Neue Zielmechanik:
 - `/p undeny <Spieler>`
 - `/p flag pvp <an|aus>`
 - `/p flag explosions <an|aus>`
+- `/p flag fire <an|aus>`
 - `/p flag mob-spawn <an|aus>`
 
 ### Nur fuer den aktuellen Pre-Release-Test
@@ -237,7 +267,7 @@ server/plugins/SkyKings-Core/plots.yml
 
 Danach neu starten und `/p auto` testen.
 
-## 8. PlayerShops
+## 9. PlayerShops
 
 Kein kostenloses `/playershop create` mehr.
 
@@ -255,11 +285,12 @@ Testflow:
 
 Haendler-Eier koennen auch aus Crates kommen.
 
-## 9. Crates / Gutscheine
+## 10. Crates / Gutscheine
 
 Testen:
 - neue Voucher-Titel zeigen konkreten Inhalt
-- technische Serial-/Batch-ID darf Tooltip nicht mehr breit ziehen
+- technische Serial-/Batch-ID ist bei neu erzeugten Gutscheinen komplett aus der sichtbaren Lore entfernt
+- alte Gutschein-Lore bleibt rueckwaertskompatibel einloesbar
 - Rang/Rechte = Buch
 - Kit = Papier
 - Coin/GiveAll = Sonnenblume
@@ -267,18 +298,31 @@ Testen:
 - GiveAll zahlt an alle gerade Online-Spieler
 - Crate-Preview-Chancen gegen `crates.yml` pruefen
 
-## 10. Discord
+## 11. Announcements / Boden-Clear
+
+- `/announcement <Text>` nutzt das einheitliche SkyKings-Broadcast-Design
+- automatischer Boden-Clear entfernt alle 30 Minuten ausschliesslich gedroppte Item-Entities
+- zwei Minuten vor dem Clear startet der Chat-Countdown
+- zusaetzliche Hinweise bei 1 Minute, 30 Sekunden, 10 Sekunden und 5..1 Sekunden
+- `/clear` startet denselben 2-Minuten-Countdown manuell
+- waehrend ein Countdown laeuft darf kein zweiter gestartet werden
+- nach dem Clear wird die Anzahl entfernter Items announced
+- benoetigte Staff-Permission: `skykings.staff.clear`
+
+## 12. Discord
 
 Spaeter lokal setzen, niemals in GitHub committen:
 - Umgebungsvariable `SKYKINGS_DISCORD_BOT_TOKEN`
 - Channel IDs in `discord.yml`
 - `/discordtest staff|audit|events|status`
 
-## 11. Noch offene Entwicklungs-/Balancepunkte
+## 13. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
 - Tournament Gameplay-Controller
 - Juggernaut Gameplay-Controller
+- Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
+- Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
 - echtes AMS/Mob-Stacking + Performanceprofil
 - Clan Tag final in Chat/Tab integrieren, ohne Rangdarstellung zu zerstoeren
 - Discord-Events aus allen Modulen final anschliessen
