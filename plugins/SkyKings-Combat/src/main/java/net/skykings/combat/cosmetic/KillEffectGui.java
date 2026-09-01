@@ -9,7 +9,6 @@ import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiItems;
 import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
@@ -34,18 +33,18 @@ public final class KillEffectGui {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Cosmetics Center"), 54);
 
         gui.setItem(4, UiItems.item(Material.NETHER_STAR,
-                UiTheme.ACCENT + "COSMETICS CENTER",
+                UiTheme.PRIMARY + "COSMETICS CENTER",
                 UiTheme.MUTED + "Dein visueller PvP-Stil.",
                 UiTheme.TEXT + "Keine Gameplay-Vorteile."), null);
 
         gui.setItem(11, UiItems.item(Material.BLAZE_POWDER,
-                tab == Tab.EFFECTS ? UiTheme.ACCENT + "Kill Effects • ACTIVE" : UiTheme.TEXT + "Kill Effects",
+                tab == Tab.EFFECTS ? UiTheme.PRIMARY + "Kill Effects • ACTIVE" : UiTheme.TEXT + "Kill Effects",
                 UiTheme.MUTED + "Effekt direkt nach deinem Kill.",
                 tab == Tab.EFFECTS ? UiTheme.SUCCESS + "Ausgewählter Bereich" : UiItems.action("Klicken zum Öffnen")),
                 (p,e,s) -> { SoundFeedback.click(p); open(p, Tab.EFFECTS); });
 
         gui.setItem(15, UiItems.item(Material.PAPER,
-                tab == Tab.MESSAGES ? UiTheme.ACCENT + "Death Messages • ACTIVE" : UiTheme.TEXT + "Death Messages",
+                tab == Tab.MESSAGES ? UiTheme.PRIMARY + "Death Messages • ACTIVE" : UiTheme.TEXT + "Death Messages",
                 UiTheme.MUTED + "Dein Stil in der Kill-Nachricht.",
                 tab == Tab.MESSAGES ? UiTheme.SUCCESS + "Ausgewählter Bereich" : UiItems.action("Klicken zum Öffnen")),
                 (p,e,s) -> { SoundFeedback.click(p); open(p, Tab.MESSAGES); });
@@ -57,7 +56,7 @@ public final class KillEffectGui {
             SoundFeedback.back(p);
             Bukkit.dispatchCommand(p, "commands");
         });
-        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS, UiTheme.ACCENT + "Home",
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS, UiTheme.PRIMARY + "Home",
                 UiTheme.MUTED + "Zur SkyKings Übersicht.", UiItems.action("Klicken")), (p,e,s) -> {
             SoundFeedback.back(p);
             Bukkit.dispatchCommand(p, "commands");
@@ -77,7 +76,7 @@ public final class KillEffectGui {
         KillEffect selected = service.getSelected(player.getUniqueId());
         gui.setItem(31, UiItems.item(Material.NAME_TAG,
                 UiTheme.TEXT + "Aktiver Kill Effect",
-                UiTheme.ACCENT + selected.getDisplayName(),
+                UiTheme.PRIMARY + selected.getDisplayName(),
                 UiTheme.MUTED + "Wird direkt nach einem Kill abgespielt."), null);
     }
 
@@ -87,7 +86,7 @@ public final class KillEffectGui {
         String state = selected ? UiTheme.SUCCESS + "SELECTED"
                 : unlocked ? UiTheme.WARNING + "READY" : UiTheme.MUTED + "LOCKED";
         gui.setItem(slot, UiItems.item(material,
-                (selected ? UiTheme.ACCENT : UiTheme.TEXT) + effect.getDisplayName(),
+                (selected ? UiTheme.PRIMARY : UiTheme.TEXT) + effect.getDisplayName(),
                 state,
                 effect == KillEffect.NONE ? UiTheme.MUTED + "Deaktiviert deinen Kill Effect."
                         : UiTheme.MUTED + "Rein kosmetischer PvP-Effekt.",
@@ -137,7 +136,7 @@ public final class KillEffectGui {
         String state = selected ? UiTheme.SUCCESS + "SELECTED"
                 : unlocked ? UiTheme.WARNING + "READY" : UiTheme.MUTED + "LOCKED";
         gui.setItem(slot, UiItems.item(material,
-                (selected ? UiTheme.ACCENT : style.getColor()) + style.getDisplayName(),
+                (selected ? UiTheme.PRIMARY : style.getColor()) + style.getDisplayName(),
                 state,
                 UiTheme.MUTED + description,
                 selected ? UiTheme.SUCCESS + "Aktuell ausgewählt"
