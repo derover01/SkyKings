@@ -1,13 +1,12 @@
 package net.skykings.admin.command;
 
 import net.skykings.admin.warp.WarpService;
+import net.skykings.admin.warp.WarpTeleportService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiItems;
 import net.skykings.core.ui.UiTheme;
-import org.bukkit.ChatColor;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -19,12 +18,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** /warp [Name] mit cleanem GUI. */
+/** /warp und /warps oeffnen das GUI, /warp <Name> startet direkt die sichere Schnellreise. */
 public final class WarpCommand implements CommandExecutor, TabCompleter {
     private final WarpService warps;
+    private final WarpTeleportService teleports;
 
-    public WarpCommand(WarpService warps) {
+    public WarpCommand(WarpService warps, WarpTeleportService teleports) {
         this.warps = warps;
+        this.teleports = teleports;
     }
 
     @Override
@@ -38,7 +39,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             open(player);
             return true;
         }
-        teleport(player, args[0]);
+        teleports.request(player, args[0]);
         return true;
     }
 
@@ -57,29 +58,12 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
             if (slot >= size - 9) break;
             gui.setItem(slot++, UiItems.item(Material.ENDER_PEARL,
                     UiTheme.PRIMARY + name,
-                    UiTheme.MUTED + "Schnellreise",
-                    UiItems.action("Klicken zum Teleportieren")), (p,e,s) -> teleport(p, name));
+                    UiTheme.MUTED + "3 Sekunden Schnellreise",
+                    UiTheme.MUTED + "Nicht im Combat verfügbar",
+                    UiItems.action("Klicken zum Warpen")), (p,e,s) -> teleports.request(p, name));
         }
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
-    }
-
-    private void teleport(Player player, String name) {
-        if (!warps.exists(name)) {
-            player.sendMessage(UiTheme.DANGER + "Warp nicht gefunden: " + ChatColor.WHITE + name);
-            SoundFeedback.error(player);
-            return;
-        }
-        Location target = warps.get(name);
-        if (target == null) {
-            player.sendMessage(UiTheme.DANGER + "Die Welt dieses Warps ist aktuell nicht geladen.");
-            SoundFeedback.error(player);
-            return;
-        }
-        player.closeInventory();
-        player.teleport(target);
-        player.sendMessage(UiTheme.SUCCESS + "Teleportiert zu " + ChatColor.WHITE + name + UiTheme.SUCCESS + ".");
-        SoundFeedback.success(player);
     }
 
     @Override
