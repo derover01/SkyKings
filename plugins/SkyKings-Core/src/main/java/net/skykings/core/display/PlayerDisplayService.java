@@ -28,11 +28,11 @@ public final class PlayerDisplayService {
         this.preferences = new ChatDisplayPreferenceStore(JavaPlugin.getProvidingPlugin(PlayerDisplayService.class));
     }
 
-    /** Chat darf kosmetische Prefixe anzeigen. Rang daneben ist pro Spieler optional. */
+    /** Chat: Rang bleibt sichtbar, auch wenn der kosmetische Prefix bewusst ausgeblendet wurde. */
     public String prefixFor(Player player) {
         String rankPrefix = rankPrefixFor(player);
         String cosmetic = cosmeticPrefix(player);
-        if (cosmetic == null) return rankPrefix;
+        if (cosmetic == null || !preferences.showCosmeticPrefix(player.getUniqueId())) return rankPrefix;
         String cosmeticBlock = ChatColor.DARK_GRAY + "[" + cosmetic + ChatColor.DARK_GRAY + "]";
         return preferences.showRankWithCosmeticPrefix(player.getUniqueId())
                 ? cosmeticBlock + " " + rankPrefix
@@ -42,6 +42,14 @@ public final class PlayerDisplayService {
     public String cosmeticPrefixFor(Player player) {
         String cosmetic = cosmeticPrefix(player);
         return cosmetic == null ? null : cosmetic;
+    }
+
+    public boolean isCosmeticPrefixShown(Player player) {
+        return preferences.showCosmeticPrefix(player.getUniqueId());
+    }
+
+    public void setCosmeticPrefixShown(Player player, boolean show) {
+        preferences.setShowCosmeticPrefix(player.getUniqueId(), show);
     }
 
     public boolean isRankShownWithCosmetic(Player player) {
