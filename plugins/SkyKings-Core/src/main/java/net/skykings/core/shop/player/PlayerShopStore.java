@@ -7,6 +7,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -41,16 +44,28 @@ public final class PlayerShopStore {
     public synchronized PlayerShop create(UUID owner) {
         PlayerShop shop = new PlayerShop(UUID.randomUUID(), owner);
         shops.put(shop.getId(), shop);
-        save();
+        if (!saveChecked()) {
+            shops.remove(shop.getId());
+            return null;
+        }
         return shop;
     }
 
     public synchronized void delete(UUID id) {
-        shops.remove(id);
-        save();
+        PlayerShop removed = shops.remove(id);
+        if (!saveChecked() && removed != null) shops.put(id, removed);
     }
 
+    /** Legacy-Aufrufer: Fehler werden geloggt; transaktionskritischer Code nutzt saveChecked(). */
     public synchronized void save() {
+        saveChecked();
+    }
+
+    /**
+     * Persistiert zuerst in eine Temp-Datei und ersetzt danach die Live-Datei atomar soweit
+     * das Dateisystem es unterstuetzt. Transaktionscode kann bei false sauber rollbacken.
+     */
+    public synchronized boolean saveChecked() {
         YamlConfiguration yaml = new YamlConfiguration();
         for (PlayerShop shop : shops.values()) {
             String p = "shops." + shop.getId() + ".";
@@ -67,8 +82,26 @@ public final class PlayerShopStore {
             yaml.set(p + "y", shop.getY());
             yaml.set(p + "z", shop.getZ());
         }
-        try { yaml.save(file); }
-        catch (IOException ex) { plugin.getLogger().warning("PlayerShops konnten nicht gespeichert werden: " + ex.getMessage()); }
+
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
+        try {
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("PlayerShop-Datenordner konnte nicht erstellt werden: " + parent);
+                return false;
+            }
+            yaml.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException ex) {
+            plugin.getLogger().warning("PlayerShops konnten nicht sicher gespeichert werden: " + ex.getMessage());
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
+        }
     }
 
     private void load() {
