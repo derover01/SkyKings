@@ -26,8 +26,8 @@ public final class MapDisplayCommand implements CommandExecutor {
             return true;
         }
         if (args.length == 0) {
-            player.sendMessage(ChatColor.YELLOW + "/mapdisplay set <topkills|king|hotzones>");
-            player.sendMessage(ChatColor.YELLOW + "/mapdisplay remove <topkills|king|hotzones>");
+            player.sendMessage(ChatColor.YELLOW + "/mapdisplay set <topkills|king|hotzones|ranks>");
+            player.sendMessage(ChatColor.YELLOW + "/mapdisplay remove <topkills|king|hotzones|ranks>");
             player.sendMessage(ChatColor.YELLOW + "/mapdisplay list");
             return true;
         }
@@ -41,7 +41,7 @@ public final class MapDisplayCommand implements CommandExecutor {
         }
         MapDisplayService.Type type = MapDisplayService.parse(args[1]);
         if (type == null) {
-            player.sendMessage(ChatColor.RED + "Typ: topkills, king oder hotzones.");
+            player.sendMessage(ChatColor.RED + "Typ: topkills, king, hotzones oder ranks.");
             return true;
         }
         if ("set".equalsIgnoreCase(args[0])) {
