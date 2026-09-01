@@ -18,8 +18,6 @@ public final class EventParticipationService {
     public enum Type {
         DUEL,
         LMS,
-        TOURNAMENT,
-        JUGGERNAUT,
         CLAN_WAR
     }
 
@@ -38,7 +36,6 @@ public final class EventParticipationService {
 
     private final Map<UUID, Participation> active = new ConcurrentHashMap<UUID, Participation>();
 
-    /** Gemeinsame Runtime-Instanz fuer alle Event-Controller und Open-World-Guards. */
     public static EventParticipationService global() { return GLOBAL; }
 
     public boolean join(UUID player, Type type, String sessionId) {
