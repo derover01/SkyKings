@@ -106,6 +106,12 @@ public final class CrateRegistry {
     private final Random random = new Random();
 
     public CrateRegistry(JavaPlugin plugin) {
+        loadMainTable(plugin);
+        loadEventTable(plugin);
+        plugin.getLogger().info("Crates insgesamt registriert: " + crates.size());
+    }
+
+    private void loadMainTable(JavaPlugin plugin) {
         File file = new File(plugin.getDataFolder(), "crates.yml");
         if (!file.exists()) plugin.saveResource("crates.yml", false);
 
@@ -118,8 +124,6 @@ public final class CrateRegistry {
                 int targetVersion = defaults.getInt("balance-version", 0);
 
                 if (targetVersion > currentVersion) {
-                    // Pre-Release-Migration: bewusst die komplette Reward-Tabelle auf den neuen
-                    // Economy-Stand setzen, statt alte Gewichte still weiterzuverwenden.
                     plugin.saveResource("crates.yml", true);
                     yaml = YamlConfiguration.loadConfiguration(file);
                     plugin.getLogger().info("Crate-Balance migriert: v" + currentVersion + " -> v" + targetVersion);
@@ -132,12 +136,31 @@ public final class CrateRegistry {
         } catch (Exception ex) {
             plugin.getLogger().warning("Crate-Defaults konnten nicht sauber geladen/migriert werden: " + ex.getMessage());
         }
-        load(yaml, plugin);
+        load(yaml, plugin, "crates.yml");
     }
 
-    private void load(YamlConfiguration yaml, JavaPlugin plugin) {
+    private void loadEventTable(JavaPlugin plugin) {
+        File file = new File(plugin.getDataFolder(), "event-crates.yml");
+        try {
+            if (!file.exists()) plugin.saveResource("event-crates.yml", false);
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+            if (plugin.getResource("event-crates.yml") != null) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(plugin.getResource("event-crates.yml"), StandardCharsets.UTF_8));
+                yaml.setDefaults(defaults);
+                yaml.options().copyDefaults(true);
+                yaml.save(file);
+            }
+            load(yaml, plugin, "event-crates.yml");
+        } catch (Exception ex) {
+            plugin.getLogger().warning("Event-Crates konnten nicht sauber geladen werden: " + ex.getMessage());
+        }
+    }
+
+    private void load(YamlConfiguration yaml, JavaPlugin plugin, String source) {
         ConfigurationSection root = yaml.getConfigurationSection("crates");
         if (root == null) return;
+        int before = crates.size();
         for (String crateId : root.getKeys(false)) {
             ConfigurationSection crateSection = root.getConfigurationSection(crateId);
             if (crateSection == null) continue;
@@ -170,7 +193,7 @@ public final class CrateRegistry {
                         rewards.add(new RewardDefinition(rewardId, type, amount, weight, evValue, material, data,
                                 voucherType, voucherTarget, voucherDisplay));
                     } catch (RuntimeException ex) {
-                        plugin.getLogger().warning("Ungültiger Reward " + crateId + "." + rewardId + ": " + ex.getMessage());
+                        plugin.getLogger().warning("Ungültiger Reward " + crateId + "." + rewardId + " in " + source + ": " + ex.getMessage());
                     }
                 }
             }
@@ -178,7 +201,7 @@ public final class CrateRegistry {
                     crateId.toLowerCase(Locale.ROOT), crateSection.getString("display-name", crateId),
                     crateSection.getString("head-owner", "MHF_Chest"), rewards));
         }
-        plugin.getLogger().info("Crates registriert: " + crates.size());
+        plugin.getLogger().info(source + " geladen: " + (crates.size() - before) + " Crates");
     }
 
     public CrateDefinition get(String id) { return id == null ? null : crates.get(id.toLowerCase(Locale.ROOT)); }
