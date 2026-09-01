@@ -7,10 +7,7 @@ import org.bukkit.generator.ChunkGenerator;
 
 import java.util.Random;
 
-/**
- * 1.8-kompatibler flacher Plot-Generator: 65x65 Baugrundstuecke mit 7 Block breiten Strassen.
- * Dadurch fuehlt sich SkyPlots wie eine klassische PlotSquared-Welt an statt wie einzelne Void-Inseln.
- */
+/** 1.8-kompatibler Plot-Generator mit 65x65 Plotzellen und 7 Block neutraler Stone-Brick-Strasse. */
 public final class PlotGridGenerator extends ChunkGenerator {
 
     @Override
@@ -22,11 +19,12 @@ public final class PlotGridGenerator extends ChunkGenerator {
                 int globalX = chunkX * 16 + localX;
                 int globalZ = chunkZ * 16 + localZ;
                 boolean road = isRoad(globalX, globalZ);
+                boolean border = !road && isPlotBorder(globalX, globalZ);
                 set(result, localX, 60, localZ, Material.BEDROCK);
                 set(result, localX, 61, localZ, road ? Material.STONE : Material.DIRT);
                 set(result, localX, 62, localZ, road ? Material.STONE : Material.DIRT);
                 set(result, localX, 63, localZ, road ? Material.STONE : Material.DIRT);
-                set(result, localX, 64, localZ, road ? Material.SMOOTH_BRICK : Material.GRASS);
+                set(result, localX, 64, localZ, road ? Material.SMOOTH_BRICK : border ? Material.WOOD_STEP : Material.GRASS);
             }
         }
         return result;
@@ -36,6 +34,12 @@ public final class PlotGridGenerator extends ChunkGenerator {
         int lx = Math.floorMod(x, PlotService.SPACING);
         int lz = Math.floorMod(z, PlotService.SPACING);
         return lx >= PlotService.PLOT_SIZE || lz >= PlotService.PLOT_SIZE;
+    }
+
+    private boolean isPlotBorder(int x, int z) {
+        int lx = Math.floorMod(x, PlotService.SPACING);
+        int lz = Math.floorMod(z, PlotService.SPACING);
+        return lx == 0 || lz == 0 || lx == PlotService.PLOT_SIZE - 1 || lz == PlotService.PLOT_SIZE - 1;
     }
 
     @SuppressWarnings("deprecation")
