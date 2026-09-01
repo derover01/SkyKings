@@ -15,10 +15,8 @@
   <packaging>jar</packaging>
   <name>SkyKings-Admin</name>
   <description>
-    Admin-Modul (siehe docs/ARCHITECTURE.md): /gutscheine GUI, /verlosung, Admin-/Economy-
-    Audit, Staff Utility Commands, Discord Logging Bridge, sensible Aktionen und
-    Berechtigungspruefungen.
-    Phase 0: nur Plugin-Grundgeruest, keine Features implementiert.
+    Admin-Modul (siehe docs/ARCHITECTURE.md): Staff-, Warp-, Community-Event-, Audit-
+    und Discord-Werkzeuge inklusive Freitags-Event-Orchestrierung.
   </description>
 
   <dependencies>
@@ -36,6 +34,12 @@
     <dependency>
       <groupId>net.skykings</groupId>
       <artifactId>SkyKings-Combat</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>net.skykings</groupId>
+      <artifactId>SkyKings-Crates</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
