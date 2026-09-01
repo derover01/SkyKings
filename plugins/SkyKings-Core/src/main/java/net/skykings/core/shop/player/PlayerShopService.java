@@ -4,6 +4,7 @@ import net.skykings.core.economy.EconomyService;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.logging.LoggingService;
+import net.skykings.core.shop.rent.ShopRentBootstrap;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -40,6 +41,7 @@ public final class PlayerShopService {
             }
             @Override public boolean canSellFromShop(PlayerShop shop) { return shop != null; }
         };
+        ShopRentBootstrap.installLater(this);
     }
 
     public void setPlacementPolicy(ShopPlacementPolicy placementPolicy) {
