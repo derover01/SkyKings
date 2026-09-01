@@ -1,6 +1,7 @@
 package net.skykings.admin.command;
 
 import net.skykings.combat.event.EventParticipationService;
+import net.skykings.combat.event.EventReturnRecoveryService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.discord.DiscordNotifier;
@@ -65,6 +66,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, Bukkit.getWorld("SkyCommunityEvent") != null, "SkyCommunityEvent Welt");
 
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
+        eventReturnRecovery(sender);
         jackpotRecovery(sender);
 
         int eventPlayers = EventParticipationService.global().snapshot().size();
@@ -81,6 +83,20 @@ public final class SystemCheckCommand implements CommandExecutor {
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
         return true;
+    }
+
+    private void eventReturnRecovery(CommandSender sender) {
+        boolean installed = EventReturnRecoveryService.isInstalled();
+        check(sender, installed, "Event Return Recovery");
+        if (!installed) return;
+
+        int pending = EventReturnRecoveryService.pendingCount();
+        if (pending > 0) {
+            sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Event-Rueckkehrpositionen warten: "
+                    + ChatColor.WHITE + pending);
+        } else {
+            sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Event Return Queue leer");
+        }
     }
 
     private void jackpotRecovery(CommandSender sender) {
