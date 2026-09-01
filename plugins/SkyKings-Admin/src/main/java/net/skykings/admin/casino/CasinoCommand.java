@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -46,7 +47,28 @@ public final class CasinoCommand implements CommandExecutor {
         return true;
     }
 
-    private void openHub(final Player player) {
+    /** Einstieg fuer physische Casino-Stationen/NPCs auf der Void-Crown-Map. */
+    public void openStation(Player player, String station) {
+        if (player == null) return;
+        String normalized = station == null ? "hub" : station.trim().toLowerCase(Locale.ROOT);
+        if ("hub".equals(normalized) || "reception".equals(normalized)) {
+            openHub(player);
+            return;
+        }
+        if ("jackpot".equals(normalized)) {
+            player.closeInventory();
+            player.performCommand("jackpot");
+            return;
+        }
+        Game game = parseGame(normalized);
+        if (game == null) {
+            openHub(player);
+            return;
+        }
+        openCurrencyChoice(player, game);
+    }
+
+    public void openHub(final Player player) {
         GuiSession session = GuiSession.create(player, UiTheme.title("Void Crown Casino"), 54);
         session.setItem(4, UiItems.item(Material.NETHER_STAR,
                 ChatColor.GOLD.toString() + ChatColor.BOLD + "VOID CROWN CASINO",
@@ -77,6 +99,24 @@ public final class CasinoCommand implements CommandExecutor {
                 UiTheme.MUTED + "Coin Flip / Dice ca. 95% RTP",
                 UiTheme.MUTED + "Lucky 7 ca. 95% RTP",
                 UiTheme.MUTED + "Wheel ca. 95,5% RTP"));
+        gui.open(session);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void openCurrencyChoice(final Player player, final Game game) {
+        GuiSession session = GuiSession.create(player, UiTheme.title("Casino | " + plainGameName(game)), 27);
+        session.setItem(4, UiItems.item(gameIcon(game), gameName(game),
+                UiTheme.MUTED + gameDescription(game),
+                UiTheme.MUTED + "Waehle deine Waehrung."));
+        session.setItem(11, UiItems.item(Material.GOLD_INGOT,
+                ChatColor.GOLD.toString() + ChatColor.BOLD + "COINS",
+                UiTheme.MUTED + "Guthaben: " + UiTheme.TEXT + UiFormat.number(balance(player, Currency.COINS)),
+                UiItems.action("Coin-Einsatz waehlen")), (p,e,s) -> openBets(p, Currency.COINS, game));
+        session.setItem(15, UiItems.item(Material.NETHER_STAR,
+                ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "SKYKINGS STERNE",
+                UiTheme.MUTED + "Guthaben: " + UiTheme.TEXT + UiFormat.number(balance(player, Currency.STARS)),
+                UiItems.action("Sterne-Einsatz waehlen")), (p,e,s) -> openBets(p, Currency.STARS, game));
+        session.setItem(22, UiItems.item(Material.ARROW, UiTheme.TEXT + "Casino Hub", UiItems.action("Zurueck")), (p,e,s) -> openHub(p));
         gui.open(session);
         SoundFeedback.menuOpen(player);
     }
@@ -120,7 +160,7 @@ public final class CasinoCommand implements CommandExecutor {
         }
         session.setItem(4, UiItems.item(gameIcon(game), gameName(game),
                 UiTheme.MUTED + gameDescription(game), UiTheme.WARNING + "Einsatz wird sofort gebucht."));
-        session.setItem(45, UiItems.item(Material.ARROW,UiTheme.TEXT + "Zurueck",UiItems.action("Spiele")),(p,e,s)->openGames(p,currency));
+        session.setItem(45, UiItems.item(Material.ARROW,UiTheme.TEXT + "Zurueck",UiItems.action("Waehrung")),(p,e,s)->openCurrencyChoice(p,game));
         gui.open(session);
         SoundFeedback.menuOpen(player);
     }
@@ -209,6 +249,14 @@ public final class CasinoCommand implements CommandExecutor {
         session.setItem(slot,UiItems.item(icon,title,UiTheme.MUTED + line1,UiTheme.MUTED + line2,UiItems.action("Einsatz waehlen")),(p,e,s)->action.open(p));
     }
 
+    private Game parseGame(String value) {
+        if ("coinflip".equals(value) || "coin-flip".equals(value) || "flip".equals(value)) return Game.COIN_FLIP;
+        if ("dice".equals(value) || "crowndice".equals(value) || "crown-dice".equals(value)) return Game.CROWN_DICE;
+        if ("lucky7".equals(value) || "lucky-7".equals(value) || "seven".equals(value)) return Game.LUCKY_7;
+        if ("wheel".equals(value) || "fortune".equals(value) || "wheeloffortune".equals(value)) return Game.WHEEL;
+        return null;
+    }
+
     private Material gameIcon(Game game) {
         switch (game) {
             case COIN_FLIP: return Material.GOLD_NUGGET;
@@ -224,6 +272,15 @@ public final class CasinoCommand implements CommandExecutor {
             case CROWN_DICE: return ChatColor.RED + "Crown Dice";
             case LUCKY_7: return ChatColor.LIGHT_PURPLE + "Lucky 7";
             default: return ChatColor.AQUA + "Wheel of Fortune";
+        }
+    }
+
+    private String plainGameName(Game game) {
+        switch (game) {
+            case COIN_FLIP: return "Coin Flip";
+            case CROWN_DICE: return "Crown Dice";
+            case LUCKY_7: return "Lucky 7";
+            default: return "Wheel";
         }
     }
 
