@@ -170,10 +170,40 @@ Zuschauerplattform:
 ```
 
 ### Tournament
-Ist architektonisch vorbereitet. Gameplay-Controller kommt noch. Vorgesehene Punkte spaeter:
-- lobby
-- a / b bzw. Match-Spawns
-- spectator
+Der Gameplay-Controller ist aktiv und spielt ein Single-Arena-Bracket automatisch Runde fuer Runde aus.
+
+Einmalig an den echten Punkten setzen:
+```text
+/eventarena set tournament lobby
+/eventarena set tournament a
+/eventarena set tournament b
+/eventarena set tournament spectator
+```
+
+Spieler:
+```text
+/tournament join
+/tournament leave
+/tournament status
+```
+
+Staff:
+```text
+/tournament start
+/tournament stop
+```
+
+Regeln:
+- mindestens 4 Spieler zum Start
+- Reihenfolge wird beim Start gemischt
+- Matches laufen nacheinander ueber `a` und `b`
+- ungerade Spielerzahl bekommt automatisch ein Freilos
+- Verlierer wird aus dem isolierten Event entfernt und an seine Rueckkehrposition geschickt
+- Gewinner geht in die naechste Runde
+- letzter Spieler gewinnt 1.000.000 Coins
+- Tournament-Kills zaehlen nicht als normale Open-World-Kills/Streaks/Bounties
+
+Vor Release mit 4, 5 und 8 Spielern testen, inklusive Quit waehrend eines Matches.
 
 ### Juggernaut
 Ist architektonisch vorbereitet. Gameplay-Controller kommt noch. Vorgesehene Punkte spaeter:
@@ -372,7 +402,6 @@ Permissions:
 ## 14. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
-- Tournament Gameplay-Controller
 - Juggernaut Gameplay-Controller
 - Clan-Wars Event-Controller
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
