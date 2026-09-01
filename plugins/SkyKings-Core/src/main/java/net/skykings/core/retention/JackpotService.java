@@ -23,10 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Einzige autoritative Jackpot-Runtime fuer Command und Shop-NPC.
- * Gewinnchance entspricht dem Anteil am Pot; 5% jeder Ziehung sind Economy-Sink.
- */
+/** Einzige autoritative Jackpot-Runtime fuer Command und Shop-NPC. */
 public final class JackpotService {
     private static final long ROUND_MILLIS = 10L * 60L * 1000L;
     private static final long RETRY_MILLIS = 5L * 60L * 1000L;
@@ -47,17 +44,16 @@ public final class JackpotService {
         this.file = new File(plugin.getDataFolder(), "jackpot.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
         migrateLegacyEntries();
+        recoverIncompleteSettlement();
         if (!data.contains("round.next-draw")) {
             data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
-            save();
+            saveNow();
         }
         liveInstance = this;
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 20L);
     }
 
-    public static JackpotService liveInstance() {
-        return liveInstance;
-    }
+    public static JackpotService liveInstance() { return liveInstance; }
 
     public void open(Player player) {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Jackpot"), 54);
@@ -72,8 +68,7 @@ public final class JackpotService {
                 UiTheme.MUTED + "Naechste Ziehung: " + UiTheme.TEXT + formatRemaining()), null);
 
         int[] slots = {19, 20, 21, 23, 24};
-        Material[] materials = {Material.IRON_INGOT, Material.GOLD_INGOT, Material.EMERALD,
-                Material.DIAMOND, Material.NETHER_STAR};
+        Material[] materials = {Material.IRON_INGOT, Material.GOLD_INGOT, Material.EMERALD, Material.DIAMOND, Material.NETHER_STAR};
         for (int i = 0; i < QUICK_ENTRIES.length; i++) {
             final long amount = QUICK_ENTRIES[i];
             gui.setItem(slots[i], UiItems.item(materials[i],
@@ -116,6 +111,7 @@ public final class JackpotService {
         SoundFeedback.menuOpen(player);
     }
 
+    /** Abbuchung wird bei Save-Fehler automatisch zurueckgezahlt. */
     public synchronized boolean enter(Player player, long amount) {
         if (amount < MIN_ENTRY || amount > MAX_ENTRY) {
             player.sendMessage(UiTheme.DANGER + "Jackpot-Einsatz muss zwischen " + formatCoins(MIN_ENTRY)
@@ -123,6 +119,11 @@ public final class JackpotService {
             SoundFeedback.error(player);
             return false;
         }
+        if (isSettlementOpen()) {
+            player.sendMessage(UiTheme.WARNING + "Die Jackpot-Ziehung wird gerade abgeschlossen. Bitte gleich erneut versuchen.");
+            return false;
+        }
+
         UUID uuid = player.getUniqueId();
         if (!economy.withdraw(uuid, amount, "JACKPOT", "Jackpot entry")) {
             player.sendMessage(UiTheme.DANGER + "Dafuer hast du nicht genug Coins.");
@@ -131,9 +132,25 @@ public final class JackpotService {
         }
 
         String base = "round.entries." + uuid;
+        String previousName = data.getString(base + ".name", null);
+        long previousAmount = data.getLong(base + ".amount", 0L);
         data.set(base + ".name", player.getName());
-        data.set(base + ".amount", safeAdd(data.getLong(base + ".amount", 0L), amount));
-        save();
+        data.set(base + ".amount", safeAdd(previousAmount, amount));
+        if (!saveNow()) {
+            if (previousName == null) data.set(base + ".name", null);
+            else data.set(base + ".name", previousName);
+            if (previousAmount <= 0L) data.set(base + ".amount", null);
+            else data.set(base + ".amount", previousAmount);
+            try {
+                economy.deposit(uuid, amount, "JACKPOT_REFUND", "Jackpot entry persistence failed");
+                player.sendMessage(UiTheme.DANGER + "Jackpot konnte nicht gespeichert werden. Dein Einsatz wurde erstattet.");
+            } catch (RuntimeException ex) {
+                plugin.getLogger().severe("KRITISCH: Jackpot-Einsatz konnte nach Save-Fehler nicht erstattet werden: " + uuid + " / " + amount);
+                player.sendMessage(UiTheme.DANGER + "Jackpot-Speicherfehler. Bitte sofort Staff kontaktieren; der Vorgang wurde geloggt.");
+            }
+            return false;
+        }
+
         player.sendMessage(UiTheme.SUCCESS + "+" + formatCoins(amount) + ChatColor.GRAY + " im Jackpot.");
         SoundFeedback.success(player);
         return true;
@@ -145,20 +162,26 @@ public final class JackpotService {
         return total;
     }
 
-    public long getContribution(UUID uuid) {
+    public synchronized long getContribution(UUID uuid) {
         return data.getLong("round.entries." + uuid + ".amount", 0L);
     }
 
     private void tick() {
+        if (isSettlementOpen()) return;
         if (System.currentTimeMillis() < data.getLong("round.next-draw", 0L)) return;
         draw();
     }
 
+    /**
+     * Vor Auszahlung wird ein PENDING-Settlement persistent reserviert. Ein Crash in diesem
+     * Fenster darf niemals automatisch zu einer zweiten Auszahlung fuehren.
+     */
     private synchronized void draw() {
+        if (isSettlementOpen()) return;
         Map<UUID, Long> entries = getParticipants();
         if (entries.size() < 2) {
             data.set("round.next-draw", System.currentTimeMillis() + RETRY_MILLIS);
-            save();
+            saveNow();
             return;
         }
 
@@ -174,10 +197,7 @@ public final class JackpotService {
         long cursor = 0L;
         for (Map.Entry<UUID, Long> entry : entries.entrySet()) {
             cursor = safeAdd(cursor, entry.getValue());
-            if (ticket < cursor) {
-                winner = entry.getKey();
-                break;
-            }
+            if (ticket < cursor) { winner = entry.getKey(); break; }
         }
         if (winner == null) winner = entries.keySet().iterator().next();
 
@@ -186,21 +206,71 @@ public final class JackpotService {
             OfflinePlayer offline = Bukkit.getOfflinePlayer(winner);
             name = offline.getName() == null ? winner.toString().substring(0, 8) : offline.getName();
         }
-
         long payout = Math.max(1L, (long) Math.floor(pot * (1D - FEE_RATE)));
-        economy.deposit(winner, payout, "JACKPOT", "Jackpot win");
+
+        long oldNextDraw = data.getLong("round.next-draw", 0L);
+        data.set("round.settlement.status", "PENDING");
+        data.set("round.settlement.winner", winner.toString());
+        data.set("round.settlement.winner-name", name);
+        data.set("round.settlement.pot", pot);
+        data.set("round.settlement.payout", payout);
+        data.set("round.settlement.created-at", System.currentTimeMillis());
+        data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
+        if (!saveNow()) {
+            data.set("round.settlement", null);
+            data.set("round.next-draw", oldNextDraw);
+            plugin.getLogger().warning("Jackpot-Ziehung abgebrochen: Settlement konnte nicht persistent reserviert werden.");
+            return;
+        }
+
+        try {
+            economy.deposit(winner, payout, "JACKPOT", "Jackpot win");
+        } catch (RuntimeException ex) {
+            plugin.getLogger().severe("Jackpot-Auszahlung hat einen unsicheren Zustand erreicht. Settlement bleibt PENDING: "
+                    + winner + " / " + payout + " / " + ex.getMessage());
+            return;
+        }
+
         data.set("history.last-winner", winner.toString());
         data.set("history.last-winner-name", name);
         data.set("history.last-pot", pot);
         data.set("history.last-payout", payout);
         data.set("history.last-draw", System.currentTimeMillis());
-        clearRound(ROUND_MILLIS);
+        data.set("round.entries", null);
+        data.set("round.settlement", null);
+        if (!saveNow()) {
+            plugin.getLogger().severe("Jackpot wurde ausgezahlt, aber Abschluss konnte nicht gespeichert werden. "
+                    + "Beim Restart wird der PENDING-Stand fail-closed behandelt.");
+        }
 
         Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + ChatColor.GOLD + "JACKPOT" + ChatColor.DARK_GRAY + "] "
                 + ChatColor.WHITE + name + ChatColor.GRAY + " gewinnt " + ChatColor.GOLD + formatCoins(payout)
                 + ChatColor.GRAY + " Coins!");
         Player online = Bukkit.getPlayer(winner);
         if (online != null) online.playSound(online.getLocation(), Sound.LEVEL_UP, 1F, 1.15F);
+    }
+
+    /** Ein PENDING-Settlement wird nie automatisch erneut ausgezahlt. */
+    private void recoverIncompleteSettlement() {
+        if (!"PENDING".equalsIgnoreCase(data.getString("round.settlement.status", ""))) return;
+        String winner = data.getString("round.settlement.winner", "unknown");
+        long payout = data.getLong("round.settlement.payout", 0L);
+        plugin.getLogger().severe("Unvollstaendiges Jackpot-Settlement erkannt: " + winner + " / " + payout
+                + ". Keine automatische Neuauszahlung; REVIEW_REQUIRED wurde gespeichert.");
+        data.set("recovery.status", "REVIEW_REQUIRED");
+        data.set("recovery.winner", winner);
+        data.set("recovery.winner-name", data.getString("round.settlement.winner-name", "unknown"));
+        data.set("recovery.pot", data.getLong("round.settlement.pot", 0L));
+        data.set("recovery.payout", payout);
+        data.set("recovery.detected-at", System.currentTimeMillis());
+        data.set("round.entries", null);
+        data.set("round.settlement", null);
+        data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
+        saveNow();
+    }
+
+    private boolean isSettlementOpen() {
+        return "PENDING".equalsIgnoreCase(data.getString("round.settlement.status", ""));
     }
 
     private void migrateLegacyEntries() {
@@ -220,13 +290,13 @@ public final class JackpotService {
         }
         data.set("entries", null);
         if (migrated > 0) plugin.getLogger().info("Legacy-Jackpot migriert: " + migrated + " Teilnehmer.");
-        save();
+        saveNow();
     }
 
     private void clearRound(long delayMillis) {
         data.set("round.entries", null);
         data.set("round.next-draw", System.currentTimeMillis() + delayMillis);
-        save();
+        saveNow();
     }
 
     private Map<UUID, Long> getParticipants() {
@@ -246,9 +316,7 @@ public final class JackpotService {
     private String formatRemaining() {
         long millis = Math.max(0L, data.getLong("round.next-draw", 0L) - System.currentTimeMillis());
         long seconds = (millis + 999L) / 1000L;
-        long minutes = seconds / 60L;
-        long rest = seconds % 60L;
-        return minutes + "m " + rest + "s";
+        return (seconds / 60L) + "m " + (seconds % 60L) + "s";
     }
 
     private long safeAdd(long a, long b) {
@@ -256,16 +324,21 @@ public final class JackpotService {
         return a + b;
     }
 
-    private String formatCoins(long amount) {
-        return String.format(java.util.Locale.GERMANY, "%,d", amount);
-    }
+    private String formatCoins(long amount) { return String.format(java.util.Locale.GERMANY, "%,d", amount); }
 
-    public void save() {
+    public synchronized void save() { saveNow(); }
+
+    private boolean saveNow() {
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                plugin.getLogger().warning("Jackpot-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
             data.save(file);
-        } catch (IOException ex) {
+            return true;
+        } catch (IOException | RuntimeException ex) {
             plugin.getLogger().warning("jackpot.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            return false;
         }
     }
 }
