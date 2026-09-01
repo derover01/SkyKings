@@ -21,6 +21,10 @@ public final class MapMasteryCommand implements CommandExecutor {
     private final MapMasteryService mastery;
     private final GuiManager guiManager;
 
+    public MapMasteryCommand(MapMasteryService mastery) {
+        this(mastery, GuiManager.active());
+    }
+
     public MapMasteryCommand(MapMasteryService mastery, GuiManager guiManager) {
         this.mastery = mastery;
         this.guiManager = guiManager;
