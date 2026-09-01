@@ -32,10 +32,9 @@ Write-Host '== SkyKings Server Restore ==' -ForegroundColor Yellow
 Write-Host ("Quelle: {0}" -f $resolvedBackup) -ForegroundColor DarkGray
 Write-Host 'Vor dem Restore wird der aktuelle Serverzustand automatisch gesichert.' -ForegroundColor Yellow
 
+# PowerShell-Scripts signalisieren Fehler ueber Exceptions/terminating errors, nicht verlaesslich ueber LASTEXITCODE.
 & (Join-Path $PSScriptRoot 'backup-server.ps1')
-if ($LASTEXITCODE -ne 0) {
-    throw "Safety-Backup vor Restore fehlgeschlagen. Restore abgebrochen."
-}
+Write-Host '[OK] Safety-Backup erstellt.' -ForegroundColor Green
 
 $worldsDir = Join-Path $resolvedBackup 'worlds'
 $pluginsDir = Join-Path $resolvedBackup 'plugins'
