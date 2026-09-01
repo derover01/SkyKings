@@ -1,8 +1,6 @@
 package net.skykings.core.plot;
 
 import net.skykings.core.economy.EconomyService;
-import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -14,7 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 
-/** Persistiert gekaufte Plot-Raender und wendet sie nur innerhalb der Claim-Grenze an. */
+/** Persistiert gekaufte Plot-Raender und wendet sie nur an der aeusseren Merge-Kontur an. */
 public final class PlotBorderService {
     private final JavaPlugin plugin;
     private final PlotService plots;
@@ -30,9 +28,7 @@ public final class PlotBorderService {
         this.yaml = YamlConfiguration.loadConfiguration(file);
     }
 
-    public boolean hasPlot(UUID owner) {
-        return plots.hasPlot(owner);
-    }
+    public boolean hasPlot(UUID owner) { return plots.hasPlot(owner); }
 
     public PlotBorderTheme selected(UUID owner) {
         return PlotBorderTheme.byId(yaml.getString(path(owner, "selected"), PlotBorderTheme.CLASSIC.getId()));
@@ -41,6 +37,10 @@ public final class PlotBorderService {
     public boolean owns(UUID owner, PlotBorderTheme theme) {
         if (theme == PlotBorderTheme.CLASSIC) return true;
         return yaml.getStringList(path(owner, "owned")).contains(theme.getId());
+    }
+
+    public boolean canAfford(UUID owner, PlotBorderTheme theme) {
+        return owns(owner, theme) || economy.has(owner, theme.getPrice());
     }
 
     public boolean purchaseAndSelect(Player player, PlotBorderTheme theme) {
@@ -67,37 +67,15 @@ public final class PlotBorderService {
         return true;
     }
 
-    @SuppressWarnings("deprecation")
     public void apply(UUID owner, PlotBorderTheme theme) {
         PlotService.PlotData plot = plots.get(owner);
-        if (plot == null) return;
-        World world = plots.ensureWorld();
-        if (world == null) return;
-        int minX = plot.getMinX();
-        int maxX = plot.getMaxX();
-        int minZ = plot.getMinZ();
-        int maxZ = plot.getMaxZ();
-        Material material = theme.getMaterial();
-
-        // Nur der aeusserste Blockring DER 65x65-Claimflaeche wird veraendert.
-        // Die 7 Block breite Stone-Brick-Strasse liegt ausserhalb dieser Grenzen und bleibt neutral.
-        for (int x = minX; x <= maxX; x++) {
-            world.getBlockAt(x, PlotService.Y - 1, minZ).setType(material, false);
-            world.getBlockAt(x, PlotService.Y - 1, maxZ).setType(material, false);
-        }
-        for (int z = minZ + 1; z < maxZ; z++) {
-            world.getBlockAt(minX, PlotService.Y - 1, z).setType(material, false);
-            world.getBlockAt(maxX, PlotService.Y - 1, z).setType(material, false);
-        }
+        if (plot == null || theme == null) return;
+        plots.applyBorder(plot, theme.getMaterial());
     }
 
-    public long balance(UUID owner) {
-        return economy.getBalance(owner);
-    }
+    public long balance(UUID owner) { return economy.getBalance(owner); }
 
-    private String path(UUID owner, String key) {
-        return "players." + owner.toString() + "." + key;
-    }
+    private String path(UUID owner, String key) { return "players." + owner.toString() + "." + key; }
 
     private void save() {
         try {
