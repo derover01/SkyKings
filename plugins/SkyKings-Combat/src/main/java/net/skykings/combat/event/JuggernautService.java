@@ -5,10 +5,13 @@ import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -147,6 +150,25 @@ public final class JuggernautService implements Listener {
         resetRuntime();
     }
 
+    /** Boss darf Angreifer treffen und Angreifer den Boss. Friendly Fire und externe Hits sind blockiert. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onJuggernautDamage(EntityDamageByEntityEvent event) {
+        Player victim = event.getEntity() instanceof Player ? (Player) event.getEntity() : null;
+        Player attacker = resolvePlayer(event.getDamager());
+        boolean victimIn = victim != null && isParticipant(victim.getUniqueId());
+        boolean attackerIn = attacker != null && isParticipant(attacker.getUniqueId());
+        if (!victimIn && !attackerIn) return;
+        if (victim == null || attacker == null || bossId == null) {
+            event.setCancelled(true);
+            return;
+        }
+        UUID v = victim.getUniqueId();
+        UUID a = attacker.getUniqueId();
+        boolean valid = (v.equals(bossId) && aliveAttackers.contains(a))
+                || (a.equals(bossId) && aliveAttackers.contains(v));
+        if (!valid) event.setCancelled(true);
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent event) {
         if (!running) return;
@@ -229,6 +251,15 @@ public final class JuggernautService implements Listener {
         SoundFeedback.error(event.getPlayer());
     }
 
+    private Player resolvePlayer(Entity damager) {
+        if (damager instanceof Player) return (Player) damager;
+        if (damager instanceof Projectile) {
+            Object shooter = ((Projectile) damager).getShooter();
+            if (shooter instanceof Player) return (Player) shooter;
+        }
+        return null;
+    }
+
     private void attackersWin() {
         if (!running) return;
         int rewarded = 0;
@@ -290,16 +321,16 @@ public final class JuggernautService implements Listener {
         PlayerState state = states.remove(uuid);
         Player player = Bukkit.getPlayer(uuid);
         if (player == null || !player.isOnline() || state == null) return;
-        restoreHealthOnly(player, uuid, state);
+        restoreHealthOnly(player, state);
         player.teleport(state.returnLocation);
     }
 
     private void restoreHealthOnly(Player player, UUID uuid) {
         PlayerState state = states.remove(uuid);
-        if (state != null) restoreHealthOnly(player, uuid, state);
+        if (state != null) restoreHealthOnly(player, state);
     }
 
-    private void restoreHealthOnly(Player player, UUID uuid, PlayerState state) {
+    private void restoreHealthOnly(Player player, PlayerState state) {
         player.removePotionEffect(PotionEffectType.INCREASE_DAMAGE);
         player.removePotionEffect(PotionEffectType.DAMAGE_RESISTANCE);
         player.setMaxHealth(Math.max(1D, state.maxHealth));
