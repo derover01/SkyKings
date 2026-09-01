@@ -21,16 +21,20 @@ public class PlotGridGeneratorTest {
         // Chunk 4 deckt global X 64..79 ab.
         byte[][] sections = generator.generateBlockSections(world, null, 4, 0, null);
 
-        assertEquals(Material.WOOD_STEP.getId(), block(sections, 0, 64, 10));  // global x=64: letzter Plotblock/Rand
+        assertEquals(Material.GRASS.getId(), block(sections, 0, 64, 10));      // global x=64: Plotboden bleibt Gras
+        assertEquals(Material.WOOD_STEP.getId(), block(sections, 0, 65, 10));  // Rand liegt einen Block hoeher
         assertEquals(Material.SMOOTH_BRICK.getId(), block(sections, 1, 64, 10)); // global x=65: Road 1/7
+        assertEquals(Material.AIR.getId(), block(sections, 1, 65, 10));          // ueber der Road kein Rand
         assertEquals(Material.SMOOTH_BRICK.getId(), block(sections, 7, 64, 10)); // global x=71: Road 7/7
-        assertEquals(Material.WOOD_STEP.getId(), block(sections, 8, 64, 10));  // global x=72: naechster Plotrand
+        assertEquals(Material.GRASS.getId(), block(sections, 8, 64, 10));      // global x=72: naechster Plotboden
+        assertEquals(Material.WOOD_STEP.getId(), block(sections, 8, 65, 10));  // naechster Plotrand ebenfalls Y+1
         assertEquals(Material.GRASS.getId(), block(sections, 9, 64, 10));      // global x=73: Plot-Innenflaeche
+        assertEquals(Material.AIR.getId(), block(sections, 9, 65, 10));        // innen bleibt frei
     }
 
     @Test
     @SuppressWarnings("deprecation")
-    public void crossingIsRoadAndPlotCornersRemainWoodBorder() {
+    public void crossingIsRoadAndPlotCornersRemainRaisedWoodBorder() {
         World world = mock(World.class);
         when(world.getMaxHeight()).thenReturn(256);
         PlotGridGenerator generator = new PlotGridGenerator();
@@ -38,14 +42,19 @@ public class PlotGridGeneratorTest {
         // Chunk 4/4 deckt global X/Z 64..79 ab.
         byte[][] sections = generator.generateBlockSections(world, null, 4, 4, null);
 
-        assertEquals(Material.WOOD_STEP.getId(), block(sections, 0, 64, 0));
+        assertEquals(Material.GRASS.getId(), block(sections, 0, 64, 0));
+        assertEquals(Material.WOOD_STEP.getId(), block(sections, 0, 65, 0));
         assertEquals(Material.SMOOTH_BRICK.getId(), block(sections, 1, 64, 1));
+        assertEquals(Material.AIR.getId(), block(sections, 1, 65, 1));
         assertEquals(Material.SMOOTH_BRICK.getId(), block(sections, 7, 64, 7));
-        assertEquals(Material.WOOD_STEP.getId(), block(sections, 8, 64, 8));
+        assertEquals(Material.AIR.getId(), block(sections, 7, 65, 7));
+        assertEquals(Material.GRASS.getId(), block(sections, 8, 64, 8));
+        assertEquals(Material.WOOD_STEP.getId(), block(sections, 8, 65, 8));
     }
 
     private int block(byte[][] sections, int x, int y, int z) {
         int section = y >> 4;
+        if (sections[section] == null) return Material.AIR.getId();
         int index = ((y & 0xF) << 8) | (z << 4) | x;
         return sections[section][index] & 0xFF;
     }
