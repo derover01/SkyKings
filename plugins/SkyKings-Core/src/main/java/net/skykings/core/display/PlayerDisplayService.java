@@ -12,7 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Baut Chat-Prefixe, Clan-Tags und die bewusst reduzierte Tab-Anzeige. */
 public final class PlayerDisplayService {
 
-    private static final int TAB_NAME_LIMIT = 32;
+    static final int TAB_NAME_LIMIT = 32;
 
     private static final Prefix[] PREFIXES = new Prefix[] {
             new Prefix("kingkiller", ChatColor.DARK_RED + "KingKiller"),
@@ -87,15 +87,20 @@ public final class PlayerDisplayService {
      * den Spielernamen sonst abschneiden kann. Der Name selbst wird niemals gekuerzt.
      */
     public void refreshTab(Player player) {
-        String playerName = player.getName();
-        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + playerName;
+        player.setPlayerListName(formatTabName(rankPrefixFor(player), player.getName()));
+    }
+
+    static String formatTabName(String rankPrefix, String playerName) {
+        String safeName = playerName == null ? "" : playerName;
+        String safeRank = rankPrefix == null ? "" : rankPrefix;
+        String listName = safeRank + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + safeName;
 
         // Farben zaehlen fuer das Protokoll-Limit mit. Wenn Rang + Name zu lang sind,
         // faellt die Tab-Anzeige lieber auf den kompletten Spielernamen zurueck.
         if (listName.length() > TAB_NAME_LIMIT) {
-            listName = ChatColor.WHITE + playerName;
+            return ChatColor.WHITE + safeName;
         }
-        player.setPlayerListName(listName);
+        return listName;
     }
 
     private ClanService resolveClanService() {
