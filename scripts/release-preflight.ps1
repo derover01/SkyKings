@@ -15,7 +15,15 @@ if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) { Fail 'mvn wurde nich
 if (-not (Get-Command java -ErrorAction SilentlyContinue)) { Fail 'java wurde nicht gefunden.' }
 Ok 'git, mvn und java verfuegbar'
 
-$javaVersion = (& java -version 2>&1 | Select-Object -First 1) -join ''
+# java -version schreibt seine normale Versionsausgabe auf STDERR. Unter Windows PowerShell 5.1
+# wird das mit ErrorActionPreference=Stop sonst faelschlich als NativeCommandError behandelt.
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$javaOutput = & java -version 2>&1
+$javaExitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
+if ($javaExitCode -ne 0) { Fail ("java -version fehlgeschlagen (ExitCode $javaExitCode).") }
+$javaVersion = ($javaOutput | Select-Object -First 1).ToString()
 if ($javaVersion -notmatch '1\.8\.') { Fail ("Java 8 erwartet, gefunden: $javaVersion") }
 Ok ("Java 8: {0}" -f $javaVersion)
 
