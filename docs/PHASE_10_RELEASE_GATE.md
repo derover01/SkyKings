@@ -34,7 +34,7 @@ Danach ingame:
 /skcheck
 ```
 
-Kein kritischer `[FEHLT]`-Eintrag erlaubt.
+Kein kritischer `[FEHLT]`-Eintrag erlaubt. Ein `[RECOVERY]`-Eintrag fuer Event Returns ist kein normaler Fehler, muss aber bewusst geprueft werden. Ein Jackpot-`[REVIEW]`-Status blockiert weitere Auszahlungen, bis Gewinner/Payout geprueft wurden.
 
 ## Gate C — Persistenz
 
@@ -44,14 +44,19 @@ Nach Aenderungen an mindestens Coins, Rank, Quest, Battle Pass, Plot, Rand, Clan
 3. Daten vergleichen
 4. keine doppelte Auszahlung / kein Reset
 
+Zusätzlich pruefen:
+- Jackpot mit laufendem Pot
+- Map Mastery Zeit/Visits/Activities
+- Event-Return-Recovery nach Quit/Death-Screen/Restart
+
 ## Gate D — Event Isolation
 
 Mit mehreren Spielern testen:
 - Duel
 - LMS
-- Tournament
-- Juggernaut
 - Clan Wars
+
+Tournament und Juggernaut sind bewusst retired und gehoeren nicht zum finalen Feature-Set.
 
 Muss fuer jedes isolierte Event gelten:
 - Spieler kann nicht gleichzeitig einem zweiten isolierten Event beitreten
@@ -60,6 +65,13 @@ Muss fuer jedes isolierte Event gelten:
 - kein Drop/Pickup-Transfer zur Manipulation
 - Quit/Death fuehrt zu sauberem Forfeit/Elimination
 - Rewards werden exakt einmal vergeben
+- Rueckkehrposition bleibt auch bei Quit, Death-Screen und Serverrestart erhalten
+
+Duel zusaetzlich:
+- beide Spieler erhalten exakt das ausgewaehlte identische Kit
+- Originalinventar, Armor, XP, Effekte und Vitalwerte werden sauber restauriert
+- kein kostenloser Heal-/Hunger-Reset nach dem Duel
+- Wager wird exakt einmal settled
 
 ## Gate E — Plot Regression
 
@@ -91,6 +103,7 @@ Gezielt provozieren:
 - Voucher erneut einloesen
 - Trade abbrechen / Quit
 - PlayerShop Kauf bei gleichzeitigem Stock-Withdraw
+- Jackpot-Restart mit laufendem Pot
 
 Keine Duplikation, kein negativer Bestand, keine doppelte Auszahlung.
 
@@ -119,6 +132,8 @@ Nach Restore:
 - Battle Pass / Quests
 - Event-Arena-Punkte
 - Warps
+- Jackpot
+- Map Mastery
 stichprobenartig vergleichen.
 
 ## Gate H — UI / Product Quality
