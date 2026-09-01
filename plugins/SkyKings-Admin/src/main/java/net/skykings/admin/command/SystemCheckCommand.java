@@ -46,6 +46,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         command(sender, "plot");
         command(sender, "warp");
         command(sender, "battlepass");
+        command(sender, "premiumpass");
         command(sender, "quests");
         command(sender, "kit");
         command(sender, "duel");
