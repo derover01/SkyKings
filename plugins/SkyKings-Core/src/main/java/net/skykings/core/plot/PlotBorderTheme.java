@@ -4,7 +4,7 @@ import org.bukkit.Material;
 
 /** Kaufbare Bodenrand-Cosmetics fuer den aeussersten Blockring eines Plots. */
 public enum PlotBorderTheme {
-    CLASSIC("classic", "Klassisch", Material.GRASS, 0L),
+    CLASSIC("classic", "Steinstufe", Material.STEP, 0L),
     STONE("stone", "Stone Brick", Material.SMOOTH_BRICK, 25000L),
     SANDSTONE("sandstone", "Sandstein", Material.SANDSTONE, 50000L),
     NETHER("nether", "Nether Brick", Material.NETHER_BRICK, 75000L),
