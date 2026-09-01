@@ -66,6 +66,8 @@ Ingame:
 
 Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, CombatTag, Clan Service, Event Participation, Discord Bridge, Duel, LMS und Clan Wars. Discord-Channels duerfen OPTIONAL sein, solange Discord noch nicht eingerichtet ist.
 
+Falls beim Jackpot nach einem unsauberen Abbruch ein Recovery-Fall erkannt wurde, muss `/skcheck` deutlich `REVIEW` anzeigen. In diesem Zustand nicht blind weiter auszahlen, sondern Gewinner/Payout zuerst pruefen.
+
 ## 6. Plot-Test — zuerst machen
 
 1. `/p auto`
@@ -168,12 +170,26 @@ LMS-Arena setzen:
 /eventarena set lms spectator
 ```
 
-Danach testen:
+Danach Duel testen:
 - Duel normal und mit Coin-Wager
+- Duel-Setup-GUI: Gegner, identisches Kit fuer beide, Einsatz und Challenge
+- vor dem Duel Health/Hunger/Saturation notieren; Sieger darf danach keinen kostenlosen Heal/Food-Reset behalten
+- Originalinventar, Armor, Hotbar-Slot, XP und Potion-Effekte nach Kit-Duel exakt vergleichen
 - Quit waehrend Duel
+- Tod im Duel und normal respawnen
+- auf dem Death-Screen ausloggen, wieder verbinden und erst danach respawnen
+- Server `stop` waehrend eines aktiven Duels: kein Kit-Inventar und kein doppelter Wager darf uebrig bleiben
 - Wager-Auszahlung exakt einmal
+- kein Drop/Pickup/Command-Escape waehrend des Duels
+
+Danach LMS testen:
 - LMS Join/Leave/Start/Stop
 - LMS-Elimination und letzter Spieler
+- normales Spielerinventar darf beim LMS-Tod niemals geloescht werden
+- Tod -> Respawn muss an die gespeicherte Rueckkehrposition fuehren
+- Quit waehrend laufendem LMS zaehlt als Aufgabe und Spieler darf beim Join nicht in der Event-Arena festhaengen
+- Quit auf dem Death-Screen und anschliessender Join/Respawn
+- Staff-Stop waehrend Teilnehmer lebt bzw. auf Death-Screen liegt
 - Event-Kills bleiben aus normalen PvP-Stats/Streaks/Bounties heraus
 - keine Command-/Drop-/Pickup-Umgehung
 
@@ -204,8 +220,11 @@ Pruefen:
 - 2v2, spaeter 3v3 und 5v5
 - eigene Clanmitglieder koennen sich nicht treffen
 - nur Gegner koennen Schaden machen
-- tote Spieler sind eliminiert und kehren sauber zurueck
+- tote Spieler sind eliminiert und kehren sauber ueber den Respawn zurueck
 - Quit zaehlt als Ausscheiden
+- nach Quit und erneutem Join muss die urspruengliche Rueckkehrposition wiederhergestellt werden
+- Quit auf dem Death-Screen darf die Rueckkehrposition nicht verlieren
+- Match-Ende/Staff-Stop darf noch ausstehende Death-Screen-Returns nicht loeschen
 - letzter Clan gewinnt
 - Siegerreward exakt einmal
 - Clan-War-Kills laufen nicht in normale Open-World-Stats
@@ -227,11 +246,13 @@ Auf eigener Island und eigenem Plot:
 ## 14. Crate/Voucher Security-Gate
 
 Pruefen:
-- schneller Doppelklick
-- Shift-Klick / Inventar verschieben
+- schneller Doppelklick / mehrfacher Rechtsklick
+- Shift-Klick / Inventar verschieben waehrend der Einloesung
+- Voucher/Crate direkt nach Klick droppen oder Slot wechseln
 - Voucher kopieren und zweimal versuchen
-- Restart nach Einloesung
+- Restart direkt nach Einloesung bzw. Claim-Reservierung
 - Reward darf pro Serial/Batch nur einmal kommen
+- bereits eingelöste kopierte Serial bleibt auch nach Restart wertlos
 
 ## 15. PlayerShop / Trade Transaction-Gate
 
@@ -239,16 +260,49 @@ PlayerShop:
 - zweiter Spieler kauft waehrend Owner Stock entnimmt
 - Revenue claimen und sofort erneut versuchen
 - Restart direkt nach Kauf/Claim testen
+- wenn moeglich Save-Fehler simulieren: kein Item-/Coin-Dupe und keine doppelte Revenue-Auszahlung
 
 Trade:
 - Items und Coins anbieten
 - beide bestaetigen
-- waehrend Countdown Angebot aendern
+- waehrend Countdown Angebot oder Coins aendern
 - beide muessen danach erneut bestaetigen
+- nach erneuter Bestaetigung mindestens volle 3 Sekunden warten: ein alter Countdown darf den neuen Trade nicht vorzeitig abschliessen
+- einen Coin-Kontostand waehrend Countdown absichtlich unter das Angebot bringen; Confirmations muessen zurueckgesetzt werden
 - Quit/Inventory-Close waehrend Trade
 - keine doppelte Auszahlung / keine verlorenen Escrow-Items
 
-## 16. Discord-Gate (nur wenn eingerichtet)
+## 16. Jackpot / Map Mastery Runtime-Gate
+
+Jackpot:
+
+```text
+/jackpot
+```
+
+Pruefen:
+- mindestens zwei echte Teilnehmer; mit nur einem Teilnehmer darf keine normale Gewinnerziehung stattfinden
+- unterschiedliche Einzahlungen und angezeigte Gewinnchance vergleichen
+- Auszahlung exakt einmal, inklusive 5%-Sink
+- Command und gebundener Jackpot-NPC zeigen denselben Pot / dieselbe Runde
+- `/shopnpc bind jackpot` an Test-Villager pruefen
+- Restart mit laufendem Pot: Einsatzdaten bleiben konsistent
+- Crash-/Recovery-Situation pruefen; unsicherer Zustand muss ueber `/skcheck` als REVIEW sichtbar sein
+
+Map Mastery:
+
+```text
+/mapmastery
+```
+
+Pruefen:
+- Zeit an Landmark/Island erhoeht sich nur am passenden Ort
+- Visits zaehlen plausibel und nicht sekundenweise als neue Besuche
+- abgeschlossene Gold-/Level-Aktivitaeten zaehlen als Activities
+- Hot-Zone-Kills, King-Captures, End-Kills und Secrets bleiben sichtbar
+- Restart: Zeit, Visits und Activities bleiben erhalten
+
+## 17. Discord-Gate (nur wenn eingerichtet)
 
 Wenn `SKYKINGS_DISCORD_BOT_TOKEN` und Channel-IDs gesetzt sind:
 
@@ -263,7 +317,7 @@ Pruefen:
 - 10er/25er/50er/100er legitime Killstreak wird gemeldet
 - Anti-Farm-Kills erzeugen keinen Discord-Meilenstein
 
-## 17. Phase-10 Backup-/Restart-Gate
+## 18. Phase-10 Backup-/Restart-Gate
 
 Vor groesseren Daten-Tests:
 
@@ -274,12 +328,13 @@ cd "C:\Users\marti\OneDrive\Desktop\SkyKings"
 
 Danach mindestens einmal:
 - Coins/Quest/Pass/Plot/Clan Daten veraendern
+- PlayerShop-Revenue, Jackpot und Map-Mastery-Daten veraendern
 - Server sauber `stop`
 - neu starten
 - Persistenz pruefen
 - Backup -> Daten veraendern -> Guarded Restore -> Datenstand vergleichen
 
-## 18. Finale Balance / Soft-Launch-Gate
+## 19. Finale Balance / Soft-Launch-Gate
 
 Erst wenn die technischen Gates sauber sind:
 - Economy und Shoppreise
