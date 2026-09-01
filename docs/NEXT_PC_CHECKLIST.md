@@ -64,7 +64,7 @@ Ingame:
 /skcheck
 ```
 
-Kritische Module/Services/Commands muessen OK sein.
+Kritische Module/Services/Commands muessen OK sein. Der Check umfasst inzwischen auch Clan Service, Event Participation, Tournament, Juggernaut und Clan Wars.
 
 ## 7. Plot-Test — zuerst machen
 
@@ -82,20 +82,23 @@ Kritische Module/Services/Commands muessen OK sein.
 12. Andere Strassen bleiben neutral.
 13. Spaeter 2x2-Merge testen und Kreuzung pruefen.
 
-## 8. Battle Pass / Quests testen
+## 8. Battle Pass / Quests / Kits testen
 
 ```text
 /battlepass
 /battlepass rewards
 /battlepass quests
 /quests
+/kit
 ```
 
 Pruefen:
 - Hub wirkt sauber und nicht wie eine Item-Wand
 - Free/Premium-Track getrennt
+- Daily/Weekly/Premium-Tabs klar erkennbar
+- Kit Arsenal zeigt READY / LOCKED / COOLDOWN sauber
+- Kit-Preview und direkter Claim funktionieren
 - Seitenwechsel funktioniert
-- READY / LOCKED / COMPLETED korrekt
 - Rewards nur einmal claimbar
 - Premium-Rewards ohne Premium gesperrt
 - legitime PvP-Kills erhoehen Questfortschritt
@@ -125,6 +128,116 @@ Auf Event-/Mainmap:
 - Buildmode AUS -> normaler Map-Schutz
 - keine Plot-Schutzmeldung ausserhalb von `SkyPlots`
 
+## 11. Tournament Multiplayer-Gate
+
+Arena einmalig setzen:
+
+```text
+/eventarena set tournament lobby
+/eventarena set tournament a
+/eventarena set tournament b
+/eventarena set tournament spectator
+```
+
+Danach mit 4, 5 und spaeter 8 Spielern:
+
+```text
+/tournament join
+/tournament status
+/tournament start
+```
+
+Pruefen:
+- Bracket/Runden laufen automatisch
+- Freilos bei ungerader Spielerzahl
+- nur aktuelle Fighter koennen Schaden machen
+- wartende Spieler koennen sich nicht angreifen
+- Drop/Pickup/Commands koennen Event nicht umgehen
+- Quit waehrend Match = Forfeit
+- Sieger bekommt exakt einmal 1.000.000 Coins
+- Event-Kills zaehlen nicht als normale PvP-Kills/Bounties/Streaks
+
+## 12. Juggernaut Multiplayer-Gate
+
+Arena einmalig setzen:
+
+```text
+/eventarena set juggernaut lobby
+/eventarena set juggernaut boss
+/eventarena set juggernaut spawn1
+/eventarena set juggernaut spawn2
+```
+
+Optional weitere `spawn3` bis `spawn8`.
+
+Test:
+
+```text
+/juggernaut join
+/juggernaut status
+/juggernaut start
+```
+
+Pruefen:
+- zufaelliger Boss
+- Boss hat 40 HP + Buffs
+- Angreifer haben kein Friendly Fire
+- Boss kann Angreifer treffen und umgekehrt
+- Boss-Quit -> Angreifer gewinnen sauber
+- letzte Angreifer-Elimination -> Boss gewinnt sauber
+- Rewards nur einmal
+- kein Command-/Inventory-/Drop-Escape
+
+## 13. Clan Wars Multiplayer-Gate
+
+Mindestens zwei echte Clans mit jeweils 2+ Online-Mitgliedern erstellen. Beide Clan-Owner muessen online sein.
+
+Arena einmalig setzen:
+
+```text
+/eventarena set clanwar a1
+/eventarena set clanwar a2
+/eventarena set clanwar b1
+/eventarena set clanwar b2
+```
+
+Fuer 3v3 bis 5v5 optional `a3..a5` und `b3..b5` setzen.
+
+Challenge:
+
+```text
+/clanwar <gegnerischerOwner>
+/clanwar accept
+/clanwar status
+```
+
+Pruefen:
+- 2v2, spaeter 3v3 und 5v5
+- eigene Clanmitglieder koennen sich nicht treffen
+- nur Gegner koennen Schaden machen
+- tote Spieler sind eliminiert und kehren sauber zurueck
+- Quit zaehlt als Ausscheiden
+- letzter Clan gewinnt
+- jeder ueberlebende Sieger bekommt exakt einmal 500.000 Coins
+- Clan-War-Kills laufen nicht in normale Open-World-Stats
+- `/clanwar stop` mit Staff funktioniert
+
+## 14. Phase-10 Backup-/Restart-Gate
+
+Vor groesseren Daten-Tests:
+
+```powershell
+cd "C:\Users\marti\OneDrive\Desktop\SkyKings"
+.\scripts\backup-server.ps1
+```
+
+Danach mindestens einmal:
+- Coins/Quest/Pass/Plot/Clan Daten veraendern
+- Server sauber `stop`
+- neu starten
+- Persistenz pruefen
+- spaeter Backup-Restore als eigener Testblock durchlaufen
+
 ## Wenn im Chat steht: "ich bin am PC"
 
-Dann diese Datei als feste Reihenfolge verwenden und den Nutzer Schritt fuer Schritt durch den Test fuehren. Erst den Plot-/Runtime-Test abschliessen, bevor weitere riskante Systeme lokal aktiviert werden.
+Dann diese Datei als feste Reihenfolge verwenden und den Nutzer Schritt fuer Schritt durch den Test fuehren. Erst Plot-/Runtime-/Persistenztests abschliessen, bevor weitere riskante Systeme lokal aktiviert werden.
