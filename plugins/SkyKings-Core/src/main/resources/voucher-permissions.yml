@@ -18,6 +18,18 @@ permissions:
     aliases: [ec]
     node: skykings.perk.enderchest
     display-name: '&5Enderchest'
+  workbench:
+    aliases: [wb, craft]
+    node: skykings.perk.workbench
+    display-name: '&eWorkbench'
+  anvil:
+    aliases: [amboss]
+    node: skykings.perk.anvil
+    display-name: '&7Anvil'
+  enchantmenttable:
+    aliases: [etable, enchanting]
+    node: skykings.perk.enchantmenttable
+    display-name: '&dEnchantment Table'
   statsreset:
     aliases: [resetstats]
     node: skykings.perk.statsreset
