@@ -20,6 +20,9 @@ commands:
     description: Leert den Chat für alle Online-Spieler.
     usage: /clearchat
     aliases: [cc]
+  clear:
+    description: Startet einen angekündigten Boden-Clear mit 2 Minuten Countdown.
+    usage: /clear
   skcheck:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
     usage: /skcheck
@@ -46,4 +49,7 @@ permissions:
     default: false
   skykings.staff.clearchat:
     description: Darf den Serverchat leeren.
+    default: false
+  skykings.staff.clear:
+    description: Darf einen manuellen Boden-Clear starten.
     default: false
