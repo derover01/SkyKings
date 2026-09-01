@@ -17,6 +17,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -59,6 +60,7 @@ public final class ClanWarService implements Listener {
     private final EventParticipationService participation = EventParticipationService.global();
     private final Map<UUID, Challenge> challenges = new LinkedHashMap<UUID, Challenge>();
     private final Map<UUID, Location> returnLocations = new LinkedHashMap<UUID, Location>();
+    /** Tod/Quit darf die urspruengliche Position nicht verlieren; sie bleibt bis Respawn/Join erhalten. */
     private final Map<UUID, Location> pendingRespawns = new LinkedHashMap<UUID, Location>();
     private final Set<UUID> teamA = new LinkedHashSet<UUID>();
     private final Set<UUID> teamB = new LinkedHashSet<UUID>();
@@ -217,10 +219,10 @@ public final class ClanWarService implements Listener {
         event.getDrops().clear();
         event.setDeathMessage(null);
 
-        Location back = returnLocations.get(loser);
+        Location back = returnLocations.remove(loser);
         if (back != null) pendingRespawns.put(loser, back);
         participation.leave(loser);
-        boolean wasA = teamA.remove(loser);
+        teamA.remove(loser);
         teamB.remove(loser);
         event.getEntity().sendMessage(UiTheme.DANGER + "Aus dem Clan War ausgeschieden.");
 
@@ -237,12 +239,24 @@ public final class ClanWarService implements Listener {
     }
 
     @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        final UUID uuid = event.getPlayer().getUniqueId();
+        final Location back = pendingRespawns.remove(uuid);
+        if (back != null) Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline() && !player.isDead()) player.teleport(back);
+            else if (player != null && player.isOnline()) pendingRespawns.put(uuid, back);
+        });
+    }
+
+    @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         challenges.remove(uuid);
         if (!running || !isParticipant(uuid)) return;
         participation.leave(uuid);
-        returnLocations.remove(uuid);
+        Location back = returnLocations.remove(uuid);
+        if (back != null) pendingRespawns.put(uuid, back);
         teamA.remove(uuid);
         teamB.remove(uuid);
         if (teamA.isEmpty()) Bukkit.getScheduler().runTask(plugin, () -> finish(false));
@@ -352,9 +366,15 @@ public final class ClanWarService implements Listener {
         participation.leave(uuid);
         Player player = Bukkit.getPlayer(uuid);
         Location back = returnLocations.remove(uuid);
-        if (player != null && player.isOnline() && back != null) {
-            prepare(player);
-            player.teleport(back);
+        if (back == null) return;
+        if (player != null && player.isOnline()) {
+            if (player.isDead()) pendingRespawns.put(uuid, back);
+            else {
+                prepare(player);
+                player.teleport(back);
+            }
+        } else {
+            pendingRespawns.put(uuid, back);
         }
     }
 
@@ -370,7 +390,7 @@ public final class ClanWarService implements Listener {
     }
 
     private void resetRuntime() {
-        teamA.clear(); teamB.clear(); returnLocations.clear(); pendingRespawns.clear();
+        teamA.clear(); teamB.clear(); returnLocations.clear();
         running = false; sessionId = null; clanAId = null; clanBId = null; clanATag = null; clanBTag = null;
     }
 
