@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /** /warp und /warps oeffnen das GUI, /warp <Name> startet direkt die sichere Schnellreise. */
 public final class WarpCommand implements CommandExecutor, TabCompleter {
@@ -31,7 +32,7 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur ingame verfügbar.");
+            sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
             return true;
         }
         Player player = (Player) sender;
@@ -56,22 +57,39 @@ public final class WarpCommand implements CommandExecutor, TabCompleter {
         for (final String name : names) {
             while (slot % 9 == 0 || slot % 9 == 8) slot++;
             if (slot >= size - 9) break;
-            gui.setItem(slot++, UiItems.item(Material.ENDER_PEARL,
+            gui.setItem(slot++, UiItems.item(iconFor(name),
                     UiTheme.PRIMARY + name,
                     UiTheme.MUTED + "3 Sekunden Schnellreise",
-                    UiTheme.MUTED + "Nicht im Combat verfügbar",
+                    UiTheme.MUTED + "Nicht im Combat verfuegbar",
                     UiItems.action("Klicken zum Warpen")), (p,e,s) -> teleports.request(p, name));
         }
         GuiManager.active().open(gui);
         SoundFeedback.menuOpen(player);
     }
 
+    private Material iconFor(String warpName) {
+        String key = warpName == null ? "" : warpName.toLowerCase(Locale.ROOT)
+                .replace(" ", "").replace("-", "").replace("_", "");
+        if (key.contains("casino") || key.contains("voidcrown")) return Material.GOLD_INGOT;
+        if (key.contains("crate") || key.contains("kiste")) return Material.CHEST;
+        if (key.contains("shop") || key.contains("markt")) return Material.EMERALD;
+        if (key.contains("plot")) return Material.GRASS;
+        if (key.contains("island") || key.contains("insel")) return Material.FEATHER;
+        if (key.contains("pvp") || key.contains("arena")) return Material.DIAMOND_SWORD;
+        if (key.contains("event") || key.contains("community")) return Material.FIREWORK;
+        if (key.contains("spawn") || key.contains("main") || key.contains("hub")) return Material.NETHER_STAR;
+        if (key.contains("farm") || key.contains("mine")) return Material.DIAMOND_PICKAXE;
+        if (key.contains("enchant")) return Material.ENCHANTMENT_TABLE;
+        if (key.contains("blacksmith") || key.contains("schmied")) return Material.ANVIL;
+        return Material.ENDER_PEARL;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length != 1) return Collections.emptyList();
-        String prefix = args[0].toLowerCase();
+        String prefix = args[0].toLowerCase(Locale.ROOT);
         List<String> result = new ArrayList<String>();
-        for (String name : warps.names()) if (name.toLowerCase().startsWith(prefix)) result.add(name);
+        for (String name : warps.names()) if (name.toLowerCase(Locale.ROOT).startsWith(prefix)) result.add(name);
         return result;
     }
 }
