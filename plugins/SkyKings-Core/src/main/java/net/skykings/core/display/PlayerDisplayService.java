@@ -1,12 +1,13 @@
 package net.skykings.core.display;
 
+import net.skykings.core.clan.ClanService;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** Baut Chat-Prefixe und die bewusst reduzierte Tab-Anzeige. */
+/** Baut Chat-Prefixe, Clan-Tags und die bewusst reduzierte Tab-Anzeige. */
 public final class PlayerDisplayService {
 
     private static final Prefix[] PREFIXES = new Prefix[] {
@@ -21,10 +22,16 @@ public final class PlayerDisplayService {
     private final PlayerProfileService profileService;
     private final RankDisplayConfig displayConfig;
     private final ChatDisplayPreferenceStore preferences;
+    private final ClanService clanService;
 
     public PlayerDisplayService(PlayerProfileService profileService, RankDisplayConfig displayConfig) {
+        this(profileService, displayConfig, null);
+    }
+
+    public PlayerDisplayService(PlayerProfileService profileService, RankDisplayConfig displayConfig, ClanService clanService) {
         this.profileService = profileService;
         this.displayConfig = displayConfig;
+        this.clanService = clanService;
         this.preferences = new ChatDisplayPreferenceStore(JavaPlugin.getProvidingPlugin(PlayerDisplayService.class));
     }
 
@@ -44,6 +51,13 @@ public final class PlayerDisplayService {
         return cosmetic == null ? null : cosmetic;
     }
 
+    public String clanTagFor(Player player) {
+        if (clanService == null || player == null) return "";
+        ClanService.Clan clan = clanService.getClan(player.getUniqueId());
+        if (clan == null || clan.getTag() == null || clan.getTag().isEmpty()) return "";
+        return ChatColor.DARK_GRAY + "[" + ChatColor.AQUA + clan.getTag() + ChatColor.DARK_GRAY + "]";
+    }
+
     public boolean isCosmeticPrefixShown(Player player) {
         return preferences.showCosmeticPrefix(player.getUniqueId());
     }
@@ -60,9 +74,11 @@ public final class PlayerDisplayService {
         preferences.setShowRankWithCosmeticPrefix(player.getUniqueId(), show);
     }
 
-    /** Tab bleibt absichtlich clean: nur Rang + Spielername, keine kosmetischen Prefixe. */
+    /** Tab bleibt clean: Rang + optional Clan-Tag + Spielername, keine kosmetischen Prefixe. */
     public void refreshTab(Player player) {
-        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + player.getName();
+        String clan = clanTagFor(player);
+        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | "
+                + (clan.isEmpty() ? "" : clan + " ") + ChatColor.WHITE + player.getName();
         if (listName.length() > 32) listName = listName.substring(0, 32);
         player.setPlayerListName(listName);
     }
