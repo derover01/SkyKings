@@ -73,14 +73,6 @@ commands:
     description: Last-Man-Standing Queue und Serverevent.
     usage: /lms <join|leave|start|stop>
     aliases: [lastmanstanding]
-  tournament:
-    description: SkyKings Tournament Queue und Bracket-Event.
-    usage: /tournament <join|leave|status|start|stop>
-    aliases: [turnier]
-  juggernaut:
-    description: Boss gegen Angreifer als asymmetrisches Serverevent.
-    usage: /juggernaut <join|leave|status|start|stop>
-    aliases: [jug]
   clanwar:
     description: Sichere 2v2- bis 5v5-Clan-Wars mit den echten SkyKings-Clans.
     usage: /clanwar <Clan-Owner|accept|deny|status|stop>
@@ -94,7 +86,7 @@ commands:
     usage: /verlosung <join|start|stop>
     aliases: [giveaway]
   eventarena:
-    description: Richtet persistente Arena-Punkte für Duel, LMS, Tournament, Juggernaut und Clan Wars ein.
+    description: Richtet persistente Arena-Punkte für Duel, LMS und Clan Wars ein.
     usage: /eventarena <set|info|list|remove> [Arena] [Punkt]
     permission: skykings.admin.event
     aliases: [arenasetup, eventsetup]
