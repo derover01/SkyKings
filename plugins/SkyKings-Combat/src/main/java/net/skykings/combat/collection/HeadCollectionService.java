@@ -121,9 +121,7 @@ public final class HeadCollectionService implements Listener {
             if (entry == null) {
                 gui.setItem(slot, UiItems.item(Material.SKULL_ITEM, (short) 0,
                         UiTheme.DISABLED + displayName(target, targetId),
-                        UiTheme.MUTED + "Noch nicht besiegt.",
-                        "",
-                        UiTheme.STATUS_LOCKED));
+                        UiTheme.MUTED + "Noch nicht besiegt.", "", UiTheme.STATUS_LOCKED));
             } else {
                 final UUID selected = targetId;
                 final int backPage = current;
@@ -131,16 +129,14 @@ public final class HeadCollectionService implements Listener {
             }
         }
 
-        if (players.isEmpty()) {
-            gui.setItem(22, UiItems.empty("Keine Spieler", "Noch keine bekannten Spieler fuer die Collection."));
-        }
+        if (players.isEmpty()) gui.setItem(22, UiItems.empty("Keine Spieler", "Noch keine bekannten Spieler fuer die Collection."));
         if (current > 1) gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); open(p, current - 1); });
+        else gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); Bukkit.dispatchCommand(p, "profile"); });
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.BOOK,
                 UiTheme.PRIMARY + "Collection",
                 UiTheme.MUTED + "Freigeschaltet",
                 UiTheme.TEXT.toString() + collectedCount(player.getUniqueId()) + UiTheme.DISABLED + " / " + players.size(),
-                "",
-                UiTheme.MUTED + "Seite " + current + " / " + pages));
+                "", UiTheme.MUTED + "Seite " + current + " / " + pages));
         if (current < pages) gui.setItem(UiTheme.NAV_NEXT, UiItems.next(), (p,e,s) -> open(p, current + 1));
 
         GuiManager.active().open(gui);
@@ -158,12 +154,11 @@ public final class HeadCollectionService implements Listener {
 
         GuiSession gui = GuiSession.create(player, UiTheme.title("Collection Detail"), 27);
         gui.setItem(13, collectedHead(target, targetId, entry));
-        gui.setItem(18, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); open(p, backPage); });
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); open(p, backPage); });
         PvpStatsSnapshot targetStats = stats.getStats(targetId);
         gui.setItem(22, UiItems.item(Material.DIAMOND_SWORD,
                 UiTheme.TEXT + "Combat",
-                UiTheme.MUTED + "Server-Kills",
-                UiTheme.TEXT + UiFormat.number(targetStats.getKills()),
+                UiTheme.MUTED + "Server-Kills " + UiTheme.TEXT + UiFormat.number(targetStats.getKills()),
                 UiTheme.MUTED + "Beststreak " + UiTheme.TEXT + targetStats.getBestStreak(),
                 rarityLine(targetId)));
         GuiManager.active().open(gui);
@@ -204,9 +199,7 @@ public final class HeadCollectionService implements Listener {
         for (UUID id : ids) result.add(Bukkit.getOfflinePlayer(id));
         Collections.sort(result, new Comparator<OfflinePlayer>() {
             @Override public int compare(OfflinePlayer a, OfflinePlayer b) {
-                String an = displayName(a, a.getUniqueId());
-                String bn = displayName(b, b.getUniqueId());
-                return an.compareToIgnoreCase(bn);
+                return displayName(a, a.getUniqueId()).compareToIgnoreCase(displayName(b, b.getUniqueId()));
             }
         });
         return result;
@@ -216,11 +209,7 @@ public final class HeadCollectionService implements Listener {
         if (player != null && player.getName() != null) return player.getName();
         return uuid.toString().substring(0, 8);
     }
-
-    private String date(long timestamp) {
-        return new SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(new Date(timestamp));
-    }
-
+    private String date(long timestamp) { return new SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(new Date(timestamp)); }
     private String safe(String value) { return value == null || value.trim().isEmpty() ? "PvP" : value; }
 
     private synchronized void load() {
@@ -269,8 +258,7 @@ public final class HeadCollectionService implements Listener {
         }
         try {
             if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            yaml.save(file);
-            dirty = false;
+            yaml.save(file); dirty = false;
         } catch (IOException ex) {
             plugin.getLogger().warning("head-collection.yml konnte nicht gespeichert werden: " + ex.getMessage());
         }
