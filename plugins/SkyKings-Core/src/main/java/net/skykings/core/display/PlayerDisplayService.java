@@ -12,6 +12,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 /** Baut Chat-Prefixe, Clan-Tags und die bewusst reduzierte Tab-Anzeige. */
 public final class PlayerDisplayService {
 
+    private static final int TAB_NAME_LIMIT = 32;
+
     private static final Prefix[] PREFIXES = new Prefix[] {
             new Prefix("kingkiller", ChatColor.DARK_RED + "KingKiller"),
             new Prefix("legend", ChatColor.GOLD + "Legend"),
@@ -79,12 +81,20 @@ public final class PlayerDisplayService {
         preferences.setShowRankWithCosmeticPrefix(player.getUniqueId(), show);
     }
 
-    /** Tab bleibt clean: Rang + optional Clan-Tag + Spielername, keine kosmetischen Prefixe. */
+    /**
+     * Tab bleibt bewusst kompakt: Rang + vollstaendiger Spielername.
+     * Clan-Tags bleiben im Chat/Clan-System, weil Rang + Clan + Name unter 1.8
+     * den Spielernamen sonst abschneiden kann. Der Name selbst wird niemals gekuerzt.
+     */
     public void refreshTab(Player player) {
-        String clan = clanTagFor(player);
-        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | "
-                + (clan.isEmpty() ? "" : clan + " ") + ChatColor.WHITE + player.getName();
-        if (listName.length() > 32) listName = listName.substring(0, 32);
+        String playerName = player.getName();
+        String listName = rankPrefixFor(player) + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + playerName;
+
+        // Farben zaehlen fuer das Protokoll-Limit mit. Wenn Rang + Name zu lang sind,
+        // faellt die Tab-Anzeige lieber auf den kompletten Spielernamen zurueck.
+        if (listName.length() > TAB_NAME_LIMIT) {
+            listName = ChatColor.WHITE + playerName;
+        }
         player.setPlayerListName(listName);
     }
 
