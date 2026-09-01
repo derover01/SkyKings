@@ -1,5 +1,6 @@
 package net.skykings.admin.command;
 
+import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
@@ -8,9 +9,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.Plugin;
 
-/** Schneller Runtime-Check fuer Staff nach Deploy/Restart. */
+/** Schneller Phase-10 Runtime-Check fuer Staff nach Deploy/Restart. */
 public final class SystemCheckCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -19,25 +21,61 @@ public final class SystemCheckCommand implements CommandExecutor {
             return true;
         }
         sender.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS SYSTEM CHECK");
+        sender.sendMessage(ChatColor.DARK_GRAY + "Server " + Bukkit.getVersion() + " | Java " + System.getProperty("java.version"));
+
+        sender.sendMessage(ChatColor.AQUA + "Module & Services");
         plugin(sender, "SkyKings-Core");
         plugin(sender, "SkyKings-Combat");
         plugin(sender, "SkyKings-Crates");
         plugin(sender, "SkyKings-Admin");
         plugin(sender, "LuckPerms");
         plugin(sender, "Vault");
-        sender.sendMessage(status(Bukkit.getServicesManager().load(SkyKingsCoreAPI.class) != null) + " Core API");
-        sender.sendMessage(status(Bukkit.getServicesManager().load(IslandAccessService.class) != null) + " Island Access API");
-        sender.sendMessage(status(Bukkit.getServicesManager().load(PlotAccessService.class) != null) + " Plot Access API");
-        sender.sendMessage(status(Bukkit.getWorld("SkyPvP") != null) + " SkyPvP Produktionswelt");
-        sender.sendMessage(status(Bukkit.getWorld("SkyIslands") != null) + " SkyIslands Welt");
-        sender.sendMessage(status(Bukkit.getWorld("SkyPlots") != null) + " SkyPlots Welt");
+        check(sender, Bukkit.getServicesManager().load(SkyKingsCoreAPI.class) != null, "Core API");
+        check(sender, Bukkit.getServicesManager().load(IslandAccessService.class) != null, "Island Access API");
+        check(sender, Bukkit.getServicesManager().load(PlotAccessService.class) != null, "Plot Access API");
+        check(sender, CombatTagServiceImpl.liveInstance() != null, "CombatTag Live Service");
+
+        sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
+        command(sender, "plot");
+        command(sender, "warp");
+        command(sender, "battlepass");
+        command(sender, "quests");
+        command(sender, "duel");
+        command(sender, "lms");
+
+        sender.sendMessage(ChatColor.AQUA + "Welten");
+        check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
+        check(sender, Bukkit.getWorld("SkyIslands") != null, "SkyIslands Welt");
+        check(sender, Bukkit.getWorld("SkyPlots") != null, "SkyPlots Welt");
+        optionalWorld(sender, "SkyEvents");
+        optionalWorld(sender, "SkyCommunityEvent");
+
+        String discordToken = System.getenv("SKYKINGS_DISCORD_BOT_TOKEN");
+        sender.sendMessage((discordToken != null && !discordToken.trim().isEmpty()
+                ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
+                + ChatColor.GRAY + " Discord Bot Token");
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
         return true;
     }
 
     private void plugin(CommandSender sender, String name) {
         Plugin plugin = Bukkit.getPluginManager().getPlugin(name);
-        sender.sendMessage(status(plugin != null && plugin.isEnabled()) + " " + name);
+        check(sender, plugin != null && plugin.isEnabled(), name);
+    }
+
+    private void command(CommandSender sender, String name) {
+        PluginCommand command = Bukkit.getPluginCommand(name);
+        check(sender, command != null && command.getPlugin().isEnabled(), "/" + name);
+    }
+
+    private void optionalWorld(CommandSender sender, String name) {
+        boolean loaded = Bukkit.getWorld(name) != null;
+        sender.sendMessage((loaded ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
+                + ChatColor.GRAY + " " + name);
+    }
+
+    private void check(CommandSender sender, boolean ok, String name) {
+        sender.sendMessage(status(ok) + " " + name);
     }
 
     private String status(boolean ok) {
