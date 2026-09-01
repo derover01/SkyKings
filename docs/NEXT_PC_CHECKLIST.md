@@ -122,7 +122,9 @@ Pruefen:
 - kosmetischen Prefix separat AN/AUS schalten
 - Rang neben kosmetischem Prefix separat AN/AUS schalten
 - Rang bleibt ohne kosmetischen Prefix sichtbar
-- Clan-Mitglieder zeigen den Clan-Tag sauber im Chat und Tab
+- Clan-Mitglieder zeigen den Clan-Tag sauber im Chat
+- im Tab steht kein Clan-Tag; Rang + vollstaendiger Spielername muessen sichtbar bleiben
+- auch lange Spieler-/Rangnamen duerfen den Spielernamen im Tab niemals abschneiden
 - Spieler ohne Clan haben keinen leeren/kaputten Platzhalter
 
 ## 9. Inventory-Sync-Bug provozieren
