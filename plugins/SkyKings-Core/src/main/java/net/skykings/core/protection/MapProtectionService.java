@@ -23,7 +23,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
-/** Schutz fuer Spawn-/SkyPvP-/Eventwelten. */
+/** Schutz fuer zentrale Serverwelten. Bearbeiten duerfen nur Staffs mit aktivem /buildmode. */
 public final class MapProtectionService implements Listener {
 
     public static final String BYPASS_PERMISSION = "skykings.admin.buildmode";
@@ -33,13 +33,12 @@ public final class MapProtectionService implements Listener {
 
     public MapProtectionService() {
         protectedWorlds.add("skypvp");
-        protectedWorlds.add("skyevents");
+        protectedWorlds.add("skycasino");
     }
 
     public boolean isProtected(World world) {
         if (world == null) return false;
-        String name = world.getName().toLowerCase();
-        return protectedWorlds.contains(name) || name.startsWith("skyevents");
+        return protectedWorlds.contains(world.getName().toLowerCase());
     }
 
     public boolean canEdit(Player player) {
