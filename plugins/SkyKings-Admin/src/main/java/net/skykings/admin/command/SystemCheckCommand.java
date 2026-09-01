@@ -1,5 +1,6 @@
 package net.skykings.admin.command;
 
+import net.skykings.combat.event.EventParticipationService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.island.IslandAccessService;
@@ -30,18 +31,26 @@ public final class SystemCheckCommand implements CommandExecutor {
         plugin(sender, "SkyKings-Admin");
         plugin(sender, "LuckPerms");
         plugin(sender, "Vault");
-        check(sender, Bukkit.getServicesManager().load(SkyKingsCoreAPI.class) != null, "Core API");
+        SkyKingsCoreAPI coreApi = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        check(sender, coreApi != null, "Core API");
+        check(sender, coreApi != null && coreApi.getClanService() != null, "Clan Service");
         check(sender, Bukkit.getServicesManager().load(IslandAccessService.class) != null, "Island Access API");
         check(sender, Bukkit.getServicesManager().load(PlotAccessService.class) != null, "Plot Access API");
         check(sender, CombatTagServiceImpl.liveInstance() != null, "CombatTag Live Service");
+        check(sender, EventParticipationService.global() != null, "Event Participation Runtime");
 
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         command(sender, "plot");
         command(sender, "warp");
         command(sender, "battlepass");
         command(sender, "quests");
+        command(sender, "kit");
         command(sender, "duel");
         command(sender, "lms");
+        command(sender, "tournament");
+        command(sender, "juggernaut");
+        command(sender, "clanwar");
+        command(sender, "eventarena");
 
         sender.sendMessage(ChatColor.AQUA + "Welten");
         check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
@@ -50,6 +59,8 @@ public final class SystemCheckCommand implements CommandExecutor {
         optionalWorld(sender, "SkyEvents");
         optionalWorld(sender, "SkyCommunityEvent");
 
+        int eventPlayers = EventParticipationService.global().snapshot().size();
+        sender.sendMessage(ChatColor.GRAY + "Aktive Event-Spieler: " + ChatColor.WHITE + eventPlayers);
         String discordToken = System.getenv("SKYKINGS_DISCORD_BOT_TOKEN");
         sender.sendMessage((discordToken != null && !discordToken.trim().isEmpty()
                 ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
