@@ -24,7 +24,8 @@ public final class PlotGridGenerator extends ChunkGenerator {
                 set(result, localX, 61, localZ, road ? Material.STONE : Material.DIRT);
                 set(result, localX, 62, localZ, road ? Material.STONE : Material.DIRT);
                 set(result, localX, 63, localZ, road ? Material.STONE : Material.DIRT);
-                set(result, localX, 64, localZ, road ? Material.SMOOTH_BRICK : border ? Material.WOOD_STEP : Material.GRASS);
+                set(result, localX, 64, localZ, road ? Material.SMOOTH_BRICK : Material.GRASS);
+                if (border) set(result, localX, PlotService.Y, localZ, Material.WOOD_STEP);
             }
         }
         return result;
