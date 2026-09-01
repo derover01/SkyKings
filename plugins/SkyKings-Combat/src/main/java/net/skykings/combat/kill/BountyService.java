@@ -21,6 +21,7 @@ import java.util.UUID;
 public final class BountyService {
     private static final long MIN_PLAYER_BOUNTY = 10_000L;
     private static final long MAX_SINGLE_BOUNTY = 100_000_000L;
+    private static volatile BountyService active;
 
     private final JavaPlugin plugin;
     private final EconomyService economyService;
@@ -28,13 +29,23 @@ public final class BountyService {
     private final File file;
     private final Map<UUID, Long> playerBounties = new HashMap<UUID, Long>();
 
+    /** Bestehendes Combat-Wiring bleibt kompatibel. */
+    public BountyService(EconomyService economyService, NetherstarRewardDelivery rewardDelivery) {
+        this(JavaPlugin.getProvidingPlugin(BountyService.class), economyService, rewardDelivery);
+    }
+
     public BountyService(JavaPlugin plugin, EconomyService economyService, NetherstarRewardDelivery rewardDelivery) {
         this.plugin = plugin;
         this.economyService = economyService;
         this.rewardDelivery = rewardDelivery;
         this.file = new File(plugin.getDataFolder(), "player-bounties.yml");
+        active = this;
         load();
     }
+
+    public static BountyService active() { return active; }
+    public static long minPlayerBounty() { return MIN_PLAYER_BOUNTY; }
+    public static long maxSingleBounty() { return MAX_SINGLE_BOUNTY; }
 
     public boolean place(Player issuer, OfflinePlayer target, long amount) {
         if (issuer == null || target == null || target.getUniqueId().equals(issuer.getUniqueId())) return false;
@@ -53,9 +64,7 @@ public final class BountyService {
         Long value = playerBounties.get(target); return value == null ? 0L : Math.max(0L, value);
     }
 
-    public Map<UUID, Long> getPlayerBounties() {
-        return Collections.unmodifiableMap(new HashMap<UUID, Long>(playerBounties));
-    }
+    public Map<UUID, Long> getPlayerBounties() { return Collections.unmodifiableMap(new HashMap<UUID, Long>(playerBounties)); }
 
     public void announceStreak(Player player, int streak) {
         Bounty bounty = bountyFor(streak);
@@ -74,13 +83,10 @@ public final class BountyService {
             long coins = Math.round(base.coins * antiFarmMultiplier);
             if (stars > 0L) rewardDelivery.give(killer, stars);
             if (coins > 0L) economyService.deposit(killer.getUniqueId(), coins, "BOUNTY", "Streak-Shutdown gegen " + victim.getName());
-            if (stars > 0L || coins > 0L) {
-                Bukkit.broadcastMessage(UiTheme.PRIMARY + "Streak-Bounty claimed " + UiTheme.MUTED + "• "
-                        + UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " besiegt " + UiTheme.TEXT + victim.getName());
-            }
+            if (stars > 0L || coins > 0L) Bukkit.broadcastMessage(UiTheme.PRIMARY + "Streak-Bounty claimed " + UiTheme.MUTED + "• "
+                    + UiTheme.TEXT + killer.getName() + UiTheme.MUTED + " besiegt " + UiTheme.TEXT + victim.getName());
         }
 
-        // Gesetzte Spieler-Kopfgelder werden nur bei vollem Anti-Farm-Kill ausgezahlt.
         if (antiFarmMultiplier >= 0.999D) {
             long placed = getPlayerBounty(victim.getUniqueId());
             if (placed > 0L) {
