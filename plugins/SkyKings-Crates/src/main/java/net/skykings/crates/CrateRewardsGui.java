@@ -50,14 +50,12 @@ public final class CrateRewardsGui {
                 ChatColor.GRAY + "Deine Rang-Rewards auf einen Blick.",
                 ChatColor.DARK_GRAY + "READY • COOLDOWN • LOCKED"));
 
-        // obere Rail: Progression der Rangstufen
         int[] rail = {10, 12, 14, 16, 28, 30};
         for (int i = 0; i < TIERS.length; i++) {
             Tier tier = TIERS[i];
             gui.setItem(rail[i], railIcon(player, tier));
         }
 
-        // grosse Claim-Cards im Content-Bereich
         int[] cards = {19, 21, 23, 25, 37, 39};
         for (int i = 0; i < TIERS.length; i++) {
             final Tier tier = TIERS[i];
@@ -79,7 +77,7 @@ public final class CrateRewardsGui {
         gui.setItem(49, UiItems.item(Material.GOLD_NUGGET,
                 ChatColor.GOLD.toString() + ChatColor.BOLD + "DEIN STATUS",
                 ChatColor.GRAY + "Rang: " + ChatColor.WHITE + display(core.getRankService().getRank(player.getUniqueId())),
-                ChatColor.GRAY + "Freigeschaltet: " + ChatColor.WHITE + unlockedCount(player) + "/" + TIERS.length));
+                ChatColor.GRAY.toString() + "Freigeschaltet: " + ChatColor.WHITE + unlockedCount(player) + "/" + TIERS.length));
 
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
@@ -94,7 +92,7 @@ public final class CrateRewardsGui {
 
         return UiItems.item(tier.material,
                 tier.color + ChatColor.BOLD.toString() + display(tier.rank),
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                 state);
     }
 
@@ -105,7 +103,7 @@ public final class CrateRewardsGui {
         if (!access) {
             return UiItems.item(Material.INK_SACK, (short) 8,
                     ChatColor.DARK_GRAY.toString() + ChatColor.BOLD + display(tier.rank) + " REWARD",
-                    ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                    ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                     ChatColor.RED + "LOCKED",
                     ChatColor.DARK_GRAY + "Benötigt mindestens " + display(tier.rank));
         }
@@ -113,14 +111,14 @@ public final class CrateRewardsGui {
         if (remaining > 0L) {
             return UiItems.item(Material.WATCH,
                     tier.color + ChatColor.BOLD.toString() + display(tier.rank) + " REWARD",
-                    ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                    ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                     ChatColor.YELLOW + "COOLDOWN • " + formatDuration(remaining),
                     ChatColor.DARK_GRAY + "Noch nicht verfügbar");
         }
 
         return UiItems.item(Material.ENDER_CHEST,
                 tier.color + ChatColor.BOLD.toString() + display(tier.rank) + " REWARD",
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                 ChatColor.GRAY + "Cooldown danach: " + ChatColor.WHITE + tier.hours + "h",
                 ChatColor.GREEN.toString() + ChatColor.BOLD + "READY",
                 UiItems.action("Klicken zum Abholen"));
