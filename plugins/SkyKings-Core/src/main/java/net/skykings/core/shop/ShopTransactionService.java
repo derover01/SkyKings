@@ -13,10 +13,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Weltunabhaengige Transaktionslogik fuer System-, Villager- und Player-Shops.
- * Coins werden ueber EconomyService gebucht, SkyKings Sterne bleiben physische NETHER_STAR-Items.
- */
+/** Weltunabhaengige Transaktionslogik fuer System-, Villager- und Player-Shops. */
 public final class ShopTransactionService {
 
     private final EconomyService economyService;
@@ -51,9 +48,7 @@ public final class ShopTransactionService {
                 restore(player.getInventory(), snapshot);
                 return ShopPurchaseResult.FAILED;
             }
-        } else {
-            return ShopPurchaseResult.INVALID_OFFER;
-        }
+        } else return ShopPurchaseResult.INVALID_OFFER;
 
         loggingService.log(new AuditEvent(AuditEventType.SHOP_PURCHASE,
                 player.getUniqueId(), "SHOP", offer.getPrice(),
@@ -63,8 +58,14 @@ public final class ShopTransactionService {
         return ShopPurchaseResult.SUCCESS;
     }
 
-    public long getCoinBalance(UUID uuid) {
-        return uuid == null ? 0L : economyService.getBalance(uuid);
+    public long getCoinBalance(UUID uuid) { return uuid == null ? 0L : economyService.getBalance(uuid); }
+
+    public boolean withdrawCoins(UUID uuid, long amount, String actor, String reason) {
+        return uuid != null && amount > 0L && economyService.withdraw(uuid, amount, actor, reason);
+    }
+
+    public void depositCoins(UUID uuid, long amount, String actor, String reason) {
+        if (uuid != null && amount > 0L) economyService.deposit(uuid, amount, actor, reason);
     }
 
     public int countNetherstars(Inventory inventory) {
@@ -83,10 +84,7 @@ public final class ShopTransactionService {
             int take = Math.min(item.getAmount(), remaining);
             int newAmount = item.getAmount() - take;
             if (newAmount <= 0) inventory.setItem(slot, null);
-            else {
-                item.setAmount(newAmount);
-                inventory.setItem(slot, item);
-            }
+            else { item.setAmount(newAmount); inventory.setItem(slot, item); }
             remaining -= take;
         }
     }
@@ -114,7 +112,5 @@ public final class ShopTransactionService {
         for (Map.Entry<Integer, ItemStack> entry : snapshot.entrySet()) inventory.setItem(entry.getKey(), entry.getValue());
     }
 
-    private String safeShopId(String shopId) {
-        return shopId == null || shopId.trim().isEmpty() ? "unknown" : shopId.trim();
-    }
+    private String safeShopId(String shopId) { return shopId == null || shopId.trim().isEmpty() ? "unknown" : shopId.trim(); }
 }
