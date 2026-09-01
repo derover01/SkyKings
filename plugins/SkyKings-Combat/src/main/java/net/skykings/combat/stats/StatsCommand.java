@@ -21,25 +21,17 @@ import java.util.Locale;
 public final class StatsCommand implements CommandExecutor {
     private final PvpStatsTracker stats;
 
-    public StatsCommand(PvpStatsTracker stats) {
-        this.stats = stats;
-    }
+    public StatsCommand(PvpStatsTracker stats) { this.stats = stats; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
-            return true;
-        }
+        if (!(sender instanceof Player)) { sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar."); return true; }
         Player viewer = (Player) sender;
         OfflinePlayer target = resolve(viewer, args);
         if (target == null) {
-            viewer.sendMessage(UiTheme.DANGER + "Spieler nicht gefunden.");
-            SoundFeedback.error(viewer);
-            return true;
+            viewer.sendMessage(UiTheme.DANGER + "Spieler nicht gefunden."); SoundFeedback.error(viewer); return true;
         }
-        open(viewer, target);
-        return true;
+        open(viewer, target); return true;
     }
 
     private void open(Player viewer, OfflinePlayer target) {
@@ -48,87 +40,66 @@ public final class StatsCommand implements CommandExecutor {
         boolean self = viewer.getUniqueId().equals(target.getUniqueId());
 
         GuiSession gui = GuiSession.create(viewer, UiTheme.title("Profile"), 54);
-        gui.setItem(4, UiItems.head(name,
-                UiTheme.TEXT + name,
+        gui.setItem(4, UiItems.head(name, UiTheme.TEXT + name,
                 UiTheme.MUTED + "Combat Profile",
-                UiTheme.TEXT + UiFormat.number(value.getKills()) + UiTheme.MUTED + " Kills  •  "
-                        + UiTheme.TEXT + kd(value) + UiTheme.MUTED + " K/D",
+                UiTheme.TEXT + UiFormat.number(value.getKills()) + UiTheme.MUTED + " Kills  •  " + UiTheme.TEXT + kd(value) + UiTheme.MUTED + " K/D",
                 UiTheme.MUTED + "Beststreak " + UiTheme.TEXT + value.getBestStreak()));
 
-        gui.setItem(19, UiItems.item(Material.DIAMOND_SWORD,
-                UiTheme.PRIMARY + "Combat",
+        gui.setItem(19, UiItems.item(Material.DIAMOND_SWORD, UiTheme.PRIMARY + "Combat",
                 UiTheme.MUTED + "Kills " + UiTheme.TEXT + UiFormat.number(value.getKills()),
                 UiTheme.MUTED + "Tode " + UiTheme.TEXT + UiFormat.number(value.getDeaths()),
                 UiTheme.MUTED + "K/D " + UiTheme.TEXT + kd(value),
                 UiTheme.MUTED + "Streak " + UiTheme.TEXT + value.getCurrentStreak(),
                 UiTheme.MUTED + "Beststreak " + UiTheme.TEXT + value.getBestStreak()));
 
-        gui.setItem(21, UiItems.item(Material.EXP_BOTTLE,
-                UiTheme.PRIMARY + "Progression",
-                UiTheme.MUTED + "Season-Level und Battle Pass.",
-                "",
-                self ? UiItems.action("Klicken zum Oeffnen") : UiTheme.DISABLED + "Nur im eigenen Profile"), (p,e,s) -> {
+        gui.setItem(21, UiItems.item(Material.EXP_BOTTLE, UiTheme.PRIMARY + "Progression",
+                UiTheme.MUTED + "Season-Level und Battle Pass.", "",
+                self ? UiItems.action("Klicken zum Oeffnen") : UiTheme.DISABLED + "Nur im eigenen Profil"), (p,e,s) -> {
             if (self) Bukkit.dispatchCommand(p, "season");
         });
 
-        gui.setItem(23, UiItems.item(Material.SKULL_ITEM, (short) 3,
-                UiTheme.PRIMARY + "Collection",
-                UiTheme.MUTED + "Welche Spieler hast du bereits besiegt?",
-                UiTheme.MUTED + "Kopf-Lookbook und Kill-Historie.",
-                "",
+        gui.setItem(23, UiItems.item(Material.SKULL_ITEM, (short) 3, UiTheme.PRIMARY + "Collection",
+                UiTheme.MUTED + "Besiegte Spieler als Head-Lookbook.", "",
                 self ? UiItems.action("Klicken zum Oeffnen") : UiTheme.DISABLED + "Collection ist persoenlich"), (p,e,s) -> {
             if (self) Bukkit.dispatchCommand(p, "collection");
         });
 
-        gui.setItem(25, UiItems.item(Material.GOLD_INGOT,
-                UiTheme.PRIMARY + "Achievements",
-                UiTheme.MUTED + "Erfolge und permanente Medaillen.",
-                "",
+        gui.setItem(25, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Achievements",
+                UiTheme.MUTED + "PvP-, Map- und Progress-Erfolge.", "",
+                self ? UiItems.action("Achievements oeffnen") : UiTheme.DISABLED + "Nur eigene Achievements"), (p,e,s) -> {
+            if (self) Bukkit.dispatchCommand(p, "achievements");
+        });
+
+        gui.setItem(27, UiItems.item(Material.GOLD_INGOT, UiTheme.LEGENDARY + "Medaillen",
+                UiTheme.MUTED + "Permanente Season-Auszeichnungen.", "",
                 UiItems.action("Medaillen anzeigen")), (p,e,s) -> Bukkit.dispatchCommand(p, "medals " + name));
 
-        gui.setItem(29, UiItems.item(Material.IRON_SWORD,
-                UiTheme.PRIMARY + "Rivals",
+        gui.setItem(29, UiItems.item(Material.IRON_SWORD, UiTheme.PRIMARY + "Rivals",
                 UiTheme.MUTED + "Revenge und persoenliche Rivalitaeten.",
-                self ? UiTheme.MUTED + "Revenge-Status entsteht durch echte PvP-Kills."
-                        : UiTheme.MUTED + "Besiege Spieler, um Rivalitaeten aufzubauen."));
+                self ? UiTheme.MUTED + "Entsteht durch echte PvP-Kills." : UiTheme.MUTED + "Besiege Spieler fuer Rivalitaeten."));
 
-        gui.setItem(31, UiItems.item(Material.NETHER_STAR,
-                UiTheme.PRIMARY + "Events",
-                UiTheme.MUTED + "KOTH, LMS, Most Wanted und Duels.",
-                "",
+        gui.setItem(31, UiItems.item(Material.NETHER_STAR, UiTheme.PRIMARY + "Events",
+                UiTheme.MUTED + "KOTH, LMS, Most Wanted und Duels.", "",
                 UiItems.action("Leaderboards oeffnen")), (p,e,s) -> Bukkit.dispatchCommand(p, "top"));
 
-        gui.setItem(33, UiItems.item(Material.BOOK_AND_QUILL,
-                UiTheme.PRIMARY + "History",
-                UiTheme.MUTED + "Legacy Hall und Weapon History.",
-                UiTheme.MUTED + "Fortschritt behaelt langfristigen Sammlerwert.",
-                "",
+        gui.setItem(33, UiItems.item(Material.BOOK_AND_QUILL, UiTheme.PRIMARY + "History",
+                UiTheme.MUTED + "Legacy Hall und Weapon History.", "",
                 UiItems.action("Legacy Hall oeffnen")), (p,e,s) -> Bukkit.dispatchCommand(p, "legacyhall"));
 
-        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> {
-            SoundFeedback.back(p);
-            Bukkit.dispatchCommand(p, "commands");
-        });
-        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS,
-                UiTheme.PRIMARY + "Profile",
-                UiTheme.MUTED + "Overview  •  Combat  •  Progression",
-                UiTheme.MUTED + "Collection  •  Rivals  •  Events  •  History"));
-        GuiManager.active().open(gui);
-        SoundFeedback.menuOpen(viewer);
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); Bukkit.dispatchCommand(p, "commands"); });
+        gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.COMPASS, UiTheme.PRIMARY + "Profile",
+                UiTheme.MUTED + "Combat  •  Progression  •  Collection",
+                UiTheme.MUTED + "Achievements  •  Medaillen  •  History"));
+        GuiManager.active().open(gui); SoundFeedback.menuOpen(viewer);
     }
 
     private OfflinePlayer resolve(Player viewer, String[] args) {
         if (args.length == 0) return viewer;
         if (args.length != 1) return null;
-        Player online = Bukkit.getPlayerExact(args[0]);
-        if (online != null) return online;
-        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
-            if (offline.getName() != null && offline.getName().equalsIgnoreCase(args[0])) return offline;
-        }
+        Player online = Bukkit.getPlayerExact(args[0]); if (online != null) return online;
+        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) if (offline.getName() != null && offline.getName().equalsIgnoreCase(args[0])) return offline;
         return null;
     }
 
-    private String kd(PvpStatsSnapshot value) {
-        return String.format(Locale.GERMANY, "%.2f", value.getKd());
-    }
+    private String kd(PvpStatsSnapshot value) { return String.format(Locale.GERMANY, "%.2f", value.getKd()); }
 }
