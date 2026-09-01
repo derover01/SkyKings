@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/** Persistente Arena-Punkte fuer Duel/LMS/Tournament/Juggernaut ohne feste Map-Koordinaten. */
+/** Persistente Arena-Punkte fuer Duel, LMS und Clan Wars ohne feste Map-Koordinaten. */
 public final class EventArenaService {
     private final JavaPlugin plugin;
     private final File file;
