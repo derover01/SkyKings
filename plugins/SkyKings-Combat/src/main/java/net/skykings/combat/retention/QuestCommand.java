@@ -11,80 +11,77 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
+import java.util.Locale;
 import java.util.UUID;
 
-/** /quests als Free-/Premium-Questboard mit getrennten visuellen Panels. */
+/** Battle-Pass-Quest-Center mit eigenen Daily-/Weekly-/Premium-Panels. */
 public final class QuestCommand implements CommandExecutor {
+    private enum Page { DAILY, WEEKLY, PREMIUM }
+
     private final QuestService quests;
     public QuestCommand(QuestService quests) { this.quests = quests; }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) { sender.sendMessage("Nur ingame."); return true; }
-        open((Player) sender); return true;
+        Page page = Page.DAILY;
+        if (args.length > 0) {
+            String raw = args[0].toLowerCase(Locale.ROOT);
+            if (raw.startsWith("week") || raw.equals("woche")) page = Page.WEEKLY;
+            else if (raw.startsWith("prem")) page = Page.PREMIUM;
+        }
+        open((Player) sender, page);
+        return true;
     }
 
-    private void open(Player player) {
+    private void open(Player player, Page page) {
         UUID uuid = player.getUniqueId();
         boolean premium = quests.isPremium(uuid);
-        GuiSession gui = GuiSession.create(player, UiTheme.title("Battle Pass Quests"), 54);
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Quest Center"), 54);
 
-        gui.setItem(4, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "QUEST CENTER",
-                UiTheme.MUTED + "Free Quests oben.",
-                UiTheme.MUTED + "Premium Quests unten.",
-                UiTheme.MUTED + "Rewards werden automatisch ausgezahlt.",
-                premium ? UiTheme.LEGENDARY + "PREMIUM ACTIVE" : UiTheme.MUTED + "FREE PASS"));
+        // Header / Pass-Zusammenfassung
+        int dailyDone = completedDaily(uuid);
+        int weeklyDone = completedWeekly(uuid);
+        int premiumDone = completedPremium(uuid);
+        gui.setItem(4, UiItems.item(Material.ENCHANTED_BOOK, UiTheme.PRIMARY + "QUEST CENTER",
+                UiTheme.MUTED + "Daily " + UiTheme.TEXT + dailyDone + "/3",
+                UiTheme.MUTED + "Weekly " + UiTheme.TEXT + weeklyDone + "/2",
+                UiTheme.MUTED + "Premium " + (premium ? UiTheme.LEGENDARY + premiumDone + "/4" : UiTheme.DISABLED + "LOCKED"),
+                "", UiTheme.MUTED + "Quest-Rewards werden automatisch ausgezahlt."));
 
-        gui.setItem(9, panel((short) 7, UiTheme.TEXT + "FREE QUESTS"));
-        gui.setItem(17, panel((short) 7, UiTheme.TEXT + "FREE QUESTS"));
-        gui.setItem(10, quest(Material.IRON_SWORD, "Daily • PvP Jaeger",
-                "5 legitime PvP-Kills", quests.get(uuid, "daily.kills"), 5,
-                quests.claimed(uuid, "daily.claimed-kills"), "150k Coins • 2 Sterne • 500 XP", false));
-        gui.setItem(12, quest(Material.ENDER_PEARL, "Daily • Pearl Runner",
-                "20 Enderperlen nutzen", quests.get(uuid, "daily.pearls"), 20,
-                quests.claimed(uuid, "daily.claimed-pearls"), "75k Coins • 1 Stern • 350 XP", false));
-        gui.setItem(14, quest(Material.DIAMOND_SWORD, "Daily • Unstoppable",
-                "5er Killstreak erreichen", quests.get(uuid, "daily.streak"), 5,
-                quests.claimed(uuid, "daily.claimed-streak"), "200k Coins • 3 Sterne • 750 XP", false));
-        gui.setItem(16, quest(Material.NETHER_STAR, "Weekly • Kampfkoenig",
-                "30 legitime PvP-Kills", quests.get(uuid, "weekly.kills"), 30,
-                quests.claimed(uuid, "weekly.claimed-kills"), "500k Coins • 5 Sterne • 2.000 XP", false));
-        gui.setItem(22, quest(Material.BEACON, "Weekly • Kingmaker",
-                "King Altar 3x erobern", quests.get(uuid, "weekly.altar"), 3,
-                quests.claimed(uuid, "weekly.claimed-altar"), "350k Coins • 4 Sterne • 1.500 XP", false));
+        // Tab-Leiste
+        gui.setItem(10, tab(Material.WATCH, "DAILY", page == Page.DAILY, dailyDone + "/3 erledigt"),
+                (p,e,s) -> open(p, Page.DAILY));
+        gui.setItem(13, tab(Material.BEACON, "WEEKLY", page == Page.WEEKLY, weeklyDone + "/2 erledigt"),
+                (p,e,s) -> open(p, Page.WEEKLY));
+        gui.setItem(16, tab(Material.GOLD_INGOT, "PREMIUM", page == Page.PREMIUM,
+                premium ? premiumDone + "/4 erledigt" : "Premium erforderlich"),
+                (p,e,s) -> open(p, Page.PREMIUM));
 
-        gui.setItem(27, panel((short) (premium ? 5 : 15), premium ? UiTheme.SUCCESS + "PREMIUM QUESTS" : UiTheme.DISABLED + "PREMIUM LOCKED"));
-        gui.setItem(35, panel((short) (premium ? 5 : 15), premium ? UiTheme.SUCCESS + "PREMIUM QUESTS" : UiTheme.DISABLED + "PREMIUM LOCKED"));
-        if (premium) {
-            gui.setItem(28, quest(Material.GOLD_SWORD, "Premium Daily • Hunter",
-                    "10 legitime PvP-Kills", quests.get(uuid, "premium.daily.kills"), 10,
-                    quests.claimed(uuid, "premium.daily.claimed-kills"), "300k Coins • 4 Sterne • 800 XP", true));
-            gui.setItem(30, quest(Material.EYE_OF_ENDER, "Premium Daily • Void Runner",
-                    "40 Enderperlen nutzen", quests.get(uuid, "premium.daily.pearls"), 40,
-                    quests.claimed(uuid, "premium.daily.claimed-pearls"), "150k Coins • 3 Sterne • 600 XP", true));
-            gui.setItem(32, quest(Material.GOLDEN_APPLE, "Premium Weekly • Dominator",
-                    "75 legitime PvP-Kills", quests.get(uuid, "premium.weekly.kills"), 75,
-                    quests.claimed(uuid, "premium.weekly.claimed-kills"), "1.25m Coins • 12 Sterne • 3.500 XP", true));
-            gui.setItem(34, quest(Material.BEACON, "Premium Weekly • Crowned",
-                    "King Altar 7x erobern", quests.get(uuid, "premium.weekly.altar"), 7,
-                    quests.claimed(uuid, "premium.weekly.claimed-altar"), "750k Coins • 8 Sterne • 2.500 XP", true));
-        } else {
-            gui.setItem(31, UiItems.item(Material.GOLD_INGOT, UiTheme.LEGENDARY + "Premium Questpool",
-                    UiTheme.MUTED + "Zusaetzliche Daily-/Weekly-Aufgaben.",
-                    UiTheme.MUTED + "Mehr Season-XP, ohne Free Quests zu ersetzen.",
-                    "", UiTheme.STATUS_LOCKED));
-        }
+        // optische Trennlinie zwischen Navigation und Content
+        for (int slot = 18; slot <= 26; slot++) gui.setItem(slot, panel((short) 15, " "));
 
-        gui.setItem(40, UiItems.item(Material.CHEST, UiTheme.LEGENDARY + "Reward Track",
-                UiTheme.MUTED + "Quest-XP schiebt den",
-                UiTheme.MUTED + "Battle-Pass-Levelpfad nach vorne.",
+        if (page == Page.DAILY) renderDaily(gui, uuid);
+        else if (page == Page.WEEKLY) renderWeekly(gui, uuid);
+        else renderPremium(gui, uuid, premium);
+
+        gui.setItem(46, UiItems.item(Material.EXP_BOTTLE, UiTheme.PRIMARY + "Season XP",
+                UiTheme.MUTED + "Jede abgeschlossene Quest",
+                UiTheme.MUTED + "schiebt deinen Battle Pass weiter."));
+        gui.setItem(48, UiItems.item(Material.CHEST, UiTheme.LEGENDARY + "REWARD TRACK",
+                UiTheme.MUTED + "Free + Premium Meilensteine",
                 "", UiItems.action("Rewards ansehen")), (p,e,s) -> {
             BattlePassService pass = BattlePassService.active();
             if (pass != null) pass.openRewards(p, 0);
         });
-        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> Bukkit.dispatchCommand(p, "profile"));
         gui.setItem(UiTheme.NAV_HOME, UiItems.home(), (p,e,s) -> {
+            BattlePassService pass = BattlePassService.active();
+            if (pass != null) pass.open(p);
+        });
+        gui.setItem(UiTheme.NAV_NEXT, UiItems.item(Material.NETHER_STAR, UiTheme.PRIMARY + "BATTLE PASS",
+                UiTheme.MUTED + "Zur Pass-Uebersicht"), (p,e,s) -> {
             BattlePassService pass = BattlePassService.active();
             if (pass != null) pass.open(p);
         });
@@ -92,27 +89,111 @@ public final class QuestCommand implements CommandExecutor {
         SoundFeedback.menuOpen(player);
     }
 
-    private org.bukkit.inventory.ItemStack quest(Material material, String name, String task,
-                                                  int current, int target, boolean claimed, String reward, boolean premium) {
+    private void renderDaily(GuiSession gui, UUID uuid) {
+        gui.setItem(28, quest(Material.IRON_SWORD, "PvP Jaeger", "5 legitime PvP-Kills",
+                quests.get(uuid, "daily.kills"), 5, quests.claimed(uuid, "daily.claimed-kills"),
+                "150k Coins • 2 Sterne • 500 XP", false));
+        gui.setItem(31, quest(Material.ENDER_PEARL, "Pearl Runner", "20 Enderperlen nutzen",
+                quests.get(uuid, "daily.pearls"), 20, quests.claimed(uuid, "daily.claimed-pearls"),
+                "75k Coins • 1 Stern • 350 XP", false));
+        gui.setItem(34, quest(Material.DIAMOND_SWORD, "Unstoppable", "5er Killstreak erreichen",
+                quests.get(uuid, "daily.streak"), 5, quests.claimed(uuid, "daily.claimed-streak"),
+                "200k Coins • 3 Sterne • 750 XP", false));
+        gui.setItem(40, UiItems.item(Material.WATCH, UiTheme.TEXT + "DAILY RESET",
+                UiTheme.MUTED + "Neue Daily-Aufgaben mit",
+                UiTheme.MUTED + "dem naechsten Kalendertag."));
+    }
+
+    private void renderWeekly(GuiSession gui, UUID uuid) {
+        gui.setItem(29, quest(Material.NETHER_STAR, "Kampfkoenig", "30 legitime PvP-Kills",
+                quests.get(uuid, "weekly.kills"), 30, quests.claimed(uuid, "weekly.claimed-kills"),
+                "500k Coins • 5 Sterne • 2.000 XP", false));
+        gui.setItem(33, quest(Material.BEACON, "Kingmaker", "King Altar 3x erobern",
+                quests.get(uuid, "weekly.altar"), 3, quests.claimed(uuid, "weekly.claimed-altar"),
+                "350k Coins • 4 Sterne • 1.500 XP", false));
+        gui.setItem(40, UiItems.item(Material.BEACON, UiTheme.TEXT + "WEEKLY RESET",
+                UiTheme.MUTED + "Weekly-Aufgaben laufen",
+                UiTheme.MUTED + "ueber die Kalenderwoche."));
+    }
+
+    private void renderPremium(GuiSession gui, UUID uuid, boolean premium) {
+        if (!premium) {
+            gui.setItem(31, UiItems.item(Material.GOLD_INGOT, UiTheme.LEGENDARY + "PREMIUM QUESTS",
+                    UiTheme.MUTED + "Vier zusaetzliche Aufgaben.",
+                    UiTheme.MUTED + "Mehr Season-XP und Rewards.",
+                    UiTheme.MUTED + "Free Quests bleiben voll erhalten.",
+                    "", UiTheme.STATUS_LOCKED));
+            gui.setItem(40, panel((short) 1, UiTheme.LEGENDARY + "PREMIUM LOCKED"));
+            return;
+        }
+        gui.setItem(28, quest(Material.GOLD_SWORD, "Hunter", "10 legitime PvP-Kills",
+                quests.get(uuid, "premium.daily.kills"), 10, quests.claimed(uuid, "premium.daily.claimed-kills"),
+                "300k Coins • 4 Sterne • 800 XP", true));
+        gui.setItem(30, quest(Material.EYE_OF_ENDER, "Void Runner", "40 Enderperlen nutzen",
+                quests.get(uuid, "premium.daily.pearls"), 40, quests.claimed(uuid, "premium.daily.claimed-pearls"),
+                "150k Coins • 3 Sterne • 600 XP", true));
+        gui.setItem(32, quest(Material.GOLDEN_APPLE, "Dominator", "75 legitime PvP-Kills",
+                quests.get(uuid, "premium.weekly.kills"), 75, quests.claimed(uuid, "premium.weekly.claimed-kills"),
+                "1.25m Coins • 12 Sterne • 3.500 XP", true));
+        gui.setItem(34, quest(Material.BEACON, "Crowned", "King Altar 7x erobern",
+                quests.get(uuid, "premium.weekly.altar"), 7, quests.claimed(uuid, "premium.weekly.claimed-altar"),
+                "750k Coins • 8 Sterne • 2.500 XP", true));
+        gui.setItem(40, panel((short) 1, UiTheme.LEGENDARY + "PREMIUM ACTIVE"));
+    }
+
+    private ItemStack tab(Material material, String name, boolean active, String detail) {
+        return UiItems.item(material,
+                (active ? UiTheme.PRIMARY : UiTheme.MUTED) + (active ? "▶ " : "") + name,
+                UiTheme.MUTED + detail,
+                "", active ? UiTheme.STATUS_ACTIVE : UiItems.action("Klicken zum Oeffnen"));
+    }
+
+    private ItemStack quest(Material material, String name, String task,
+                            int current, int target, boolean claimed, String reward, boolean premium) {
         int shown = Math.min(current, target);
+        String status = claimed ? UiTheme.STATUS_COMPLETED
+                : shown >= target ? UiTheme.STATUS_READY : UiTheme.STATUS_ACTIVE;
         return UiItems.item(material,
                 (premium ? UiTheme.LEGENDARY : UiTheme.PRIMARY) + name,
                 UiTheme.TEXT + task,
-                UiTheme.MUTED + "Fortschritt " + UiTheme.TEXT + shown + "/" + target,
-                progress(shown, target),
+                "", progress(shown, target),
+                UiTheme.MUTED + shown + "/" + target + " abgeschlossen",
                 UiTheme.MUTED + "Reward " + UiTheme.WARNING + reward,
-                "",
-                claimed ? UiTheme.STATUS_COMPLETED : UiTheme.STATUS_ACTIVE);
+                "", status);
+    }
+
+    private int completedDaily(UUID uuid) {
+        int out = 0;
+        if (quests.claimed(uuid, "daily.claimed-kills")) out++;
+        if (quests.claimed(uuid, "daily.claimed-pearls")) out++;
+        if (quests.claimed(uuid, "daily.claimed-streak")) out++;
+        return out;
+    }
+
+    private int completedWeekly(UUID uuid) {
+        int out = 0;
+        if (quests.claimed(uuid, "weekly.claimed-kills")) out++;
+        if (quests.claimed(uuid, "weekly.claimed-altar")) out++;
+        return out;
+    }
+
+    private int completedPremium(UUID uuid) {
+        int out = 0;
+        if (quests.claimed(uuid, "premium.daily.claimed-kills")) out++;
+        if (quests.claimed(uuid, "premium.daily.claimed-pearls")) out++;
+        if (quests.claimed(uuid, "premium.weekly.claimed-kills")) out++;
+        if (quests.claimed(uuid, "premium.weekly.claimed-altar")) out++;
+        return out;
     }
 
     private String progress(int current, int target) {
-        int filled = Math.min(10, (int) Math.floor((current * 10D) / Math.max(1, target)));
+        int filled = Math.min(12, (int) Math.floor((current * 12D) / Math.max(1, target)));
         StringBuilder out = new StringBuilder();
-        for (int i = 0; i < 10; i++) out.append(i < filled ? UiTheme.SUCCESS + "■" : UiTheme.DISABLED + "■");
+        for (int i = 0; i < 12; i++) out.append(i < filled ? UiTheme.SUCCESS + "■" : UiTheme.DISABLED + "■");
         return out.toString();
     }
 
-    private org.bukkit.inventory.ItemStack panel(short data, String name) {
+    private ItemStack panel(short data, String name) {
         return UiItems.item(Material.STAINED_GLASS_PANE, data, name);
     }
 }
