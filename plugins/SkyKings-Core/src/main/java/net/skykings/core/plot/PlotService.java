@@ -1,5 +1,8 @@
 package net.skykings.core.plot;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.display.ServerListMotdListener;
+import net.skykings.core.listener.InventoryDropSyncListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -36,6 +39,7 @@ public final class PlotService implements PlotAccessService {
     private final JavaPlugin plugin;
     private final File file;
     private final Map<UUID, PlotData> plots = new HashMap<UUID, PlotData>();
+    private final PlotBorderService borderService;
     private int nextIndex;
 
     public PlotService(JavaPlugin plugin) {
@@ -43,7 +47,20 @@ public final class PlotService implements PlotAccessService {
         this.file = new File(plugin.getDataFolder(), "plots.yml");
         ensureWorld();
         load();
+        if (plugin instanceof SkyKingsCoreAPI) {
+            SkyKingsCoreAPI core = (SkyKingsCoreAPI) plugin;
+            this.borderService = new PlotBorderService(plugin, this, core.getEconomyService());
+            plugin.getServer().getPluginManager().registerEvents(new InventoryDropSyncListener(plugin), plugin);
+            plugin.getServer().getPluginManager().registerEvents(new ServerListMotdListener(), plugin);
+        } else {
+            this.borderService = null;
+        }
         Bukkit.getServicesManager().register(PlotAccessService.class, this, plugin, ServicePriority.Normal);
+    }
+
+    public PlotBorderService getBorderService() {
+        if (borderService == null) throw new IllegalStateException("PlotBorderService ist nur im laufenden SkyKings-Core verfuegbar.");
+        return borderService;
     }
 
     public World ensureWorld() {
@@ -84,10 +101,7 @@ public final class PlotService implements PlotAccessService {
 
     public synchronized PlotData get(UUID owner) { return plots.get(owner); }
 
-    /**
-     * Generator und Claim-System benutzen exakt dasselbe 72er Raster:
-     * lokal 0..64 = Plotzelle, lokal 65..71 = neutrale Strasse.
-     */
+    /** Generator und Claim-System benutzen exakt dasselbe 72er Raster: 0..64 Plot, 65..71 neutrale Strasse. */
     public synchronized PlotData findAt(Location location) {
         if (!isPlotWorld(location) || isRoad(location)) return null;
         int cellX = Math.floorDiv(location.getBlockX(), SPACING);
