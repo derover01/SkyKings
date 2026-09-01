@@ -36,8 +36,13 @@ public final class BattlePassCommand implements CommandExecutor {
             }
 
             boolean enabled = "give".equalsIgnoreCase(args[0]);
-            battlePass.setPremium(target.getUniqueId(), enabled);
             String name = target.getName() == null ? args[1] : target.getName();
+            if (!battlePass.setPremium(target.getUniqueId(), enabled)) {
+                sender.sendMessage(ChatColor.RED + "Premium Pass fuer " + name + " konnte nicht sicher gespeichert werden.");
+                if (online != null) online.sendMessage(ChatColor.RED + "Premium-Pass-Aenderung konnte nicht gespeichert werden.");
+                return true;
+            }
+
             sender.sendMessage((enabled ? ChatColor.GREEN : ChatColor.YELLOW)
                     + "Premium Pass fuer " + ChatColor.WHITE + name
                     + (enabled ? ChatColor.GREEN + " vergeben." : ChatColor.YELLOW + " entfernt."));
@@ -58,7 +63,10 @@ public final class BattlePassCommand implements CommandExecutor {
             Player target = Bukkit.getPlayer(args[1]);
             if (target == null) { sender.sendMessage(ChatColor.RED + "Spieler muss online sein."); return true; }
             boolean enabled = "on".equalsIgnoreCase(args[2]) || "true".equalsIgnoreCase(args[2]) || "1".equals(args[2]);
-            battlePass.setPremium(target.getUniqueId(), enabled);
+            if (!battlePass.setPremium(target.getUniqueId(), enabled)) {
+                sender.sendMessage(ChatColor.RED + "Premium-Status konnte nicht sicher gespeichert werden.");
+                return true;
+            }
             sender.sendMessage(ChatColor.GREEN + "Battle Pass Premium fuer " + target.getName() + ": " + enabled);
             target.sendMessage(enabled ? ChatColor.GOLD + "Premium Battle Pass wurde aktiviert." : ChatColor.YELLOW + "Premium Battle Pass wurde deaktiviert.");
             return true;
