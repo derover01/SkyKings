@@ -12,6 +12,7 @@ import net.skykings.admin.command.SystemCheckCommand;
 import net.skykings.admin.command.WarpAdminCommand;
 import net.skykings.admin.command.WarpCommand;
 import net.skykings.admin.discord.DiscordBridge;
+import net.skykings.admin.discord.DiscordEventRelay;
 import net.skykings.admin.warp.WarpService;
 import net.skykings.admin.warp.WarpTeleportService;
 import net.skykings.combat.tag.CombatTagService;
@@ -49,6 +50,7 @@ public class SkyKingsAdmin extends JavaPlugin {
 
         this.discordBridge = new DiscordBridge(this);
         getServer().getServicesManager().register(DiscordNotifier.class, discordBridge, this, ServicePriority.Normal);
+        getServer().getPluginManager().registerEvents(new DiscordEventRelay(discordBridge), this);
 
         PluginCommand rankCommand = getCommand("rang");
         PluginCommand rightsCommand = getCommand("rechte");
