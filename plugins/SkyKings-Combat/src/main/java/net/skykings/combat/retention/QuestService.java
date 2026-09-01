@@ -1,34 +1,31 @@
 package net.skykings.combat.retention;
 
 import net.skykings.combat.event.EventParticipationService;
+import net.skykings.combat.event.KingAltarCaptureEvent;
+import net.skykings.combat.event.SkyKingsPlayerKillEvent;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.item.SkyKingsCurrencyItems;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /** Daily/Weekly Quests mit Free-/Premium-Pool und direkter Season-XP-Anbindung. */
 public final class QuestService implements Listener {
-    private static final long SAME_VICTIM_COOLDOWN = 10L * 60L * 1000L;
     private final JavaPlugin plugin;
     private final EconomyService economy;
     private final File file;
     private final YamlConfiguration data;
-    private final Map<String, Long> pairCooldowns = new HashMap<String, Long>();
-    private final Map<UUID, Integer> liveStreaks = new HashMap<UUID, Integer>();
 
     public QuestService(JavaPlugin plugin, EconomyService economy) {
         this.plugin = plugin;
@@ -37,31 +34,30 @@ public final class QuestService implements Listener {
         this.data = YamlConfiguration.loadConfiguration(file);
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onKill(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        liveStreaks.put(victim.getUniqueId(), 0);
-        Player killer = victim.getKiller();
-        if (killer == null || killer.getUniqueId().equals(victim.getUniqueId())) return;
-        if (EventParticipationService.global().isInEvent(victim.getUniqueId())
-                || EventParticipationService.global().isInEvent(killer.getUniqueId())) return;
-        String pair = killer.getUniqueId() + ":" + victim.getUniqueId();
-        long now = System.currentTimeMillis();
-        Long until = pairCooldowns.get(pair);
-        if (until != null && until > now) return;
-        pairCooldowns.put(pair, now + SAME_VICTIM_COOLDOWN);
-
+    /** Nur der bereits validierte SkyKings-Killpfad darf PvP-Quests fortschreiben. */
+    @EventHandler
+    public void onKill(SkyKingsPlayerKillEvent event) {
+        Player killer = Bukkit.getPlayer(event.getKillerUuid());
+        if (killer == null) return;
         prepare(killer.getUniqueId());
         add(killer, "daily.kills", 1);
         add(killer, "weekly.kills", 1);
-        int streak = liveStreaks.containsKey(killer.getUniqueId()) ? liveStreaks.get(killer.getUniqueId()) + 1 : 1;
-        liveStreaks.put(killer.getUniqueId(), streak);
-        max(killer, "daily.streak", streak);
+        max(killer, "daily.streak", event.getNewKillstreak());
         if (isPremium(killer.getUniqueId())) {
             add(killer, "premium.daily.kills", 1);
             add(killer, "premium.weekly.kills", 1);
         }
         checkRewards(killer);
+    }
+
+    @EventHandler
+    public void onKingAltar(KingAltarCaptureEvent event) {
+        Player player = Bukkit.getPlayer(event.getPlayerUuid());
+        if (player == null) return;
+        prepare(player.getUniqueId());
+        add(player, "weekly.altar", 1);
+        if (isPremium(player.getUniqueId())) add(player, "premium.weekly.altar", 1);
+        checkRewards(player);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -89,7 +85,6 @@ public final class QuestService implements Listener {
             data.set(p + "daily", null);
             data.set(p + "daily.id", day);
             data.set(p + "premium.daily", null);
-            liveStreaks.put(uuid, 0);
             changed = true;
         }
         if (data.getInt(p + "weekly.id", -1) != week) {
@@ -128,6 +123,8 @@ public final class QuestService implements Listener {
             reward(player, "daily.claimed-streak", 200_000L, 3, 750, "Daily: 5er Killstreak");
         if (get(uuid, "weekly.kills") >= 30 && !claimed(uuid, "weekly.claimed-kills"))
             reward(player, "weekly.claimed-kills", 500_000L, 5, 2_000, "Weekly: 30 PvP-Kills");
+        if (get(uuid, "weekly.altar") >= 3 && !claimed(uuid, "weekly.claimed-altar"))
+            reward(player, "weekly.claimed-altar", 350_000L, 4, 1_500, "Weekly: 3 King-Altar Captures");
 
         if (!isPremium(uuid)) return;
         if (get(uuid, "premium.daily.kills") >= 10 && !claimed(uuid, "premium.daily.claimed-kills"))
@@ -136,6 +133,8 @@ public final class QuestService implements Listener {
             reward(player, "premium.daily.claimed-pearls", 150_000L, 3, 600, "Premium Daily: 40 Enderperlen");
         if (get(uuid, "premium.weekly.kills") >= 75 && !claimed(uuid, "premium.weekly.claimed-kills"))
             reward(player, "premium.weekly.claimed-kills", 1_250_000L, 12, 3_500, "Premium Weekly: 75 PvP-Kills");
+        if (get(uuid, "premium.weekly.altar") >= 7 && !claimed(uuid, "premium.weekly.claimed-altar"))
+            reward(player, "premium.weekly.claimed-altar", 750_000L, 8, 2_500, "Premium Weekly: 7 King-Altar Captures");
     }
 
     private void reward(Player player, String claimedKey, long coins, int stars, int seasonXp, String name) {
