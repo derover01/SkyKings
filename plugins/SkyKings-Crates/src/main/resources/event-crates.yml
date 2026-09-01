@@ -1,47 +1,17 @@
 # SkyKings Event-/Farm-Crates
 # Jede Tabelle hat 1000 Weight-Punkte. Diese Crates sollen oft und auch stackweise verteilt werden.
-# Deshalb sind die meisten Rewards solide statt extrem; sehr starke Gewinne bleiben in Rare+.
+# Custom Heads: texture:<Base64 Mojang texture value>; 1.8 faellt bei Fehler sicher auf MHF_Chest zurueck.
 crates:
   build:
     display-name: '&a&lBuild Crate'
-    head-owner: 'MHF_Chest'
+    head-owner: 'texture:eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYjZlYTIxMzU4Mzg0NjE1MzQzNzJmMmRhNmM4NjJkMjFjZDVmM2QyYzcxMTlmMmJiNjc0YmJkNDI3OTEifX19'
     rewards:
-      stone:
-        type: ITEM
-        material: STONE
-        amount: 64
-        weight: 220
-        ev-value: 12000
-      wood:
-        type: ITEM
-        material: WOOD
-        amount: 64
-        weight: 180
-        ev-value: 16000
-      glass:
-        type: ITEM
-        material: GLASS
-        amount: 64
-        weight: 160
-        ev-value: 18000
-      quartz:
-        type: ITEM
-        material: QUARTZ_BLOCK
-        amount: 48
-        weight: 130
-        ev-value: 45000
-      obsidian:
-        type: ITEM
-        material: OBSIDIAN
-        amount: 32
-        weight: 100
-        ev-value: 55000
-      diamonds:
-        type: ITEM
-        material: DIAMOND
-        amount: 8
-        weight: 80
-        ev-value: 70000
+      stone: {type: ITEM, material: STONE, amount: 64, weight: 220, ev-value: 12000}
+      wood: {type: ITEM, material: WOOD, amount: 64, weight: 180, ev-value: 16000}
+      glass: {type: ITEM, material: GLASS, amount: 64, weight: 160, ev-value: 18000}
+      quartz: {type: ITEM, material: QUARTZ_BLOCK, amount: 48, weight: 130, ev-value: 45000}
+      obsidian: {type: ITEM, material: OBSIDIAN, amount: 32, weight: 100, ev-value: 55000}
+      diamonds: {type: ITEM, material: DIAMOND, amount: 8, weight: 80, ev-value: 70000}
       coins-50k:
         type: VOUCHER
         voucher-type: COINS
@@ -49,53 +19,18 @@ crates:
         display-target: '50.000 Coins'
         weight: 100
         ev-value: 50000
-      stars:
-        type: NETHERSTARS
-        amount: 2
-        weight: 30
-        ev-value: 30000
+      stars: {type: NETHERSTARS, amount: 2, weight: 30, ev-value: 30000}
 
   fight:
     display-name: '&c&lFight Crate'
-    head-owner: 'MHF_Skeleton'
+    head-owner: 'texture:eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNTBkZmM4YTM1NjNiZjk5NmY1YzFiNzRiMGIwMTViMmNjZWIyZDA0Zjk0YmJjZGFmYjIyOTlkOGE1OTc5ZmFjMSJ9fX0='
     rewards:
-      sword:
-        type: ITEM
-        material: DIAMOND_SWORD
-        amount: 1
-        weight: 170
-        ev-value: 65000
-      bow:
-        type: ITEM
-        material: BOW
-        amount: 1
-        weight: 130
-        ev-value: 45000
-      arrows:
-        type: ITEM
-        material: ARROW
-        amount: 64
-        weight: 140
-        ev-value: 22000
-      pearls:
-        type: ITEM
-        material: ENDER_PEARL
-        amount: 16
-        weight: 170
-        ev-value: 80000
-      gaps:
-        type: ITEM
-        material: GOLDEN_APPLE
-        data: 1
-        amount: 4
-        weight: 150
-        ev-value: 120000
-      xp:
-        type: ITEM
-        material: EXP_BOTTLE
-        amount: 32
-        weight: 100
-        ev-value: 45000
+      sword: {type: ITEM, material: DIAMOND_SWORD, amount: 1, weight: 170, ev-value: 65000}
+      bow: {type: ITEM, material: BOW, amount: 1, weight: 130, ev-value: 45000}
+      arrows: {type: ITEM, material: ARROW, amount: 64, weight: 140, ev-value: 22000}
+      pearls: {type: ITEM, material: ENDER_PEARL, amount: 16, weight: 170, ev-value: 80000}
+      gaps: {type: ITEM, material: GOLDEN_APPLE, data: 1, amount: 4, weight: 150, ev-value: 120000}
+      xp: {type: ITEM, material: EXP_BOTTLE, amount: 32, weight: 100, ev-value: 45000}
       coins-75k:
         type: VOUCHER
         voucher-type: COINS
@@ -103,15 +38,11 @@ crates:
         display-target: '75.000 Coins'
         weight: 100
         ev-value: 75000
-      stars:
-        type: NETHERSTARS
-        amount: 4
-        weight: 40
-        ev-value: 60000
+      stars: {type: NETHERSTARS, amount: 4, weight: 40, ev-value: 60000}
 
   money:
     display-name: '&6&lMoney Crate'
-    head-owner: 'MHF_Villager'
+    head-owner: 'texture:eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGQxY2ViMGUyMjA0ZWRiYjZkYmRhNzY0ZTliOGQxNTVkYmIzNGZiODRkZDc5M2VmMDNmZTJjMjRiNTdkNGQyYSJ9fX0='
     rewards:
       coins-25k:
         type: VOUCHER
@@ -148,11 +79,7 @@ crates:
         display-target: '150.000 Coins'
         weight: 80
         ev-value: 150000
-      stars:
-        type: NETHERSTARS
-        amount: 3
-        weight: 70
-        ev-value: 45000
+      stars: {type: NETHERSTARS, amount: 3, weight: 70, ev-value: 45000}
       giveall-10k:
         type: VOUCHER
         voucher-type: GIVEALL_COINS
@@ -163,39 +90,13 @@ crates:
 
   utility:
     display-name: '&b&lUtility Crate'
-    head-owner: 'MHF_Enderman'
+    head-owner: 'texture:eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNWNiN2MyMWNjNDNkYzE3Njc4ZWU2ZjE2NTkxZmZhYWIxZjYzN2MzN2Y0ZjZiYmQ4Y2VhNDk3NDUxZDc2ZGI2ZCJ9fX0='
     rewards:
-      pearls:
-        type: ITEM
-        material: ENDER_PEARL
-        amount: 16
-        weight: 210
-        ev-value: 80000
-      xp:
-        type: ITEM
-        material: EXP_BOTTLE
-        amount: 48
-        weight: 180
-        ev-value: 65000
-      gaps:
-        type: ITEM
-        material: GOLDEN_APPLE
-        data: 1
-        amount: 3
-        weight: 150
-        ev-value: 90000
-      obsidian:
-        type: ITEM
-        material: OBSIDIAN
-        amount: 24
-        weight: 130
-        ev-value: 40000
-      diamonds:
-        type: ITEM
-        material: DIAMOND
-        amount: 6
-        weight: 120
-        ev-value: 55000
+      pearls: {type: ITEM, material: ENDER_PEARL, amount: 16, weight: 210, ev-value: 80000}
+      xp: {type: ITEM, material: EXP_BOTTLE, amount: 48, weight: 180, ev-value: 65000}
+      gaps: {type: ITEM, material: GOLDEN_APPLE, data: 1, amount: 3, weight: 150, ev-value: 90000}
+      obsidian: {type: ITEM, material: OBSIDIAN, amount: 24, weight: 130, ev-value: 40000}
+      diamonds: {type: ITEM, material: DIAMOND, amount: 6, weight: 120, ev-value: 55000}
       coins-75k:
         type: VOUCHER
         voucher-type: COINS
@@ -203,11 +104,7 @@ crates:
         display-target: '75.000 Coins'
         weight: 130
         ev-value: 75000
-      stars:
-        type: NETHERSTARS
-        amount: 5
-        weight: 70
-        ev-value: 75000
+      stars: {type: NETHERSTARS, amount: 5, weight: 70, ev-value: 75000}
       fly-right:
         type: VOUCHER
         voucher-type: PERMISSION
@@ -218,27 +115,11 @@ crates:
 
   event:
     display-name: '&d&lCommunity Event Crate'
-    head-owner: 'MHF_Blaze'
+    head-owner: 'texture:eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOThjOGY4MmNjZjhkMmFjYjc5MDA4ZTE3ODM0MDAyZThkYzU2ZTczMmVhODljYzFkYjNiZGU0MjA2NjU4ZWY3ZCJ9fX0='
     rewards:
-      build-crate-value:
-        type: ITEM
-        material: DIAMOND_BLOCK
-        amount: 4
-        weight: 120
-        ev-value: 90000
-      fight-pearls:
-        type: ITEM
-        material: ENDER_PEARL
-        amount: 24
-        weight: 130
-        ev-value: 120000
-      gaps:
-        type: ITEM
-        material: GOLDEN_APPLE
-        data: 1
-        amount: 6
-        weight: 120
-        ev-value: 180000
+      build-crate-value: {type: ITEM, material: DIAMOND_BLOCK, amount: 4, weight: 120, ev-value: 90000}
+      fight-pearls: {type: ITEM, material: ENDER_PEARL, amount: 24, weight: 130, ev-value: 120000}
+      gaps: {type: ITEM, material: GOLDEN_APPLE, data: 1, amount: 6, weight: 120, ev-value: 180000}
       coins-100k:
         type: VOUCHER
         voucher-type: COINS
@@ -253,11 +134,7 @@ crates:
         display-target: '250.000 Coins'
         weight: 80
         ev-value: 250000
-      stars:
-        type: NETHERSTARS
-        amount: 8
-        weight: 170
-        ev-value: 120000
+      stars: {type: NETHERSTARS, amount: 8, weight: 170, ev-value: 120000}
       iron-rank:
         type: VOUCHER
         voucher-type: RANK
@@ -286,8 +163,4 @@ crates:
         display-target: 'Diamond Free-Rang'
         weight: 3
         ev-value: 3000000
-      player-shop-egg:
-        type: PLAYER_SHOP_EGG
-        amount: 1
-        weight: 20
-        ev-value: 2500000
+      player-shop-egg: {type: PLAYER_SHOP_EGG, amount: 1, weight: 20, ev-value: 2500000}
