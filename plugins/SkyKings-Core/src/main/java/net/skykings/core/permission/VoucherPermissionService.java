@@ -27,6 +27,7 @@ public final class VoucherPermissionService {
         INVALID_PREFIX
     }
 
+    private static volatile VoucherPermissionService active;
     private final PermissionBridge permissionBridge;
     private final LoggingService loggingService;
     private final List<VoucherPermission> permissions;
@@ -35,6 +36,12 @@ public final class VoucherPermissionService {
         this.permissionBridge = permissionBridge;
         this.loggingService = loggingService;
         this.permissions = Collections.unmodifiableList(load(plugin));
+        active = this;
+    }
+
+    public static VoucherPermissionService active() {
+        if (active == null) throw new IllegalStateException("VoucherPermissionService ist noch nicht initialisiert");
+        return active;
     }
 
     public Collection<VoucherPermission> getAll() {
