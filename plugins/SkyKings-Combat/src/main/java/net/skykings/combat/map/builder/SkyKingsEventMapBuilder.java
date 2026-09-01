@@ -78,37 +78,26 @@ public final class SkyKingsEventMapBuilder {
         c.disc(0, Y + 1, 0, 7, Material.QUARTZ_BLOCK);
         c.ring(0, Y + 2, 0, 8, 2, Material.GOLD_BLOCK);
         c.set(0, Y + 2, 0, Material.BEACON);
-
-        // Crown-like four tower silhouette.
         V3Structures.watchTower(c, -30, Y, -24, 4, 15);
         V3Structures.watchTower(c, 30, Y, -24, 4, 15);
         V3Structures.watchTower(c, -30, Y, 24, 4, 15);
         V3Structures.watchTower(c, 30, Y, 24, 4, 15);
-
-        // Four gates point to the arena wings.
         V3Structures.brokenArch(c, 0, Y + 1, -31, 12, 9);
         V3Structures.brokenArch(c, 31, Y + 1, 0, 12, 9);
         V3Structures.brokenArch(c, 0, Y + 1, 31, 12, 9);
         V3Structures.brokenArch(c, -31, Y + 1, 0, 12, 9);
-
-        // Hub spawn marker.
         c.disc(0, Y + 2, 12, 3, Material.EMERALD_BLOCK);
         c.set(0, Y + 3, 12, Material.GLOWSTONE);
-
         V3Structures.customTree(c, -22, Y + 1, 8, 8);
         V3Structures.customTree(c, 22, Y + 1, 8, 8);
         lamps(0, Y + 1, 0, 20);
     }
 
-    /** North: symmetrical old-school duel courtyard. */
     private void buildDuelArena() {
         int cx = 0, cz = -122;
-        V3Terrain.island(c, cx, Y - 4, cz, 49, 39, 23, 8201L,
-                Material.GRASS, Material.DIRT, Material.STONE);
+        V3Terrain.island(c, cx, Y - 4, cz, 49, 39, 23, 8201L, Material.GRASS, Material.DIRT, Material.STONE);
         c.fill(cx - 31, Y, cz - 24, cx + 31, Y, cz + 24, Material.SMOOTH_BRICK);
         c.ring(cx, Y + 1, cz, 29, 2, Material.MOSSY_COBBLESTONE);
-
-        // Arena walls + broken royal arches.
         for (int x = cx - 31; x <= cx + 31; x++) {
             c.set(x, Y + 1, cz - 24, Material.NETHER_BRICK);
             c.set(x, Y + 1, cz + 24, Material.NETHER_BRICK);
@@ -125,23 +114,17 @@ public final class SkyKingsEventMapBuilder {
         V3Structures.watchTower(c, cx + 35, Y, cz - 27, 4, 13);
         V3Structures.watchTower(c, cx - 35, Y, cz + 27, 4, 13);
         V3Structures.watchTower(c, cx + 35, Y, cz + 27, 4, 13);
-
-        // A/B are deliberately visible markers for setup.
-        c.disc(cx - 20, Y + 1, cz, 2, Material.GOLD_BLOCK);     // duel a
-        c.disc(cx + 20, Y + 1, cz, 2, Material.DIAMOND_BLOCK);  // duel b
+        c.disc(cx - 20, Y + 1, cz, 2, Material.GOLD_BLOCK);
+        c.disc(cx + 20, Y + 1, cz, 2, Material.DIAMOND_BLOCK);
         spectator(cx, Y + 8, cz + 34, 9);
     }
 
-    /** East: large ruined survival island with cover and height changes for LMS. */
     private void buildLmsArena() {
         int cx = 132, cz = 0;
-        V3Terrain.island(c, cx, Y - 5, cz, 62, 56, 31, 8301L,
-                Material.GRASS, Material.DIRT, Material.STONE);
-        V3Terrain.island(c, cx + 22, Y - 2, cz - 18, 31, 27, 18, 8302L,
-                Material.GRASS, Material.DIRT, Material.STONE);
+        V3Terrain.island(c, cx, Y - 5, cz, 62, 56, 31, 8301L, Material.GRASS, Material.DIRT, Material.STONE);
+        V3Terrain.island(c, cx + 22, Y - 2, cz - 18, 31, 27, 18, 8302L, Material.GRASS, Material.DIRT, Material.STONE);
         c.disc(cx, Y, cz, 13, Material.GRAVEL);
         c.ring(cx, Y + 1, cz, 14, 2, Material.SMOOTH_BRICK);
-
         V3Structures.ruinedHouse(c, cx - 27, Y + 1, cz - 21, 13, 11);
         V3Structures.ruinedHouse(c, cx + 30, Y + 1, cz + 18, 15, 11);
         V3Structures.medievalHouse(c, cx - 28, Y + 1, cz + 23, 11, 9, false);
@@ -150,26 +133,20 @@ public final class SkyKingsEventMapBuilder {
         V3Structures.customTree(c, cx + 10, Y, cz + 40, 10);
         V3Terrain.rock(c, cx + 2, Y, cz - 35, 7, 8310L);
         V3Terrain.rock(c, cx - 12, Y, cz + 28, 5, 8311L);
-
-        // lobby marker + 8 spawn markers around the playable island.
-        c.disc(cx - 47, Y + 1, cz - 39, 3, Material.EMERALD_BLOCK); // lobby
+        c.disc(cx - 47, Y + 1, cz - 39, 3, Material.EMERALD_BLOCK);
         int[][] spawns = {{0,-39},{27,-28},{40,0},{28,28},{0,40},{-28,28},{-40,0},{-27,-28}};
         for (int[] s : spawns) marker(cx + s[0], Y + 1, cz + s[1], Material.GLOWSTONE);
         spectator(cx + 52, Y + 13, cz + 42, 10);
     }
 
-    /** South: round tournament colosseum with spectator crown. */
     private void buildTournamentArena() {
         int cx = 0, cz = 132;
-        V3Terrain.island(c, cx, Y - 5, cz, 59, 52, 27, 8401L,
-                Material.GRASS, Material.DIRT, Material.STONE);
+        V3Terrain.island(c, cx, Y - 5, cz, 59, 52, 27, 8401L, Material.GRASS, Material.DIRT, Material.STONE);
         c.disc(cx, Y, cz, 39, Material.SMOOTH_BRICK);
         c.disc(cx, Y + 1, cz, 30, Material.GRASS);
         c.ring(cx, Y + 1, cz, 39, 5, Material.NETHER_BRICK);
         c.ring(cx, Y + 4, cz, 39, 3, Material.SMOOTH_BRICK);
         c.ring(cx, Y + 7, cz, 39, 2, Material.SMOOTH_BRICK);
-
-        // Arena entrances and royal pillars.
         V3Structures.brokenArch(c, cx, Y + 1, cz - 39, 14, 10);
         V3Structures.brokenArch(c, cx, Y + 1, cz + 39, 14, 10);
         for (int[] p : new int[][]{{-33,-22},{33,-22},{-33,22},{33,22}}) {
@@ -177,7 +154,6 @@ public final class SkyKingsEventMapBuilder {
             c.set(cx + p[0], Y + 13, cz + p[1], Material.GOLD_BLOCK);
             c.set(cx + p[0], Y + 14, cz + p[1], Material.GLOWSTONE);
         }
-
         c.disc(cx, Y + 2, cz - 19, 2, Material.GOLD_BLOCK);
         c.disc(cx, Y + 2, cz + 19, 2, Material.DIAMOND_BLOCK);
         marker(cx - 19, Y + 2, cz, Material.EMERALD_BLOCK);
@@ -185,35 +161,27 @@ public final class SkyKingsEventMapBuilder {
         spectator(cx + 43, Y + 10, cz, 11);
     }
 
-    /** West: darker throne fortress for Juggernaut / boss-style events. */
     private void buildJuggernautArena() {
         int cx = -132, cz = 0;
-        V3Terrain.island(c, cx, Y - 4, cz, 55, 48, 28, 8501L,
-                Material.GRASS, Material.DIRT, Material.STONE);
+        V3Terrain.island(c, cx, Y - 4, cz, 55, 48, 28, 8501L, Material.GRASS, Material.DIRT, Material.STONE);
         c.fill(cx - 35, Y, cz - 29, cx + 35, Y, cz + 29, Material.NETHER_BRICK);
         c.disc(cx, Y + 1, cz, 24, Material.SMOOTH_BRICK);
         c.ring(cx, Y + 2, cz, 25, 3, Material.OBSIDIAN);
-
         V3Structures.watchTower(c, cx - 38, Y, cz - 31, 5, 20);
         V3Structures.watchTower(c, cx + 38, Y, cz - 31, 5, 20);
         V3Structures.watchTower(c, cx - 38, Y, cz + 31, 5, 20);
         V3Structures.watchTower(c, cx + 38, Y, cz + 31, 5, 20);
-
-        // Central throne dais = obvious boss marker.
         c.fill(cx - 6, Y + 2, cz - 6, cx + 6, Y + 2, cz + 6, Material.QUARTZ_BLOCK);
         c.fill(cx - 4, Y + 3, cz + 2, cx + 4, Y + 3, cz + 6, Material.GOLD_BLOCK);
         c.fill(cx - 2, Y + 4, cz + 4, cx + 2, Y + 8, cz + 6, Material.OBSIDIAN);
-        marker(cx, Y + 4, cz, Material.REDSTONE_BLOCK); // boss / juggernaut
-
-        // hunter spawns
+        marker(cx, Y + 4, cz, Material.REDSTONE_BLOCK);
         int[][] spawns = {{0,-22},{22,0},{0,22},{-22,0},{16,-16},{16,16},{-16,16},{-16,-16}};
         for (int[] s : spawns) marker(cx + s[0], Y + 2, cz + s[1], Material.GLOWSTONE);
-        c.disc(cx - 31, Y + 2, cz - 23, 3, Material.EMERALD_BLOCK); // lobby
+        c.disc(cx - 31, Y + 2, cz - 23, 3, Material.EMERALD_BLOCK);
         spectator(cx, Y + 13, cz + 37, 10);
     }
 
     private void buildVisualLinks() {
-        // Short broken bridge stubs make the fortress read as one kingdom while keeping arenas isolated.
         V3Structures.stoneBridge(c, 0, Y + 1, -34, 0, Y + 1, -52, 5);
         V3Structures.stoneBridge(c, 34, Y + 1, 0, 52, Y + 1, 0, 5);
         V3Structures.stoneBridge(c, 0, Y + 1, 34, 0, Y + 1, 52, 5);
@@ -240,7 +208,7 @@ public final class SkyKingsEventMapBuilder {
 
     private void finish() {
         world.setSpawnLocation(0, Y + 3, 12);
-        world.setPVP(false);
+        world.setPVP(true);
         world.setStorm(false);
         world.setThundering(false);
         world.setGameRuleValue("doMobSpawning", "false");
