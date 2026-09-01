@@ -12,7 +12,10 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
+
+import java.io.File;
 
 /** Schneller Phase-10 Runtime-Check fuer Staff nach Deploy/Restart. */
 public final class SystemCheckCommand implements CommandExecutor {
@@ -61,6 +64,9 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, Bukkit.getWorld("SkyPlots") != null, "SkyPlots Welt");
         check(sender, Bukkit.getWorld("SkyCommunityEvent") != null, "SkyCommunityEvent Welt");
 
+        sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
+        jackpotRecovery(sender);
+
         int eventPlayers = EventParticipationService.global().snapshot().size();
         sender.sendMessage(ChatColor.GRAY + "Aktive Event-Spieler: " + ChatColor.WHITE + eventPlayers);
         if (discord == null || !discord.isEnabled()) {
@@ -75,6 +81,31 @@ public final class SystemCheckCommand implements CommandExecutor {
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
         return true;
+    }
+
+    private void jackpotRecovery(CommandSender sender) {
+        Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+        if (core == null) {
+            check(sender, false, "Jackpot Recovery Status");
+            return;
+        }
+
+        File file = new File(core.getDataFolder(), "jackpot.yml");
+        if (!file.exists()) {
+            check(sender, true, "Jackpot Recovery Status");
+            return;
+        }
+
+        YamlConfiguration data = YamlConfiguration.loadConfiguration(file);
+        String status = data.getString("recovery.status", "");
+        if ("REVIEW_REQUIRED".equalsIgnoreCase(status)) {
+            String winner = data.getString("recovery.winner-name", data.getString("recovery.winner", "unknown"));
+            long payout = data.getLong("recovery.payout", 0L);
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Jackpot Recovery erforderlich"
+                    + ChatColor.DARK_GRAY + " | Gewinner " + winner + " | Payout " + payout);
+            return;
+        }
+        check(sender, true, "Jackpot Recovery Status");
     }
 
     private void plugin(CommandSender sender, String name) {
