@@ -7,7 +7,7 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 ## 1. Hilfe & Navigation
 
 - `/commands` - zentraler SkyKings Help Hub. Aliases: `/befehle`, `/cmds`.
-- `/spawn` - 3-Sekunden-Teleport zum globalen Spawn; Combat/Bewegung/Schaden koennen abbrechen.
+- `/spawn` - 3-Sekunden-Teleport zum globalen Spawn; Combat/Bewegung/Schaden koennen abbrechen. Countdown, Fehler und erfolgreicher Teleport haben Soundfeedback.
 - `/warp` - Warp-GUI.
 - `/warp <Name>` - 3-Sekunden-Direktreise zu einem Warp.
 
@@ -75,7 +75,7 @@ Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort
 - `/p visit <Spieler>` - Plot besuchen.
 - `/p info` - Plotinfo.
 - `/p merge <nord|ost|sued|west>` - angrenzende Plotzellen verbinden; nur die Zwischenstrasse wird Teil des Merges.
-- `/p rand` - Plot-Rand-Shop / freigeschaltete Rand-Cosmetics wechseln.
+- `/p rand` - Plot-Rand-Shop / freigeschaltete Rand-Cosmetics wechseln. Der sichtbare Rand liegt eine Blockebene ueber dem Grasboden; die 7-Block-Strasse bleibt frei.
 
 ## 5. Clan & Social
 
@@ -116,7 +116,14 @@ Mietstand-Regel: Nur der aktive Mieter darf im definierten Cuboid bauen und dort
 - `/lms <join|leave|start|stop>` - Last Man Standing.
 - `/clanwar <Clan-Owner|accept|deny|status|stop>` - sichere 2v2- bis 5v5-Clan Wars.
 - `/targetevent <status|start|stop> [Spieler]` - Most Wanted.
-- `/verlosung <join|start|stop>` - serverweite Coin-Verlosung.
+- `/verlosung <join|start|stop>` - normale serverweite Coin-Verlosung.
+- `/freitag` - Staff: startet den kompletten Freitags-Community-Abend mit Intro, Auto-Verlosung, manueller Gewinnphase und Drop-Event.
+- `/freitag status` - aktuelle Freitags-Eventphase anzeigen.
+- `/freitag stop` - laufenden Freitags-Flow und seine Tasks sauber abbrechen.
+- `/verlosen` - waehrend der Freitags-Gewinnphase den aktuell gehaltenen Item-Stack inklusive Menge an einen zufaelligen Online-Spieler verlosen.
+- `/verlosen fertig` - manuelle Gewinnphase abschliessen und den 15-Sekunden-Countdown zum Drop-Event bei `/warp Event` starten.
+
+Freitags-Ablauf: Das Intro nutzt serverweite Sounds und Feuerwerk. Die automatische Ziehung vergibt einen zufaelligen Reward aus Coins, SkyKings-Sternen oder echten server-issued Crates. Danach kann Staff beliebig viele gehaltene Item-Stacks verlosen. Das Finale droppt kontrolliert hochwertige Crates/PvP-Gear/Consumables rund um den Warp `Event`.
 
 Tournament und Juggernaut gehoeren bewusst nicht mehr zum finalen Feature-Set.
 
@@ -150,6 +157,8 @@ Die offiziellen SkyKings-Welten sind `SkyPvP`, `SkyPlots`, `SkyIslands` und `Sky
 - `/skymap load [Weltname]` - vorhandene Welt manuell laden; normalerweise nicht noetig, da offizielle Maps beim Start automatisch geladen werden.
 - `/skymap community [Weltname]` - Community-/Giveaway-Map erstmalig erzeugen, falls sie noch fehlt.
 - `/skymap generate [Weltname]` - alte lokale Test-Arena V3 erzeugen; kein Produktionsbestandteil.
+
+**Freitags-Setup Pflicht:** Ein persistenter Warp mit exakt dem Namen `Event` muss gesetzt sein. An der Mitte der gewuenschten Drop-Area stehen und einmal `/setwarp Event` ausfuehren. `/freitag` startet nicht, solange dieser Warp fehlt oder seine Welt nicht geladen ist.
 
 Auto-Load-Regel: `SkyPlots` und `SkyIslands` werden beim Core-Start mit ihren Spezialgeneratoren geladen. `SkyPvP` und `SkyCommunityEvent` werden beim Combat-Start automatisch geladen, sobald ihre Weltordner existieren.
 
@@ -225,18 +234,19 @@ In der Naehe des gewuenschten Villagers:
 1. Build/Deploy, Serverstart, `/skcheck`.
 2. Mit `/skymap list` pruefen, dass `SkyPvP`, `SkyPlots`, `SkyIslands` und `SkyCommunityEvent` geladen sind.
 3. `/setspawn`.
-4. finale `/setwarp`-Punkte setzen.
+4. finale `/setwarp`-Punkte setzen; fuer den Community-Abend zwingend auch `/setwarp Event`.
 5. PvP-Regionen definieren.
 6. King Altar, Hot Zones, End Zone.
 7. Gold-/Level-/Blacksmith-/Merchant-Landmarks.
 8. Secrets, Loot Rooms, Routes, Map Loot, Supply Drops, Displays, Trashbins.
 9. Shop-NPCs binden und Markt-Mietstaende mit `/shoprent pos1|pos2|create` definieren.
 10. Duel/LMS/Clan-War-Arenen in einer gewuenschten bestehenden Welt setzen.
-11. Plot-/Island-Schutz, Rand, Merge, Trust testen.
+11. Plot-/Island-Schutz, erhoehten Rand, Merge, Trust testen.
 12. Kits, 100-Level-Battle-Pass, Quests, Crates, Voucher, Jackpot testen.
-13. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
-14. Restart-/Persistenz- und Backup/Restore-Gates.
-15. Economy-/Reward-Balance, dann Soft Launch.
+13. `/freitag` einmal mit Auto-Ziehung, mindestens einer `/verlosen`-Runde und `/verlosen fertig` bis zum kompletten Drop-Finale testen.
+14. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
+15. Restart-/Persistenz- und Backup/Restore-Gates.
+16. Economy-/Reward-Balance, dann Soft Launch.
 
 ## 15. Pflege-Regel
 
