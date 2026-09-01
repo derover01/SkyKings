@@ -58,6 +58,13 @@ public final class PvpStatsService implements PvpStatsTracker {
         return Collections.unmodifiableMap(snapshot);
     }
 
+    /** Loescht ausschliesslich die Combat-Stats dieses Spielers. */
+    public void resetStats(UUID uuid) {
+        if (uuid == null) return;
+        stats.remove(uuid);
+        saveAsync();
+    }
+
     @Override
     public void recordDeath(UUID victimUuid) {
         MutableStats value = stats.computeIfAbsent(victimUuid, ignored -> new MutableStats());
