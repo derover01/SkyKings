@@ -7,7 +7,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-/** /battlepass sowie Admin-Premiumtoggle. */
+/** /battlepass Hub, Rewards/Quests Navigation sowie Admin-Premiumtoggle. */
 public final class BattlePassCommand implements CommandExecutor {
     private final BattlePassService battlePass;
 
@@ -32,7 +32,21 @@ public final class BattlePassCommand implements CommandExecutor {
             sender.sendMessage("Nutze /battlepass premium <Spieler> <on|off>.");
             return true;
         }
-        battlePass.open((Player) sender);
+        Player player = (Player) sender;
+        if (args.length >= 1 && ("rewards".equalsIgnoreCase(args[0]) || "belohnungen".equalsIgnoreCase(args[0]))) {
+            int page = 0;
+            if (args.length >= 2) {
+                try { page = Math.max(0, Integer.parseInt(args[1]) - 1); }
+                catch (NumberFormatException ignored) { }
+            }
+            battlePass.openRewards(player, page);
+            return true;
+        }
+        if (args.length >= 1 && ("quests".equalsIgnoreCase(args[0]) || "aufgaben".equalsIgnoreCase(args[0]))) {
+            Bukkit.dispatchCommand(player, "quests");
+            return true;
+        }
+        battlePass.open(player);
         return true;
     }
 }
