@@ -9,14 +9,16 @@ public final class TradeService {
     private final Map<UUID, UUID> pendingRequests = new ConcurrentHashMap<UUID, UUID>();
     private final Map<UUID, TradeSession> activeByPlayer = new ConcurrentHashMap<UUID, TradeSession>();
 
-    public boolean request(UUID sender, UUID target) {
+    /** Check + Request-Eintrag sind eine atomare Zustandsaenderung. */
+    public synchronized boolean request(UUID sender, UUID target) {
         if (sender == null || target == null || sender.equals(target)) return false;
         if (activeByPlayer.containsKey(sender) || activeByPlayer.containsKey(target)) return false;
         pendingRequests.put(target, sender);
         return true;
     }
 
-    public TradeSession accept(UUID target, UUID sender) {
+    /** Verhindert zwei parallele Accepts fuer denselben Spieler. */
+    public synchronized TradeSession accept(UUID target, UUID sender) {
         if (target == null || sender == null) return null;
         UUID requestedBy = pendingRequests.get(target);
         if (!sender.equals(requestedBy)) return null;
@@ -28,18 +30,18 @@ public final class TradeService {
         return session;
     }
 
-    public void deny(UUID target) { if (target != null) pendingRequests.remove(target); }
+    public synchronized void deny(UUID target) { if (target != null) pendingRequests.remove(target); }
 
     public TradeSession get(UUID player) { return activeByPlayer.get(player); }
 
-    public void finish(TradeSession session) {
+    public synchronized void finish(TradeSession session) {
         if (session == null) return;
         session.setFinished(true);
-        activeByPlayer.remove(session.getLeft().getPlayer());
-        activeByPlayer.remove(session.getRight().getPlayer());
+        activeByPlayer.remove(session.getLeft().getPlayer(), session);
+        activeByPlayer.remove(session.getRight().getPlayer(), session);
     }
 
-    public void cancel(UUID player) {
+    public synchronized void cancel(UUID player) {
         TradeSession session = activeByPlayer.get(player);
         if (session != null) finish(session);
         pendingRequests.remove(player);
