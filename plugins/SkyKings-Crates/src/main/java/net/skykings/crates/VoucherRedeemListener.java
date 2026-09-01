@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.gui.GuiSession;
 import net.skykings.core.kit.KitDefinition;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
@@ -8,8 +9,10 @@ import net.skykings.core.model.Rank;
 import net.skykings.core.permission.VoucherPermissionService;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiFormat;
+import net.skykings.core.ui.UiItems;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -23,7 +26,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Rechtsklick auf Gutschein = einmalige, persistente Einloesung. */
+/** Rechtsklick auf Gutschein = sichere Einloesung; Rang/Rechte immer mit Confirm-GUI. */
 public final class VoucherRedeemListener implements Listener {
     private static final long MAX_COIN_VOUCHER = 1_000_000_000L;
 
@@ -44,10 +47,10 @@ public final class VoucherRedeemListener implements Listener {
     public void onInteract(PlayerInteractEvent event) {
         Action action = event.getAction();
         if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
-        VoucherItemCodec.DecodedVoucher voucher = codec.decode(event.getItem());
+        final VoucherItemCodec.DecodedVoucher voucher = codec.decode(event.getItem());
         if (voucher == null) return;
         event.setCancelled(true);
-        Player player = event.getPlayer();
+        final Player player = event.getPlayer();
         if (!store.isReady()) {
             player.sendMessage(ChatColor.RED + "Gutschein-System startet noch. Bitte gleich erneut versuchen.");
             SoundFeedback.error(player);
@@ -55,6 +58,52 @@ public final class VoucherRedeemListener implements Listener {
         }
         if (!canRedeem(player, voucher)) return;
 
+        if (voucher.getType() == VoucherItemCodec.VoucherType.RANK
+                || voucher.getType() == VoucherItemCodec.VoucherType.PERMISSION) {
+            openDecisionGui(player, voucher);
+            return;
+        }
+        beginRedeem(player, voucher);
+    }
+
+    private void openDecisionGui(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
+        GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutschein bestaetigen", 27);
+        String type = voucher.getType() == VoucherItemCodec.VoucherType.RANK ? "Rang-Gutschein" : "Rechte-Gutschein";
+        Material icon = voucher.getType() == VoucherItemCodec.VoucherType.RANK ? Material.DIAMOND : Material.PAPER;
+
+        gui.setItem(13, UiItems.item(icon,
+                ChatColor.GOLD.toString() + ChatColor.BOLD + type,
+                ChatColor.GRAY + "Ziel: " + ChatColor.WHITE + voucher.getTarget(),
+                ChatColor.DARK_GRAY + "Serial: " + voucher.getSerial().toString().substring(0, 8)));
+
+        gui.setItem(11, UiItems.item(Material.EMERALD_BLOCK,
+                ChatColor.GREEN.toString() + ChatColor.BOLD + "ANNEHMEN",
+                ChatColor.GRAY + "Gutschein jetzt einloesen.",
+                ChatColor.RED + "Danach ist er verbraucht."), (p, e, s) -> {
+            p.closeInventory();
+            if (!hasMatchingSerial(p, voucher.getSerial())) {
+                p.sendMessage(ChatColor.RED + "Der Gutschein ist nicht mehr in deinem Inventar.");
+                SoundFeedback.error(p);
+                return;
+            }
+            if (!canRedeem(p, voucher)) return;
+            beginRedeem(p, voucher);
+        });
+
+        gui.setItem(15, UiItems.item(Material.REDSTONE_BLOCK,
+                ChatColor.RED.toString() + ChatColor.BOLD + "ABLEHNEN",
+                ChatColor.GRAY + "Nichts wird eingeloest.",
+                ChatColor.GREEN + "Der Gutschein bleibt erhalten."), (p, e, s) -> {
+            p.closeInventory();
+            p.sendMessage(ChatColor.YELLOW + "Gutschein nicht eingeloest. Du kannst ihn spaeter erneut benutzen.");
+            SoundFeedback.back(p);
+        });
+
+        core.getGuiManager().open(gui);
+        SoundFeedback.menuOpen(player);
+    }
+
+    private void beginRedeem(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
         final UUID serial = voucher.getSerial();
         store.redeem(serial).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!marked) {
@@ -68,13 +117,7 @@ public final class VoucherRedeemListener implements Listener {
                 return;
             }
 
-            // Niemals das alte ItemStack-Objekt vom Klickzeitpunkt mutieren: Zwischen Datei-Write
-            // und Main-Thread-Callback kann der Spieler Slots wechseln, droppen oder Inventare
-            // bewegen. Stattdessen wird jetzt nur ein aktuell vorhandener Voucher mit exakt
-            // derselben persistenten Serial entfernt. Ist er inzwischen weg, bleibt er durch
-            // den Redemption-Store trotzdem dauerhaft wertlos und kann nicht doppelt ausloesen.
             consumeMatchingSerial(player, serial);
-
             core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
                     player.getUniqueId(), player.getName(), null,
                     "serial=" + serial + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
@@ -219,6 +262,15 @@ public final class VoucherRedeemListener implements Listener {
     private boolean invalid(Player player) {
         player.sendMessage(ChatColor.RED + "Dieser Gutschein enthaelt ein ungueltiges Ziel.");
         SoundFeedback.error(player);
+        return false;
+    }
+
+    private boolean hasMatchingSerial(Player player, UUID serial) {
+        if (player == null || serial == null) return false;
+        for (ItemStack current : player.getInventory().getContents()) {
+            VoucherItemCodec.DecodedVoucher decoded = codec.decode(current);
+            if (decoded != null && serial.equals(decoded.getSerial())) return true;
+        }
         return false;
     }
 
