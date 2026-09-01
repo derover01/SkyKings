@@ -3,7 +3,7 @@ version: ${project.version}
 main: net.skykings.admin.SkyKingsAdmin
 depend: [SkyKings-Core]
 description: >
-  Admin-Modul für Staff-Commands, Gutscheine, Audit, Events, Diagnose und Discord-Logging.
+  Admin-Modul für Staff-Commands, Warps, Audit, Events, Diagnose und Discord-Logging.
 authors: [SkyKings Team]
 commands:
   rang:
@@ -23,6 +23,22 @@ commands:
   clear:
     description: Startet einen angekündigten Boden-Clear mit 2 Minuten Countdown.
     usage: /clear
+  warp:
+    description: Öffnet die SkyKings-Warp-Auswahl oder teleportiert zu einem Warp.
+    usage: /warp [Name]
+  setwarp:
+    description: Setzt einen Warp an der aktuellen Position.
+    usage: /setwarp <Name>
+    permission: skykings.admin.warps
+  delwarp:
+    description: Löscht einen Warp.
+    usage: /delwarp <Name>
+    aliases: [deletewarp]
+    permission: skykings.admin.warps
+  maptp:
+    description: Staff-Schnellreise zu SkyKings-Welten.
+    usage: /maptp <main|plots|islands|events|community>
+    permission: skykings.admin.maptp
   skcheck:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
     usage: /skcheck
@@ -43,6 +59,12 @@ permissions:
     default: false
   skykings.admin.discord:
     description: Darf die Discord-Bridge testen und verwalten.
+    default: false
+  skykings.admin.warps:
+    description: Darf Warps setzen und löschen.
+    default: false
+  skykings.admin.maptp:
+    description: Darf technische SkyKings-Welten direkt ansteuern.
     default: false
   skykings.staff.announcement:
     description: Darf Server-Ankündigungen senden.
