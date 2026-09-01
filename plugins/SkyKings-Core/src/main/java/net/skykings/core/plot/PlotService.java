@@ -57,6 +57,7 @@ public final class PlotService implements PlotAccessService {
         if (plugin instanceof SkyKingsCoreAPI) {
             SkyKingsCoreAPI core = (SkyKingsCoreAPI) plugin;
             this.borderService = new PlotBorderService(plugin, this, core.getEconomyService());
+            refreshLoadedBorders();
             plugin.getServer().getPluginManager().registerEvents(new InventoryDropSyncListener(plugin), plugin);
             plugin.getServer().getPluginManager().registerEvents(new ServerListMotdListener(), plugin);
         } else {
@@ -150,7 +151,7 @@ public final class PlotService implements PlotAccessService {
 
     /** Der sichtbare, vom System verwaltete Aussenrand eines geclaimten/merged Plots. */
     public synchronized boolean isManagedBorder(Location location) {
-        if (!isPlotWorld(location) || location.getBlockY() != Y - 1) return false;
+        if (!isPlotWorld(location) || location.getBlockY() != Y) return false;
         PlotData plot = findAt(location);
         if (plot == null || isRoad(location)) return false;
         int gx = Math.floorDiv(location.getBlockX(), SPACING);
@@ -223,6 +224,8 @@ public final class PlotService implements PlotAccessService {
         for (int z = minZ; z < minZ + PLOT_SIZE; z++) {
             world.getBlockAt(leftEdge, Y - 1, z).setType(Material.GRASS, false);
             world.getBlockAt(rightEdge, Y - 1, z).setType(Material.GRASS, false);
+            world.getBlockAt(leftEdge, Y, z).setType(Material.AIR, false);
+            world.getBlockAt(rightEdge, Y, z).setType(Material.AIR, false);
         }
     }
 
@@ -237,6 +240,8 @@ public final class PlotService implements PlotAccessService {
         for (int x = minX; x < minX + PLOT_SIZE; x++) {
             world.getBlockAt(x, Y - 1, northEdge).setType(Material.GRASS, false);
             world.getBlockAt(x, Y - 1, southEdge).setType(Material.GRASS, false);
+            world.getBlockAt(x, Y, northEdge).setType(Material.AIR, false);
+            world.getBlockAt(x, Y, southEdge).setType(Material.AIR, false);
         }
     }
 
@@ -253,6 +258,7 @@ public final class PlotService implements PlotAccessService {
         world.getBlockAt(x, 62, z).setType(Material.DIRT, false);
         world.getBlockAt(x, 63, z).setType(Material.DIRT, false);
         world.getBlockAt(x, Y - 1, z).setType(Material.GRASS, false);
+        world.getBlockAt(x, Y, z).setType(Material.AIR, false);
     }
 
     /** Wendet einen Cosmetic-Rand nur an der aeusseren Kontur an; interne Merge-Kanten werden Gras. */
@@ -283,7 +289,16 @@ public final class PlotService implements PlotAccessService {
     }
 
     private void setBorderBlock(World world, int x, int z, Material material, boolean exposed) {
-        world.getBlockAt(x, Y - 1, z).setType(exposed ? material : Material.GRASS, false);
+        world.getBlockAt(x, Y - 1, z).setType(Material.GRASS, false);
+        world.getBlockAt(x, Y, z).setType(exposed ? material : Material.AIR, false);
+    }
+
+    /** Migriert bestehende Claims beim Start vom alten bodenbuendigen auf den erhoehten Rand. */
+    private synchronized void refreshLoadedBorders() {
+        if (borderService == null) return;
+        for (PlotData plot : plots.values()) {
+            applyBorder(plot, borderService.selected(plot.owner).getMaterial());
+        }
     }
 
     public synchronized boolean add(UUID owner, UUID target) {
