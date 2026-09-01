@@ -1,8 +1,10 @@
 package net.skykings.core.display;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.clan.ClanService;
 import net.skykings.core.model.PlayerProfile;
 import net.skykings.core.profile.PlayerProfileService;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,7 +24,7 @@ public final class PlayerDisplayService {
     private final PlayerProfileService profileService;
     private final RankDisplayConfig displayConfig;
     private final ChatDisplayPreferenceStore preferences;
-    private final ClanService clanService;
+    private volatile ClanService clanService;
 
     public PlayerDisplayService(PlayerProfileService profileService, RankDisplayConfig displayConfig) {
         this(profileService, displayConfig, null);
@@ -51,9 +53,12 @@ public final class PlayerDisplayService {
         return cosmetic == null ? null : cosmetic;
     }
 
+    /** Clan ist ein separater Identitaets-Layer und veraendert Rang/Prefix-Einstellungen nicht. */
     public String clanTagFor(Player player) {
-        if (clanService == null || player == null) return "";
-        ClanService.Clan clan = clanService.getClan(player.getUniqueId());
+        if (player == null) return "";
+        ClanService service = resolveClanService();
+        if (service == null) return "";
+        ClanService.Clan clan = service.getClan(player.getUniqueId());
         if (clan == null || clan.getTag() == null || clan.getTag().isEmpty()) return "";
         return ChatColor.DARK_GRAY + "[" + ChatColor.AQUA + clan.getTag() + ChatColor.DARK_GRAY + "]";
     }
@@ -81,6 +86,18 @@ public final class PlayerDisplayService {
                 + (clan.isEmpty() ? "" : clan + " ") + ChatColor.WHITE + player.getName();
         if (listName.length() > 32) listName = listName.substring(0, 32);
         player.setPlayerListName(listName);
+    }
+
+    private ClanService resolveClanService() {
+        ClanService current = clanService;
+        if (current != null) return current;
+        try {
+            SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+            if (api != null) clanService = api.getClanService();
+        } catch (Throwable ignored) {
+            return null;
+        }
+        return clanService;
     }
 
     private String rankPrefixFor(Player player) {
