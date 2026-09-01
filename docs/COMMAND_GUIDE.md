@@ -149,6 +149,9 @@ Rang- und Rechte-Gutscheine oeffnen vor der Einloesung ein Annehmen/Ablehnen-Men
 - `/clear` - angekuendigter Boden-Clear. Aliases: `/groundclear`, `/bodenclear`.
 - `/gm <0|1|2|3> [Spieler]` - Gamemode.
 - `/buildmode` - persoenlicher Map-Baumodus fuer geschuetzte Produktions-/Communitymaps.
+- `/casinonpc bind <hub|coinflip|dice|lucky7|wheel|jackpot>` - naechsten Villager als physische Void-Crown-Casino-Station binden.
+- `/casinonpc unbind` - Casino-Bindung des naechsten Villagers entfernen.
+- `/casinonpc info` / `/casinonpc list` - Casino-NPC-Bindung pruefen bzw. alle persistenten Stationen anzeigen.
 - `/skcheck` - Runtime-Systemcheck.
 - `/discordtest [staff|audit|events|status]` - Discord-Bridge testen.
 
@@ -167,7 +170,7 @@ Die offiziellen SkyKings-Welten sind `SkyPvP`, `SkyPlots`, `SkyIslands` und `Sky
 
 **Freitags-Setup Pflicht:** Ein persistenter Warp mit exakt dem Namen `Event` muss gesetzt sein. An der Mitte der gewuenschten Drop-Area stehen und einmal `/setwarp Event` ausfuehren. `/freitag` startet nicht, solange dieser Warp fehlt oder seine Welt nicht geladen ist.
 
-**Casino-Setup empfohlen:** Sobald die finale Casino-Map eingebaut ist, einen Warp `Casino` am Haupteingang setzen. `/casino` funktioniert technisch auch ohne Map, die Map dient als physischer Hub/NPC-Bereich.
+**Casino-Setup empfohlen:** Die finale Monte-Carlo-Schematic wird als Basis fuer das physische `VOID CROWN CASINO` verwendet. Nach dem Einfuegen am Haupteingang `/setwarp Casino` setzen. Danach sechs Villager an Reception, Coin Flip, Crown Dice, Lucky 7, Wheel und Jackpot platzieren und mit `/casinonpc bind ...` anbinden. `/casino` bleibt der voll funktionsfaehige GUI-Fallback.
 
 Auto-Load-Regel: `SkyPlots` und `SkyIslands` werden beim Core-Start mit ihren Spezialgeneratoren geladen. `SkyPvP` und `SkyCommunityEvent` werden beim Combat-Start automatisch geladen, sobald ihre Weltordner existieren.
 
@@ -238,6 +241,19 @@ In der Naehe des gewuenschten Villagers:
 - `/shopnpc info` - Bindung des naechsten Villagers pruefen.
 - `/shopnpc unbind` - Bindung entfernen.
 
+### Void Crown Casino-NPCs
+
+```text
+/casinonpc bind hub
+/casinonpc bind coinflip
+/casinonpc bind dice
+/casinonpc bind lucky7
+/casinonpc bind wheel
+/casinonpc bind jackpot
+```
+
+Jeder Casino-NPC oeffnet direkt seine physische Station. Bei Coin Flip, Crown Dice, Lucky 7 und Wheel waehlt der Spieler zuerst Coins oder SkyKings Sterne und danach den Einsatz. Die Reception oeffnet den kompletten Casino-Hub; der Jackpot-Host springt direkt in den bestehenden Server-Jackpot.
+
 ## 14. Empfohlene erste Setup-Reihenfolge
 
 1. Build/Deploy, Serverstart, `/skcheck`.
@@ -249,14 +265,15 @@ In der Naehe des gewuenschten Villagers:
 7. Gold-/Level-/Blacksmith-/Merchant-Landmarks.
 8. Secrets, Loot Rooms, Routes, Map Loot, Supply Drops, Displays, Trashbins.
 9. Shop-NPCs binden und Markt-Mietstaende mit `/shoprent pos1|pos2|create` definieren.
-10. Duel/LMS/Clan-War-Arenen in einer gewuenschten bestehenden Welt setzen.
-11. Plot-/Island-Schutz, erhoehten Rand, Merge, Trust testen.
-12. Kits, 100-Level-Battle-Pass, Quests, neue Event-Crates, Voucher, Shop und Jackpot testen.
-13. `/freitag` einmal mit allen zehn Auto-Ziehungen, mindestens einer `/verlosen`-Runde und `/verlosen fertig` bis zum kompletten Drop-Finale testen.
-14. `/casino` mit Coins und Sternen in allen vier Spielen und mehreren Einsatzstufen testen; Guthaben vor/nach jedem Spiel pruefen.
-15. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
-16. Restart-/Persistenz- und Backup/Restore-Gates.
-17. Economy-/Reward-Balance, dann Soft Launch.
+10. Monte-Carlo-Casino-Schematic einfuegen, zu Void Crown umbauen, `/setwarp Casino` setzen und alle sechs `/casinonpc`-Stationen binden.
+11. Duel/LMS/Clan-War-Arenen in einer gewuenschten bestehenden Welt setzen.
+12. Plot-/Island-Schutz, erhoehten Rand, Merge, Trust testen.
+13. Kits, 100-Level-Battle-Pass, Quests, neue Event-Crates, Voucher, Shop und Jackpot testen.
+14. `/freitag` einmal mit allen zehn Auto-Ziehungen, mindestens einer `/verlosen`-Runde und `/verlosen fertig` bis zum kompletten Drop-Finale testen.
+15. `/casino` sowie alle sechs physischen Casino-NPCs mit Coins und Sternen testen; Guthaben vor/nach jedem Spiel pruefen.
+16. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
+17. Restart-/Persistenz- und Backup/Restore-Gates.
+18. Economy-/Reward-Balance, dann Soft Launch.
 
 ## 15. Pflege-Regel
 
