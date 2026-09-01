@@ -1,9 +1,5 @@
 package net.skykings.combat.tag;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.ServicePriority;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,12 +15,6 @@ public final class CombatTagServiceImpl implements CombatTagService {
             throw new IllegalArgumentException("durationMillis muss positiv sein: " + durationMillis);
         }
         this.durationMillis = durationMillis;
-
-        // Eine einzige CombatTag-Instanz wird von Combat erzeugt. Wir publizieren exakt diese
-        // Instanz ueber Bukkits ServicesManager, damit andere SkyKings-Module denselben Combat-
-        // Zustand verwenden und keine eigene, abweichende Tag-Logik nachbauen muessen.
-        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(CombatTagServiceImpl.class);
-        Bukkit.getServicesManager().register(CombatTagService.class, this, plugin, ServicePriority.Normal);
     }
 
     @Override
