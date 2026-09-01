@@ -11,11 +11,16 @@ $modules = @(
 )
 
 Write-Host '== SkyKings Deploy ==' -ForegroundColor Cyan
-Write-Host 'Wichtig: Der Minecraft-Server muss vorher komplett gestoppt sein.' -ForegroundColor Yellow
+
+$runningServer = Get-CimInstance Win32_Process -Filter "Name='java.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -and $_.CommandLine -match 'spigot-1\.8\.8\.jar' }
+if ($runningServer) {
+    throw "SkyKings/Spigot laeuft noch. Erst in der Serverkonsole 'stop' eingeben und danach erneut deployen."
+}
 
 Set-Location $repoRoot
 
-Write-Host '1/3 Maven Build...' -ForegroundColor Cyan
+Write-Host '1/3 Maven Tests + Build...' -ForegroundColor Cyan
 & mvn clean package
 if ($LASTEXITCODE -ne 0) {
     throw "Maven Build fehlgeschlagen (ExitCode $LASTEXITCODE)."
@@ -45,5 +50,6 @@ foreach ($module in $modules) {
 }
 
 Write-Host ''
-Write-Host 'Deploy fertig. LuckPerms/Vault wurden nicht angefasst.' -ForegroundColor Green
-Write-Host 'Jetzt den Server normal starten und auf "SkyKings-Combat ... aktiviert" achten.' -ForegroundColor Green
+Write-Host 'Deploy fertig. Tests, Compile und JAR-Kopie waren erfolgreich.' -ForegroundColor Green
+Write-Host 'LuckPerms/Vault wurden nicht angefasst.' -ForegroundColor DarkGray
+Write-Host 'Jetzt den Server normal starten und den Boot-Log bis "Done" pruefen.' -ForegroundColor Green
