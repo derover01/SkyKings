@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -28,8 +28,8 @@ jobs:
           java -version
           mvn -version
 
-      - name: Build all SkyKings modules
-        run: mvn -B -U -DskipTests package
+      - name: Test and build all SkyKings modules
+        run: mvn -B -U package
 
       - name: Upload plugin jars
         if: success()
