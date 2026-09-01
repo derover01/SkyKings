@@ -20,14 +20,31 @@ public final class ChatDisplayPreferenceStore {
         this.yaml = YamlConfiguration.loadConfiguration(file);
     }
 
-    /** Standard AN, damit bestehendes Verhalten fuer alle Spieler erhalten bleibt. */
-    public boolean showRankWithCosmeticPrefix(UUID uuid) {
+    /**
+     * Rang ist jetzt ein echter eigenstaendiger Chat-Layer. Fuer bestehende Spieler wird der
+     * alte show-rank-with-prefix-Wert als Migration-Fallback uebernommen.
+     */
+    public boolean showRank(UUID uuid) {
+        String newPath = path(uuid, "show-rank");
+        if (yaml.contains(newPath)) return yaml.getBoolean(newPath, true);
         return yaml.getBoolean(path(uuid, "show-rank-with-prefix"), true);
     }
 
-    public void setShowRankWithCosmeticPrefix(UUID uuid, boolean show) {
+    public void setShowRank(UUID uuid, boolean show) {
+        yaml.set(path(uuid, "show-rank"), show);
+        // Alten Key synchron halten, damit Downgrade/Teststaende nicht widerspruechlich werden.
         yaml.set(path(uuid, "show-rank-with-prefix"), show);
         save();
+    }
+
+    /** Backward-compatible API fuer bestehenden Code. */
+    public boolean showRankWithCosmeticPrefix(UUID uuid) {
+        return showRank(uuid);
+    }
+
+    /** Backward-compatible API fuer bestehenden Code. */
+    public void setShowRankWithCosmeticPrefix(UUID uuid, boolean show) {
+        setShowRank(uuid, show);
     }
 
     /** Der Besitz bleibt erhalten; nur die sichtbare Chat-Ausgabe kann ausgeblendet werden. */
@@ -37,6 +54,16 @@ public final class ChatDisplayPreferenceStore {
 
     public void setShowCosmeticPrefix(UUID uuid, boolean show) {
         yaml.set(path(uuid, "show-cosmetic-prefix"), show);
+        save();
+    }
+
+    /** Clan-Mitgliedschaft bleibt erhalten; nur der Tag im normalen Chat wird ausgeblendet. */
+    public boolean showClanTag(UUID uuid) {
+        return yaml.getBoolean(path(uuid, "show-clan-tag"), true);
+    }
+
+    public void setShowClanTag(UUID uuid, boolean show) {
+        yaml.set(path(uuid, "show-clan-tag"), show);
         save();
     }
 
