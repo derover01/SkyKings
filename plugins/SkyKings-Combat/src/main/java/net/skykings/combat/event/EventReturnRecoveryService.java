@@ -47,7 +47,8 @@ public final class EventReturnRecoveryService implements Listener {
 
     /** Idempotente Lazy-Installation, damit bestehende Event-Bootstraps nicht erweitert werden muessen. */
     public static synchronized void installIfPossible() {
-        if (instance != null) return;
+        if (activeInstance() != null) return;
+        instance = null; // alte Instanz nach Plugin-Reload niemals als aktiv behandeln
         try {
             Plugin raw = Bukkit.getPluginManager().getPlugin("SkyKings-Combat");
             if (!(raw instanceof JavaPlugin) || !raw.isEnabled()) return;
@@ -63,12 +64,29 @@ public final class EventReturnRecoveryService implements Listener {
 
     /** Read-only Runtime-Health fuer /skcheck und Diagnose. */
     public static synchronized boolean isInstalled() {
-        return instance != null;
+        return activeInstance() != null;
     }
 
     /** Anzahl persistenter Rueckkehrpositionen, die noch auf Join/Respawn warten. */
     public static synchronized int pendingCount() {
-        return instance == null ? -1 : instance.pendingSize();
+        EventReturnRecoveryService active = activeInstance();
+        return active == null ? -1 : active.pendingSize();
+    }
+
+    /**
+     * Statische Felder ueberleben Bukkit-/Plugin-Reloads. Deshalb gilt eine Instanz nur dann als
+     * gesund, wenn sie zur aktuell geladenen und aktivierten Combat-Plugininstanz gehoert.
+     */
+    private static EventReturnRecoveryService activeInstance() {
+        EventReturnRecoveryService current = instance;
+        if (current == null) return null;
+        try {
+            Plugin loaded = Bukkit.getPluginManager().getPlugin("SkyKings-Combat");
+            if (loaded != current.plugin || !current.plugin.isEnabled()) return null;
+            return current;
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private synchronized int pendingSize() {
