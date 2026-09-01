@@ -198,19 +198,60 @@ Regeln:
 - Reihenfolge wird beim Start gemischt
 - Matches laufen nacheinander ueber `a` und `b`
 - ungerade Spielerzahl bekommt automatisch ein Freilos
-- Verlierer wird aus dem isolierten Event entfernt und an seine Rueckkehrposition geschickt
-- Gewinner geht in die naechste Runde
+- nur das aktive 1v1-Paar kann sich Schaden zufuegen
+- Wartende/Lobby-Spieler sind voneinander isoliert
+- Verlierer wird aus dem Event entfernt und an seine Rueckkehrposition geschickt
 - letzter Spieler gewinnt 1.000.000 Coins
 - Tournament-Kills zaehlen nicht als normale Open-World-Kills/Streaks/Bounties
 
 Vor Release mit 4, 5 und 8 Spielern testen, inklusive Quit waehrend eines Matches.
 
 ### Juggernaut
-Ist architektonisch vorbereitet. Gameplay-Controller kommt noch. Vorgesehene Punkte spaeter:
-- lobby
-- boss
-- spawn1..spawn8
-- spectator
+Der Gameplay-Controller ist aktiv: ein zufaellig ausgewaehlter Boss kaempft gegen alle anderen Teilnehmer.
+
+Einmalig setzen:
+```text
+/eventarena set juggernaut lobby
+/eventarena set juggernaut boss
+/eventarena set juggernaut spawn1
+/eventarena set juggernaut spawn2
+/eventarena set juggernaut spawn3
+/eventarena set juggernaut spawn4
+/eventarena set juggernaut spawn5
+/eventarena set juggernaut spawn6
+/eventarena set juggernaut spawn7
+/eventarena set juggernaut spawn8
+/eventarena set juggernaut spectator
+```
+
+Mindestens benoetigt werden `lobby`, `boss` und zwei `spawn`-Punkte.
+
+Spieler:
+```text
+/juggernaut join
+/juggernaut leave
+/juggernaut status
+```
+
+Staff:
+```text
+/juggernaut start
+/juggernaut stop
+```
+
+Regeln:
+- mindestens 3 Spieler
+- Boss wird zufaellig bestimmt
+- Boss: 40 HP, Staerke I, Resistenz I
+- Angreifer werden auf `spawn1..spawnN` verteilt
+- kein Friendly Fire zwischen Angreifern
+- nur Boss und aktive Angreifer koennen sich gegenseitig Schaden zufuegen
+- Items droppen/pickup und fremde Commands sind waehrend des Events blockiert
+- Boss besiegt: jeder ueberlebende Angreifer +250.000 Coins
+- alle Angreifer besiegt: Boss +1.000.000 Coins
+- Event-Kills bleiben aus Open-World-Stats/Streaks/Bounties heraus
+
+Vor Release mit 3, 5 und 9 Spielern testen, ausserdem Boss-Quit, Angreifer-Quit, Pfeile und Restart/Stop waehrend des Events.
 
 ## 5. Community-/Giveaway-Eventmap
 
@@ -402,7 +443,6 @@ Permissions:
 ## 14. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
-- Juggernaut Gameplay-Controller
 - Clan-Wars Event-Controller
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
 - Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
