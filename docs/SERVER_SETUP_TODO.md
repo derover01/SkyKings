@@ -125,14 +125,13 @@ Einmalig erzeugen:
 
 Diese Welt ist **nur fuer spielbare Combat-Events** gedacht und nicht fuer die Community-Giveaways.
 
-Die Welt besteht aus:
-- zentralem SkyKings Event-Hub
+Die finale Generatorstruktur ist bewusst schlanker:
+- zentraler SkyKings Event-Hub
 - Nord: Duel Courtyard
 - Ost: LMS Ruins
-- Sued: Tournament Colosseum
-- West: Juggernaut Fortress
+- Sued: Clan-War-Arena
 
-Die farbigen/auffaelligen Bodenmarker sind bewusst fuer Arena-Punkte vorgesehen.
+Tournament und Juggernaut gehoeren nicht mehr zum SkyKings-Feature-Set.
 
 ### Duel
 Auf Gold-Marker:
@@ -153,7 +152,7 @@ Auf gruenem Lobby-Marker:
 ```text
 /eventarena set lms lobby
 ```
-Danach die acht Glowstone-Marker im Kreis ablaufen:
+Danach die Glowstone-Marker im Kreis ablaufen:
 ```text
 /eventarena set lms spawn1
 /eventarena set lms spawn2
@@ -169,92 +168,8 @@ Zuschauerplattform:
 /eventarena set lms spectator
 ```
 
-### Tournament
-Der Gameplay-Controller ist aktiv und spielt ein Single-Arena-Bracket automatisch Runde fuer Runde aus.
-
-Einmalig an den echten Punkten setzen:
-```text
-/eventarena set tournament lobby
-/eventarena set tournament a
-/eventarena set tournament b
-/eventarena set tournament spectator
-```
-
-Spieler:
-```text
-/tournament join
-/tournament leave
-/tournament status
-```
-
-Staff:
-```text
-/tournament start
-/tournament stop
-```
-
-Regeln:
-- mindestens 4 Spieler zum Start
-- Reihenfolge wird beim Start gemischt
-- Matches laufen nacheinander ueber `a` und `b`
-- ungerade Spielerzahl bekommt automatisch ein Freilos
-- nur das aktive 1v1-Paar kann sich Schaden zufuegen
-- Wartende/Lobby-Spieler sind voneinander isoliert
-- Verlierer wird aus dem Event entfernt und an seine Rueckkehrposition geschickt
-- letzter Spieler gewinnt 1.000.000 Coins
-- Tournament-Kills zaehlen nicht als normale Open-World-Kills/Streaks/Bounties
-
-Vor Release mit 4, 5 und 8 Spielern testen, inklusive Quit waehrend eines Matches.
-
-### Juggernaut
-Der Gameplay-Controller ist aktiv: ein zufaellig ausgewaehlter Boss kaempft gegen alle anderen Teilnehmer.
-
-Einmalig setzen:
-```text
-/eventarena set juggernaut lobby
-/eventarena set juggernaut boss
-/eventarena set juggernaut spawn1
-/eventarena set juggernaut spawn2
-/eventarena set juggernaut spawn3
-/eventarena set juggernaut spawn4
-/eventarena set juggernaut spawn5
-/eventarena set juggernaut spawn6
-/eventarena set juggernaut spawn7
-/eventarena set juggernaut spawn8
-/eventarena set juggernaut spectator
-```
-
-Mindestens benoetigt werden `lobby`, `boss` und zwei `spawn`-Punkte.
-
-Spieler:
-```text
-/juggernaut join
-/juggernaut leave
-/juggernaut status
-```
-
-Staff:
-```text
-/juggernaut start
-/juggernaut stop
-```
-
-Regeln:
-- mindestens 3 Spieler
-- Boss wird zufaellig bestimmt
-- Boss: 40 HP, Staerke I, Resistenz I
-- Angreifer werden auf `spawn1..spawnN` verteilt
-- kein Friendly Fire zwischen Angreifern
-- nur Boss und aktive Angreifer koennen sich gegenseitig Schaden zufuegen
-- Items droppen/pickup und fremde Commands sind waehrend des Events blockiert
-- Boss besiegt: jeder ueberlebende Angreifer +250.000 Coins
-- alle Angreifer besiegt: Boss +1.000.000 Coins
-- Event-Kills bleiben aus Open-World-Stats/Streaks/Bounties heraus
-
-Vor Release mit 3, 5 und 9 Spielern testen, ausserdem Boss-Quit, Angreifer-Quit, Pfeile und Restart/Stop waehrend des Events.
-
 ### Clan Wars
-Der Gameplay-Controller ist aktiv und verwendet die echten persistenten Core-Clans.
+Der Gameplay-Controller verwendet die echten persistenten Core-Clans. Die neue suedliche Arena zeigt zwei klar getrennte Teamseiten.
 
 Mindestens fuer 2v2 setzen:
 ```text
@@ -301,7 +216,7 @@ Regeln:
 - tote Spieler sind eliminiert und kehren an ihre Rueckkehrposition zurueck
 - Quit zaehlt als Ausscheiden
 - letzter Clan gewinnt
-- jeder ueberlebende Sieger erhaelt +500.000 Coins
+- Siegerreward wird nur einmal ausgezahlt
 - Clan-War-Kills bleiben aus Open-World-Stats/Streaks/Bounties heraus
 - Commands, Drop/Pickup und fremde Inventare sind waehrend des Wars blockiert
 
@@ -309,7 +224,7 @@ Vor Release 2v2, 3v3 und 5v5 testen, inklusive Owner-Quit, Member-Quit, Pfeile u
 
 ## 5. Community-/Giveaway-Eventmap
 
-Diese Map ist fuer die typischen Freitag-/Samstag-Events gedacht, bei denen Staff Items, Ränge, Gutscheine, Crates oder andere Gewinne an Spieler verteilt.
+Diese Map ist fuer Freitag-/Samstag-Events gedacht, bei denen Staff Items, Ränge, Gutscheine, Crates oder andere Gewinne an Spieler verteilt.
 
 Einmalig erzeugen:
 
@@ -325,14 +240,14 @@ Ziel der Map:
 - Giveaway-/Preis-Podeste
 - Host-/Staff-Bereich
 - Void-/Sky-Feeling
-- danach optional manuell mit WorldEdit/Handbau verfeinern
+- danach optional manuell mit WorldEdit/Schematics verfeinern
 
 Nach dem Erzeugen pruefen:
 - Spawnpunkt passt
 - keine Mobs
 - kein PvP
 - Buehne und Zuschauerflaeche wirken fuer reale Spielerzahlen nicht zu gross
-- spaeter Event-NPCs/Hologramme/Teleportzugang festlegen, wenn das Community-Eventsystem umgesetzt wird
+- spaeter Event-NPCs/Hologramme/Teleportzugang final festlegen
 
 ## 6. Legacy Hall
 
@@ -431,7 +346,20 @@ Testflow:
 
 Haendler-Eier koennen auch aus Crates kommen.
 
-## 10. Crates / Gutscheine
+## 10. Spawner / Mob-Stacking
+
+Spawner-Stacking und automatisches Spawner-Mob-Stacking sind implementiert.
+
+Testen:
+- Spawner auf eigener Island/eigenem Plot bis zum Limit stapeln
+- gleiche Spawner-Mobs in der Naehe werden zu einem sichtbaren Stack zusammengefasst
+- Stackcounter bleibt korrekt
+- ein Kill reduziert genau um einen Mob
+- Drops/XP nur fuer den getoeteten Mob
+- Chunk-Unload/Reload und Restart
+- grosse Farm auf Entity-Anzahl/TPS testen
+
+## 11. Crates / Gutscheine
 
 Testen:
 - neue Voucher-Titel zeigen konkreten Inhalt
@@ -443,8 +371,9 @@ Testen:
 - Coin-Rewards aus Crates kommen als Gutscheine
 - GiveAll zahlt an alle gerade Online-Spieler
 - Crate-Preview-Chancen gegen `crates.yml` pruefen
+- Rapid-Click / Restart-Replay / Inventory-Move-Dupeversuche
 
-## 11. Announcements / Boden-Clear
+## 12. Announcements / Boden-Clear
 
 - `/announcement <Text>` nutzt das einheitliche SkyKings-Broadcast-Design
 - automatischer Boden-Clear entfernt alle 30 Minuten ausschliesslich gedroppte Item-Entities
@@ -455,14 +384,14 @@ Testen:
 - nach dem Clear wird die Anzahl entfernter Items announced
 - benoetigte Staff-Permission: `skykings.staff.clear`
 
-## 12. Discord
+## 13. Discord
 
 Spaeter lokal setzen, niemals in GitHub committen:
 - Umgebungsvariable `SKYKINGS_DISCORD_BOT_TOKEN`
 - Channel IDs in `discord.yml`
 - `/discordtest staff|audit|events|status`
 
-## 13. Warps / Map-Travel
+## 14. Warps / Map-Travel
 
 Finale Warp-Namen und Koordinaten **nicht raten**. Auf der echten Map an die gewuenschte Position stellen:
 
@@ -494,14 +423,14 @@ Permissions:
 - `skykings.admin.warps`
 - `skykings.admin.maptp`
 
-## 14. Noch offene Entwicklungs-/Balancepunkte
+## 15. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
 - Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
-- echtes AMS/Mob-Stacking + Performanceprofil
+- Mob-Stacking Performanceprofil unter realer Last
 - Clan Tag final in Chat/Tab integrieren, ohne Rangdarstellung zu zerstoeren
 - Discord-Events aus allen Modulen final anschliessen
 - kompletter Restart-/Dupe-/Load-/Backup-Test vor Release
 - Battle-Pass-Economy/XP nach echtem Spieler-Test balancen
-- optionaler eigener Resource-Pack-Layer fuer die Pixel-Battle-Pass-UI
+- optionaler eigener Resource-Pack-Layer fuer die Pixel-Battle-Pass-UI nach stabilem Serverstand
