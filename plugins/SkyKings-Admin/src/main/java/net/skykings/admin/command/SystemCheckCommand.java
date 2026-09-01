@@ -52,13 +52,13 @@ public final class SystemCheckCommand implements CommandExecutor {
         command(sender, "lms");
         command(sender, "clanwar");
         command(sender, "eventarena");
+        command(sender, "skymap");
 
-        sender.sendMessage(ChatColor.AQUA + "Welten");
+        sender.sendMessage(ChatColor.AQUA + "Offizielle Maps");
         check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
         check(sender, Bukkit.getWorld("SkyIslands") != null, "SkyIslands Welt");
         check(sender, Bukkit.getWorld("SkyPlots") != null, "SkyPlots Welt");
-        optionalWorld(sender, "SkyEvents");
-        optionalWorld(sender, "SkyCommunityEvent");
+        check(sender, Bukkit.getWorld("SkyCommunityEvent") != null, "SkyCommunityEvent Welt");
 
         int eventPlayers = EventParticipationService.global().snapshot().size();
         sender.sendMessage(ChatColor.GRAY + "Aktive Event-Spieler: " + ChatColor.WHITE + eventPlayers);
@@ -84,12 +84,6 @@ public final class SystemCheckCommand implements CommandExecutor {
     private void command(CommandSender sender, String name) {
         PluginCommand command = Bukkit.getPluginCommand(name);
         check(sender, command != null && command.getPlugin().isEnabled(), "/" + name);
-    }
-
-    private void optionalWorld(CommandSender sender, String name) {
-        boolean loaded = Bukkit.getWorld(name) != null;
-        sender.sendMessage((loaded ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
-                + ChatColor.GRAY + " " + name);
     }
 
     private void check(CommandSender sender, boolean ok, String name) {
