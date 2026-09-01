@@ -62,7 +62,6 @@ public final class BattlePassService implements Listener {
         int level = progress.getLevel(uuid);
         GuiSession gui = GuiSession.create(player, UiTheme.title("Battle Pass"), 45);
 
-        // Linkes "YOUR PASS" Panel.
         gui.setItem(10, UiItems.item(Material.EXP_BOTTLE, UiTheme.PRIMARY.toString() + ChatColor.BOLD + "DEIN PASS",
                 UiTheme.MUTED + "Season " + UiTheme.TEXT + progress.getSeason(),
                 UiTheme.MUTED + "Level " + UiTheme.TEXT + level + "/100",
@@ -76,7 +75,6 @@ public final class BattlePassService implements Listener {
                 UiTheme.MUTED + "Quests und legitime PvP-Aktivitaet",
                 UiTheme.MUTED + "fuellen deinen Season-Pfad."));
 
-        // Rechtes Action-Panel: grosse Entscheidungen statt viele kleine Slots.
         gui.setItem(14, UiItems.item(Material.ENCHANTED_BOOK, UiTheme.MYTHIC.toString() + ChatColor.BOLD + "QUESTS",
                 UiTheme.MUTED + "Daily, Weekly und Premium.",
                 UiTheme.MUTED + "Aufgaben treiben deinen Pass voran.",
@@ -200,7 +198,7 @@ public final class BattlePassService implements Listener {
         return UiItems.item(material,
                 (premium ? UiTheme.LEGENDARY : UiTheme.TEXT) + "Level " + level,
                 UiTheme.MUTED + numbers.format(rewardCoins(premium, level)) + " Coins",
-                UiTheme.MUTED + rewardStars(premium, level) + " SkyKings Sterne",
+                UiTheme.MUTED.toString() + rewardStars(premium, level) + " SkyKings Sterne",
                 "", state, action);
     }
 
