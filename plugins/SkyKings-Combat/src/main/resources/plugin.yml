@@ -15,7 +15,7 @@ commands:
     usage: /top
     aliases: [leaderboard, leaderboards, kopfgeld, bounty]
   killeffect:
-    description: Öffnet die Auswahl deiner kosmetischen Kill-Effects.
+    description: Öffnet das Cosmetics Center für Kill-Effects und Death-Messages.
     usage: /killeffect
     aliases: [killeffects, killeffekt]
   collection:
@@ -152,8 +152,8 @@ commands:
     permission: skykings.admin.map
     aliases: [mapholo, maphologram]
   skymap:
-    description: Lädt die Produktionsmap oder generiert die Legacy-Testmap.
-    usage: /skymap <load|generate> [Weltname]
+    description: Lädt die Produktionsmap oder generiert Event-/Community-Testwelten.
+    usage: /skymap <load|event|community|generate> [Weltname]
     permission: skykings.admin.map
   spawn:
     description: Teleportiert dich nach 3 Sekunden zum globalen SkyKings-Spawn.
@@ -174,6 +174,18 @@ permissions:
     default: false
   skykings.killeffect.ender:
     description: Schaltet den Ender-Kill-Effect frei.
+    default: false
+  skykings.deathmessage.royal:
+    description: Schaltet die Royal-Death-Message frei.
+    default: false
+  skykings.deathmessage.void:
+    description: Schaltet die Void-Death-Message frei.
+    default: false
+  skykings.deathmessage.hunter:
+    description: Schaltet die Hunter-Death-Message frei.
+    default: false
+  skykings.deathmessage.legend:
+    description: Schaltet die Legend-Death-Message frei.
     default: false
   skykings.admin.map:
     description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
