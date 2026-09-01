@@ -55,11 +55,11 @@ commands:
     aliases: [halloffame, hof]
   battlepass:
     description: Öffnet den Season Battle Pass mit Free- und Premium-Track.
-    usage: /battlepass
+    usage: /battlepass [rewards|quests]
     aliases: [bp]
   quests:
-    description: Zeigt Daily- und Weekly-PvP-Quests.
-    usage: /quests
+    description: Öffnet das Battle-Pass-Quest-Center.
+    usage: /quests [daily|weekly|premium]
     aliases: [quest, aufgaben]
   peace:
     description: Gegenseitiges Peace-System für SkyPvP.
