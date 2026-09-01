@@ -26,6 +26,7 @@ public final class TradeSession {
     public void setFinished(boolean finished) { this.finished = finished; }
     public long getAcceptanceRevision() { return acceptanceRevision; }
     public long bumpAcceptanceRevision() { return ++acceptanceRevision; }
+    public boolean isAcceptanceRevision(long revision) { return acceptanceRevision == revision; }
 
     public TradeOffer offerOf(UUID player) {
         if (left.getPlayer().equals(player)) return left;
