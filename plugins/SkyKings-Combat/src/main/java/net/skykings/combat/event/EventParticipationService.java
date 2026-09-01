@@ -36,7 +36,10 @@ public final class EventParticipationService {
 
     private final Map<UUID, Participation> active = new ConcurrentHashMap<UUID, Participation>();
 
-    public static EventParticipationService global() { return GLOBAL; }
+    public static EventParticipationService global() {
+        EventReturnRecoveryService.installIfPossible();
+        return GLOBAL;
+    }
 
     public boolean join(UUID player, Type type, String sessionId) {
         if (player == null || type == null || sessionId == null || sessionId.trim().isEmpty()) return false;
