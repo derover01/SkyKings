@@ -28,13 +28,13 @@ public class EventParticipationServiceTest {
     @Test
     public void playerCannotJoinTwoEventsAtOnce() {
         UUID player = UUID.randomUUID();
-        assertTrue(service.join(player, EventParticipationService.Type.TOURNAMENT, "t-1"));
-        assertFalse(service.join(player, EventParticipationService.Type.JUGGERNAUT, "j-1"));
+        assertTrue(service.join(player, EventParticipationService.Type.DUEL, "d-1"));
+        assertFalse(service.join(player, EventParticipationService.Type.LMS, "lms-1"));
 
         EventParticipationService.Participation state = service.get(player);
         assertNotNull(state);
-        assertEquals(EventParticipationService.Type.TOURNAMENT, state.getType());
-        assertEquals("t-1", state.getSessionId());
+        assertEquals(EventParticipationService.Type.DUEL, state.getType());
+        assertEquals("d-1", state.getSessionId());
     }
 
     @Test
@@ -47,7 +47,7 @@ public class EventParticipationServiceTest {
         assertTrue(service.join(first, EventParticipationService.Type.CLAN_WAR, "cw-42"));
         assertTrue(service.join(second, EventParticipationService.Type.CLAN_WAR, "cw-42"));
         assertTrue(service.join(third, EventParticipationService.Type.CLAN_WAR, "cw-99"));
-        assertTrue(service.join(fourth, EventParticipationService.Type.TOURNAMENT, "cw-42"));
+        assertTrue(service.join(fourth, EventParticipationService.Type.DUEL, "cw-42"));
 
         assertTrue(service.isSameSession(first, second));
         assertFalse(service.isSameSession(first, third));
@@ -63,7 +63,7 @@ public class EventParticipationServiceTest {
         service.leave(player);
         assertFalse(service.isInEvent(player));
         assertNull(service.get(player));
-        assertTrue(service.join(player, EventParticipationService.Type.JUGGERNAUT, "jug-2"));
+        assertTrue(service.join(player, EventParticipationService.Type.CLAN_WAR, "cw-2"));
     }
 
     @Test
