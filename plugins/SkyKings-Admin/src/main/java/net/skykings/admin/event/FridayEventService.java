@@ -2,6 +2,7 @@ package net.skykings.admin.event;
 
 import net.skykings.admin.warp.WarpService;
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.model.Rank;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.crates.CrateItemCodec;
 import net.skykings.crates.CrateRegistry;
@@ -37,16 +38,18 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * Orchestriert das woechentliche SkyKings-Freitags-Community-Event:
- * Intro -> automatische Verlosung -> manuelle Hand-Item-Verlosungen -> Drop-Event am Warp "Event".
+ * Woechentlicher Community-Abend:
+ * grosses Auto-Giveaway -> beliebig viele Staff-Handitem-Verlosungen -> crate-lastiges Drop-Event.
  */
 public final class FridayEventService implements CommandExecutor {
 
     private enum Phase { IDLE, AUTO_DRAW, MANUAL_DRAWS, DROP_COUNTDOWN, DROP_RUNNING }
 
     private static final String EVENT_WARP = "Event";
+    private static final int AUTO_DRAW_COUNT = 10;
+    private static final int AUTO_DRAW_INTERVAL_SECONDS = 6;
     private static final int DROP_COUNTDOWN_SECONDS = 15;
-    private static final int DROP_COUNT = 42;
+    private static final int DROP_COUNT = 72;
 
     private final JavaPlugin plugin;
     private final SkyKingsCoreAPI core;
@@ -150,65 +153,120 @@ public final class FridayEventService implements CommandExecutor {
         broadcastBlank();
         Bukkit.broadcastMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "✦ FREITAGS-EVENT ✦");
         Bukkit.broadcastMessage(ChatColor.WHITE + "Der SkyKings Community-Abend beginnt jetzt!");
-        Bukkit.broadcastMessage(ChatColor.GRAY + "Erst Auto-Verlosung, danach Staff-Gewinne und zum Finale ein Drop-Event.");
+        Bukkit.broadcastMessage(ChatColor.GRAY + "10 automatische Ziehungen, danach Staff-Gewinne und ein grosses Drop-Event.");
+        Bukkit.broadcastMessage(ChatColor.YELLOW + "Dabei: Crate-Stacks, Coins, Sterne und sogar Free-Raenge.");
         Bukkit.broadcastMessage(ChatColor.YELLOW + "Event-Area: " + ChatColor.WHITE + "/warp Event");
         broadcastBlank();
         broadcastSound(Sound.ENDERDRAGON_GROWL, 0.75F, 1.25F);
-        fireworks(eventLocation, 4);
+        fireworks(eventLocation, 5);
 
         schedule(40L, token, new Runnable() {
             @Override public void run() {
                 Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "AUTO-VERLOSUNG"
-                        + ChatColor.GRAY + " • Ein Online-Spieler wird automatisch gezogen...");
+                        + ChatColor.GRAY + " • " + ChatColor.WHITE + AUTO_DRAW_COUNT + ChatColor.GRAY + " Gewinne werden gezogen!");
                 broadcastSound(Sound.NOTE_PLING, 0.8F, 1.05F);
             }
         });
-        schedule(100L, token, new Runnable() {
-            @Override public void run() { finishAutomaticDraw(eventLocation); }
+
+        for (int i = 0; i < AUTO_DRAW_COUNT; i++) {
+            final int draw = i + 1;
+            long delay = 80L + i * AUTO_DRAW_INTERVAL_SECONDS * 20L;
+            schedule(delay, token, new Runnable() {
+                @Override public void run() { runAutomaticDraw(draw, eventLocation); }
+            });
+        }
+        long finishDelay = 80L + AUTO_DRAW_COUNT * AUTO_DRAW_INTERVAL_SECONDS * 20L + 30L;
+        schedule(finishDelay, token, new Runnable() {
+            @Override public void run() { finishAutomaticSeries(eventLocation); }
         });
     }
 
-    private synchronized void finishAutomaticDraw(Location eventLocation) {
+    private synchronized void runAutomaticDraw(int draw, Location eventLocation) {
         if (phase != Phase.AUTO_DRAW) return;
         List<Player> players = onlinePlayers();
         if (players.isEmpty()) {
-            Bukkit.broadcastMessage(ChatColor.YELLOW + "Auto-Verlosung uebersprungen: Kein Spieler online.");
-        } else {
-            Player winner = players.get(random.nextInt(players.size()));
-            int reward = random.nextInt(4);
-            String rewardText;
-            if (reward == 0) {
-                core.getEconomyService().deposit(winner.getUniqueId(), 500000L, "FRIDAY_EVENT", "Auto-Verlosung");
-                rewardText = "500.000 Coins";
-            } else if (reward == 1) {
-                core.getEconomyService().deposit(winner.getUniqueId(), 1000000L, "FRIDAY_EVENT", "Auto-Verlosung");
-                rewardText = "1.000.000 Coins";
-            } else if (reward == 2) {
-                core.getNetherstarService().deposit(winner.getUniqueId(), 10L, "FRIDAY_EVENT", "Auto-Verlosung");
-                rewardText = "10 SkyKings Sterne";
-            } else {
-                ItemStack crate = createRandomCrate(2);
-                if (crate != null) {
-                    giveOrDrop(winner, crate);
-                    rewardText = "2 zufaellige Crates";
-                } else {
-                    core.getEconomyService().deposit(winner.getUniqueId(), 750000L, "FRIDAY_EVENT", "Crate-Fallback");
-                    rewardText = "750.000 Coins";
-                }
+            Bukkit.broadcastMessage(ChatColor.YELLOW + "Ziehung " + draw + "/" + AUTO_DRAW_COUNT + " uebersprungen: niemand online.");
+            return;
+        }
+        Player winner = players.get(random.nextInt(players.size()));
+        String rewardText = grantAutoReward(winner);
+        Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + draw + "/" + AUTO_DRAW_COUNT + "] "
+                + ChatColor.GOLD.toString() + ChatColor.BOLD + winner.getName()
+                + ChatColor.YELLOW + " gewinnt " + ChatColor.WHITE + rewardText + ChatColor.YELLOW + "!");
+        broadcastSound(draw == AUTO_DRAW_COUNT ? Sound.LEVEL_UP : Sound.NOTE_PLING, 0.85F, 1.15F + draw * 0.035F);
+        fireworks(winner.getLocation(), draw == AUTO_DRAW_COUNT ? 4 : 2);
+        if (draw == 5) fireworks(eventLocation, 3);
+    }
+
+    private String grantAutoReward(Player winner) {
+        int roll = random.nextInt(1000);
+
+        // 45%: viele alltagstaugliche Crates, bewusst stackweise.
+        if (roll < 450) {
+            String[] normal = {"build", "fight", "money", "utility", "common"};
+            String id = normal[random.nextInt(normal.length)];
+            int amount = 4 + random.nextInt(13); // 4-16
+            ItemStack crate = createCrate(id, amount);
+            if (crate != null) {
+                giveOrDrop(winner, crate);
+                return amount + "x " + prettyCrate(id);
             }
-            Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + winner.getName()
-                    + ChatColor.YELLOW + " gewinnt " + ChatColor.WHITE + rewardText + ChatColor.YELLOW + "!");
-            broadcastSound(Sound.LEVEL_UP, 0.9F, 1.35F);
-            fireworks(winner.getLocation(), 3);
         }
 
+        // 22% Coins.
+        if (roll < 670) {
+            long[] amounts = {100000L, 150000L, 250000L, 350000L, 500000L, 750000L};
+            long amount = amounts[random.nextInt(amounts.length)];
+            core.getEconomyService().deposit(winner.getUniqueId(), amount, "FRIDAY_EVENT", "Auto-Verlosung");
+            return String.format(java.util.Locale.GERMANY, "%,d Coins", amount);
+        }
+
+        // 14% Sterne.
+        if (roll < 810) {
+            long[] amounts = {5L, 8L, 10L, 15L, 20L};
+            long amount = amounts[random.nextInt(amounts.length)];
+            core.getNetherstarService().deposit(winner.getUniqueId(), amount, "FRIDAY_EVENT", "Auto-Verlosung");
+            return amount + " SkyKings Sterne";
+        }
+
+        // 12% Free-Rang; hoehere Free-Raenge deutlich seltener. Paid-Spieler werden nie heruntergestuft.
+        if (roll < 930) {
+            int rankRoll = random.nextInt(100);
+            Rank target = rankRoll < 55 ? Rank.IRON : rankRoll < 82 ? Rank.GOLD : rankRoll < 96 ? Rank.EPIC : Rank.DIAMOND;
+            Rank current = core.getRankService().getRank(winner.getUniqueId());
+            if (!current.isAtLeast(target) && target.isFree()) {
+                core.getRankService().setRank(winner.getUniqueId(), target, "FRIDAY_EVENT");
+                return target.name() + " Free-Rang";
+            }
+            ItemStack fallback = createCrate("fight", 8);
+            if (fallback != null) giveOrDrop(winner, fallback);
+            return "8x Fight Crate (Rang-Fallback)";
+        }
+
+        // 6% Rare/Epic als einzelne oder kleine Stacks.
+        if (roll < 990) {
+            String id = random.nextInt(100) < 80 ? "rare" : "epic";
+            int amount = id.equals("rare") ? 2 + random.nextInt(3) : 1;
+            ItemStack crate = createCrate(id, amount);
+            if (crate != null) giveOrDrop(winner, crate);
+            return amount + "x " + prettyCrate(id);
+        }
+
+        // 1% wirklich grosser Moment.
+        ItemStack crate = createCrate("legendary", 1);
+        if (crate != null) giveOrDrop(winner, crate);
+        return "1x Legendary Crate";
+    }
+
+    private synchronized void finishAutomaticSeries(Location eventLocation) {
+        if (phase != Phase.AUTO_DRAW) return;
         phase = Phase.MANUAL_DRAWS;
         Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "----------------------------------------");
         Bukkit.broadcastMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "STAFF-VERLOSUNGEN");
-        Bukkit.broadcastMessage(ChatColor.WHITE + "Jetzt folgen ausgewaehlte Item-Gewinne.");
+        Bukkit.broadcastMessage(ChatColor.WHITE + "Die Auto-Runde ist vorbei. Jetzt folgen ausgewaehlte Hand-Item-Gewinne.");
         Bukkit.broadcastMessage(ChatColor.GRAY + "Danach startet das grosse Drop-Event bei " + ChatColor.YELLOW + "/warp Event" + ChatColor.GRAY + ".");
-        broadcastSound(Sound.NOTE_PLING, 0.7F, 1.45F);
-        fireworks(eventLocation, 2);
+        broadcastSound(Sound.LEVEL_UP, 0.75F, 1.45F);
+        fireworks(eventLocation, 4);
     }
 
     private synchronized void startManualDraw(final ItemStack prize) {
@@ -269,7 +327,7 @@ public final class FridayEventService implements CommandExecutor {
         final long token = generation;
         broadcastBlank();
         Bukkit.broadcastMessage(ChatColor.RED.toString() + ChatColor.BOLD + "DROP-EVENT STARTET!");
-        Bukkit.broadcastMessage(ChatColor.WHITE + "Crates, OP-PvP-Items, God Apples, Gear und mehr fallen gleich vom Himmel.");
+        Bukkit.broadcastMessage(ChatColor.WHITE + "Viele Crate-Stacks, PvP-Items, God Apples, Gear und mehr fallen gleich vom Himmel.");
         Bukkit.broadcastMessage(ChatColor.YELLOW.toString() + ChatColor.BOLD + "JETZT: /warp Event");
         Bukkit.broadcastMessage(ChatColor.GRAY + "Start in " + DROP_COUNTDOWN_SECONDS + " Sekunden.");
         broadcastBlank();
@@ -333,23 +391,38 @@ public final class FridayEventService implements CommandExecutor {
         Bukkit.broadcastMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "Freitags-Event beendet!"
                 + ChatColor.WHITE + " Danke fuers Mitmachen ♥");
         broadcastSound(Sound.LEVEL_UP, 0.85F, 1.55F);
-        fireworks(center, 6);
+        fireworks(center, 8);
         tasks.clear();
     }
 
     private ItemStack createDropLoot() {
-        int roll = random.nextInt(100);
-        if (roll < 24) {
-            ItemStack crate = createRandomCrate(roll < 4 ? 2 : 1);
-            if (crate != null) return crate;
+        int roll = random.nextInt(1000);
+
+        // 52% Crates. Davon fast alles normale Event-Crates in groesseren Stacks.
+        if (roll < 520) {
+            if (roll < 475) {
+                String[] ids = {"build", "fight", "money", "utility", "common"};
+                String id = ids[random.nextInt(ids.length)];
+                ItemStack crate = createCrate(id, 2 + random.nextInt(7)); // 2-8
+                if (crate != null) return crate;
+            } else if (roll < 510) {
+                ItemStack crate = createCrate("rare", 1 + random.nextInt(2));
+                if (crate != null) return crate;
+            } else if (roll < 519) {
+                ItemStack crate = createCrate("epic", 1);
+                if (crate != null) return crate;
+            } else {
+                ItemStack crate = createCrate("legendary", 1);
+                if (crate != null) return crate;
+            }
         }
-        if (roll < 39) return eventSword();
-        if (roll < 51) return new ItemStack(Material.GOLDEN_APPLE, 4 + random.nextInt(9), (short) 1);
-        if (roll < 62) return new ItemStack(Material.ENDER_PEARL, 8 + random.nextInt(9));
-        if (roll < 72) return new ItemStack(Material.DIAMOND_BLOCK, 8 + random.nextInt(17));
-        if (roll < 81) return eventArmor();
-        if (roll < 89) return eventBow();
-        if (roll < 95) return new ItemStack(Material.EXP_BOTTLE, 32 + random.nextInt(33));
+        if (roll < 650) return eventSword();
+        if (roll < 740) return new ItemStack(Material.GOLDEN_APPLE, 4 + random.nextInt(9), (short) 1);
+        if (roll < 815) return new ItemStack(Material.ENDER_PEARL, 8 + random.nextInt(17));
+        if (roll < 875) return new ItemStack(Material.DIAMOND_BLOCK, 8 + random.nextInt(17));
+        if (roll < 925) return eventArmor();
+        if (roll < 960) return eventBow();
+        if (roll < 985) return new ItemStack(Material.EXP_BOTTLE, 32 + random.nextInt(33));
         return new ItemStack(Material.POTION, 2 + random.nextInt(3), (short) 16421);
     }
 
@@ -387,6 +460,23 @@ public final class FridayEventService implements CommandExecutor {
         return item;
     }
 
+    private ItemStack createCrate(String id, int amount) {
+        Plugin raw = Bukkit.getPluginManager().getPlugin("SkyKings-Crates");
+        if (!(raw instanceof SkyKingsCrates) || !raw.isEnabled()) return null;
+        SkyKingsCrates crates = (SkyKingsCrates) raw;
+        CrateRegistry registry = crates.getCrateRegistry();
+        CrateItemCodec codec = crates.getCrateItemCodec();
+        if (registry == null || codec == null) return null;
+        CrateRegistry.CrateDefinition selected = registry.get(id);
+        if (selected == null) return null;
+        try {
+            return codec.create(selected, amount);
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Friday-Crate " + id + " konnte nicht sicher ausgegeben werden: " + ex.getMessage());
+            return null;
+        }
+    }
+
     private ItemStack createRandomCrate(int amount) {
         Plugin raw = Bukkit.getPluginManager().getPlugin("SkyKings-Crates");
         if (!(raw instanceof SkyKingsCrates) || !raw.isEnabled()) return null;
@@ -406,6 +496,11 @@ public final class FridayEventService implements CommandExecutor {
         }
     }
 
+    private String prettyCrate(String id) {
+        if (id == null || id.isEmpty()) return "Crate";
+        return Character.toUpperCase(id.charAt(0)) + id.substring(1) + " Crate";
+    }
+
     private void dropPhysical(Location center, ItemStack stack) {
         Location spawn = randomized(center, 8.0D, 7.0D + random.nextDouble() * 3.0D);
         Item item = center.getWorld().dropItem(spawn, stack);
@@ -423,9 +518,7 @@ public final class FridayEventService implements CommandExecutor {
 
     private List<Player> onlinePlayers() {
         List<Player> players = new ArrayList<Player>();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.isOnline()) players.add(player);
-        }
+        for (Player player : Bukkit.getOnlinePlayers()) if (player.isOnline()) players.add(player);
         Collections.shuffle(players, random);
         return players;
     }
@@ -464,10 +557,7 @@ public final class FridayEventService implements CommandExecutor {
         meta.addEffect(FireworkEffect.builder()
                 .with(types[random.nextInt(types.length)])
                 .withColor(Color.fromRGB(38, 210, 220), Color.fromRGB(255, 205, 55))
-                .withFade(Color.WHITE)
-                .trail(true)
-                .flicker(true)
-                .build());
+                .withFade(Color.WHITE).trail(true).flicker(true).build());
         meta.setPower(1);
         firework.setFireworkMeta(meta);
     }
