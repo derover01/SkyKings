@@ -177,7 +177,7 @@ public final class CrateRewardsGui {
                 : ChatColor.GREEN + "READY";
         return UiItems.item(tier.material,
                 tier.color + ChatColor.BOLD.toString() + display(tier.rank),
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId), state);
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId), state);
     }
 
     private ItemStack claimCard(Player player, Tier tier) {
@@ -185,15 +185,15 @@ public final class CrateRewardsGui {
         long remaining = core.getCooldownService().getRemainingMillis(player.getUniqueId(), key(tier));
         if (!access) return UiItems.item(Material.INK_SACK, (short) 8,
                 ChatColor.DARK_GRAY.toString() + ChatColor.BOLD + display(tier.rank) + " REWARD",
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                 ChatColor.RED + "LOCKED", ChatColor.DARK_GRAY + "Benoetigt mindestens " + display(tier.rank));
         if (remaining > 0L) return UiItems.item(Material.WATCH,
                 tier.color + ChatColor.BOLD.toString() + display(tier.rank) + " REWARD",
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                 ChatColor.YELLOW + "COOLDOWN • " + formatDuration(remaining), ChatColor.DARK_GRAY + "Noch nicht verfuegbar");
         return UiItems.item(Material.ENDER_CHEST,
                 tier.color + ChatColor.BOLD.toString() + display(tier.rank) + " REWARD",
-                ChatColor.GRAY + tier.amount + "x " + prettyCrate(tier.crateId),
+                ChatColor.GRAY.toString() + tier.amount + "x " + prettyCrate(tier.crateId),
                 ChatColor.GRAY + "Cooldown danach: " + ChatColor.WHITE + tier.hours + "h",
                 ChatColor.GREEN.toString() + ChatColor.BOLD + "READY", UiItems.action("Klicken zum Abholen"));
     }
