@@ -15,7 +15,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-/** Schutz der SkyPlots-Welt. Fremde Claims werden auch fuer OP/Wildcard-Spieler nicht still umgangen. */
+/** Schutz ausschliesslich fuer die SkyPlots-Welt. Andere Maps werden vom normalen Map-/Buildmode-Schutz verwaltet. */
 public final class PlotProtectionListener implements Listener {
     private final PlotService plots;
 
@@ -25,6 +25,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
+        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
         if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
@@ -33,6 +34,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
+        if (!plots.isPlotWorld(event.getBlock().getLocation())) return;
         if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
@@ -42,6 +44,7 @@ public final class PlotProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getClickedBlock() == null) return;
+        if (!plots.isPlotWorld(event.getClickedBlock().getLocation())) return;
         Material type = event.getClickedBlock().getType();
         if (!protectedInteraction(type)) return;
         if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getClickedBlock().getLocation())) {
@@ -52,6 +55,7 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucket(PlayerBucketEmptyEvent event) {
+        if (!plots.isPlotWorld(event.getBlockClicked().getLocation())) return;
         if (!plots.canBuild(event.getPlayer().getUniqueId(), event.getBlockClicked().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
