@@ -73,6 +73,10 @@ commands:
     description: Last-Man-Standing Queue und Serverevent.
     usage: /lms <join|leave|start|stop>
     aliases: [lastmanstanding]
+  tournament:
+    description: SkyKings Tournament Queue und Bracket-Event.
+    usage: /tournament <join|leave|status|start|stop>
+    aliases: [turnier]
   targetevent:
     description: Most-Wanted-Event innerhalb konfigurierter PvP-Regionen.
     usage: /targetevent <status|start|stop> [Spieler]
