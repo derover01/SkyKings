@@ -91,7 +91,7 @@ public final class KitGrantServiceImpl implements KitGrantService {
         if (profile == null) {
             return Collections.emptyList();
         }
-        List<KitDefinition> accessible = new ArrayList<>();
+        List<KitDefinition> accessible = new ArrayList<KitDefinition>();
         for (KitDefinition kit : kitRegistry.getAll()) {
             if (profile.getRank().isAtLeast(kit.getRequiredRank())) {
                 accessible.add(kit);
@@ -99,6 +99,13 @@ public final class KitGrantServiceImpl implements KitGrantService {
         }
         accessible.sort(Comparator.comparingInt(kit -> kit.getRequiredRank().getTier()));
         return Collections.unmodifiableList(accessible);
+    }
+
+    @Override
+    public Collection<KitDefinition> getAllKits() {
+        List<KitDefinition> all = new ArrayList<KitDefinition>(kitRegistry.getAll());
+        all.sort(Comparator.comparingInt(kit -> kit.getRequiredRank().getTier()));
+        return Collections.unmodifiableList(all);
     }
 
     private boolean hasEnoughEmptySlots(PlayerInventory inventory, int requiredSlots) {
