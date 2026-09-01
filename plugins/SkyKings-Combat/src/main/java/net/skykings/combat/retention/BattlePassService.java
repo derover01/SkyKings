@@ -23,10 +23,7 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.UUID;
 
-/**
- * Season Battle Pass mit eigenem Hub, Quest-Portal und horizontalem Free/Premium-Reward-Track.
- * Jedes Season-Level von 1 bis 100 besitzt einen Free-Reward und optional einen Premium-Reward.
- */
+/** Season Battle Pass mit 100 Free- und 100 Premium-Level-Rewards. */
 public final class BattlePassService implements Listener {
     private static final int MAX_LEVEL = 100;
     private static final int[] TRACK_SLOTS = {10, 11, 12, 13, 14, 15, 16};
@@ -53,7 +50,6 @@ public final class BattlePassService implements Listener {
 
     public static BattlePassService active() { return active; }
 
-    /** Einstieg wie ein eigenes Battle-Pass-Portal statt direkt in eine Reward-Truhe. */
     public void open(Player player) {
         UUID uuid = player.getUniqueId();
         int level = progress.getLevel(uuid);
@@ -90,7 +86,6 @@ public final class BattlePassService implements Listener {
         gui.setItem(16, panel((short) 10, UiTheme.MYTHIC + "QUESTS"));
         gui.setItem(25, panel((short) 1, UiTheme.LEGENDARY + "REWARDS"));
         gui.setItem(34, panel((short) 5, isPremium(uuid) ? UiTheme.SUCCESS + "PREMIUM" : UiTheme.DISABLED + "PREMIUM"));
-
         gui.setItem(40, UiItems.item(Material.BOOK_AND_QUILL, UiTheme.TEXT + "Season System",
                 UiTheme.MUTED + "Free Track fuer alle.",
                 UiTheme.MUTED + "Premium erweitert statt ersetzt.",
@@ -100,7 +95,6 @@ public final class BattlePassService implements Listener {
         SoundFeedback.menuOpen(player);
     }
 
-    /** Horizontale Free/Premium-Rails mit sieben Leveln pro Seite. */
     public void openRewards(Player player, int requestedPage) {
         int maxPage = (MAX_LEVEL - 1) / PER_PAGE;
         final int page = Math.max(0, Math.min(maxPage, requestedPage));
@@ -144,15 +138,26 @@ public final class BattlePassService implements Listener {
         SoundFeedback.menuOpen(player);
     }
 
-    public boolean setPremium(UUID uuid, boolean enabled) {
-        data.set("players." + uuid + ".premium", enabled);
-        save();
-        return enabled;
+    /** True bedeutet: neuer Premium-Zustand wurde erfolgreich persistent gespeichert. */
+    public synchronized boolean setPremium(UUID uuid, boolean enabled) {
+        String path = "players." + uuid + ".premium";
+        boolean previous = data.getBoolean(path, false);
+        data.set(path, enabled);
+        if (saveNow()) return true;
+        data.set(path, previous);
+        plugin.getLogger().warning("Premium-Pass-Aenderung fuer " + uuid + " wurde wegen Save-Fehler verworfen.");
+        return false;
     }
 
-    public boolean isPremium(UUID uuid) { return data.getBoolean("players." + uuid + ".premium", false); }
+    public synchronized boolean isPremium(UUID uuid) {
+        return data.getBoolean("players." + uuid + ".premium", false);
+    }
 
-    private void claim(Player player, boolean premium, int level) {
+    /**
+     * Claim wird vor jeder Auszahlung persistent reserviert. Dadurch kann derselbe
+     * Reward weder durch Rapid-Click noch durch ein Restart-Fenster doppelt ausgezahlt werden.
+     */
+    private synchronized void claim(Player player, boolean premium, int level) {
         UUID uuid = player.getUniqueId();
         if (level < 1 || level > MAX_LEVEL) return;
         if (progress.getLevel(uuid) < level) {
@@ -165,18 +170,42 @@ public final class BattlePassService implements Listener {
             player.playSound(player.getLocation(), Sound.CLICK, 0.6F, 0.6F);
             return;
         }
+
         String path = claimPath(uuid, premium, level);
         if (data.getBoolean(path, false)) {
             player.sendMessage(UiTheme.WARNING + "Diesen Reward hast du bereits abgeholt.");
             return;
         }
 
+        data.set(path, true);
+        if (!saveNow()) {
+            data.set(path, false);
+            player.sendMessage(UiTheme.DANGER + "Reward konnte nicht sicher gespeichert werden. Bitte spaeter erneut versuchen.");
+            plugin.getLogger().warning("Battle-Pass-Claim abgebrochen: Persistenz fehlgeschlagen fuer " + uuid + " Level " + level);
+            return;
+        }
+
         long coins = rewardCoins(premium, level);
         int stars = rewardStars(premium, level);
-        economy.deposit(uuid, coins, "BATTLE_PASS", (premium ? "Premium" : "Free") + " Level " + level);
-        if (stars > 0) SkyKingsCurrencyItems.give(player, stars);
-        data.set(path, true);
-        save();
+        try {
+            economy.deposit(uuid, coins, "BATTLE_PASS", (premium ? "Premium" : "Free") + " Level " + level);
+        } catch (RuntimeException ex) {
+            data.set(path, false);
+            if (!saveNow()) {
+                plugin.getLogger().severe("Battle-Pass-Claim konnte nach Economy-Fehler nicht freigegeben werden: " + uuid + " Level " + level);
+            }
+            plugin.getLogger().warning("Battle-Pass-Auszahlung fehlgeschlagen fuer " + uuid + " Level " + level + ": " + ex.getMessage());
+            player.sendMessage(UiTheme.DANGER + "Reward-Auszahlung fehlgeschlagen. Der Claim wurde nicht verbraucht.");
+            return;
+        }
+
+        if (stars > 0) {
+            try {
+                SkyKingsCurrencyItems.give(player, stars);
+            } catch (RuntimeException ex) {
+                plugin.getLogger().warning("Battle-Pass-Sterne konnten nicht ausgegeben werden fuer " + uuid + " Level " + level + ": " + ex.getMessage());
+            }
+        }
 
         String starText = stars > 0 ? " • +" + stars + " Sterne" : "";
         player.sendMessage(UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "BATTLE PASS " + UiTheme.SUCCESS + "Level " + level
@@ -225,10 +254,6 @@ public final class BattlePassService implements Listener {
         return premium ? Material.GOLD_NUGGET : Material.PAPER;
     }
 
-    /**
-     * Mit 100 statt 20 Rewards wird der lineare Grundwert bewusst kleiner gehalten,
-     * damit die Season-Economy in etwa in derselben Groessenordnung bleibt.
-     */
     private long rewardCoins(boolean premium, int level) {
         long base = level * (premium ? 2_500L : 2_000L);
         if (level % 10 == 0) base += premium ? 100_000L : 75_000L;
@@ -261,8 +286,19 @@ public final class BattlePassService implements Listener {
         return UiItems.item(Material.STAINED_GLASS_PANE, dataValue, name);
     }
 
-    public void save() {
-        try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(file); }
-        catch (IOException ex) { plugin.getLogger().warning("battlepass.yml konnte nicht gespeichert werden: " + ex.getMessage()); }
+    public synchronized void save() { saveNow(); }
+
+    private boolean saveNow() {
+        try {
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                plugin.getLogger().warning("Battle-Pass-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+            data.save(file);
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().warning("battlepass.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            return false;
+        }
     }
 }
