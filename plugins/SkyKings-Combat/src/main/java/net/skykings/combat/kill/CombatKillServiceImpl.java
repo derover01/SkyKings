@@ -67,7 +67,7 @@ public final class CombatKillServiceImpl implements CombatKillService {
 
         if (finalReward > 0L) {
             rewardDelivery.give(killer, finalReward);
-            killer.sendMessage(ChatColor.DARK_AQUA + "+" + finalReward + " Netherstern"
+            killer.sendMessage(ChatColor.DARK_AQUA + "+" + finalReward + " SkyKings Stern"
                     + (finalReward == 1 ? "" : "e") + ChatColor.GRAY + " • Killstreak: "
                     + ChatColor.GOLD + streakResult.getNewStreak());
         }
