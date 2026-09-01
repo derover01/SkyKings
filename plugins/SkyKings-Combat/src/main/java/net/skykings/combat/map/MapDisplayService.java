@@ -28,9 +28,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** Dynamische 1.8-Map-Hologramme fuer Top-Kills, King Altar und Hot-Zones. */
+/** Dynamische 1.8-Map-Hologramme fuer Top-Kills, King Altar, Hot-Zones und Paid-Raenge. */
 public final class MapDisplayService implements Listener {
-    public enum Type { TOP_KILLS, KING, HOT_ZONES }
+    public enum Type { TOP_KILLS, KING, HOT_ZONES, PAID_RANKS }
 
     private final JavaPlugin plugin;
     private final PvpStatsService stats;
@@ -123,6 +123,7 @@ public final class MapDisplayService implements Listener {
 
     private List<String> lines(Type type) {
         if (type == Type.TOP_KILLS) return topKillLines();
+        if (type == Type.PAID_RANKS) return paidRankLines();
         if (type == Type.KING) {
             List<String> out = new ArrayList<String>();
             out.add(ChatColor.GOLD.toString() + ChatColor.BOLD + "KING ALTAR");
@@ -139,6 +140,20 @@ public final class MapDisplayService implements Listener {
         out.add(ChatColor.RED.toString() + ChatColor.BOLD + "HOT ZONES");
         out.add(ChatColor.YELLOW + String.valueOf(hotZones.getZones().size()) + ChatColor.GRAY + " aktive Zonen");
         out.add(ChatColor.GRAY + "+25.000 Coins +1 Netherstern/Kill");
+        return out;
+    }
+
+    private List<String> paidRankLines() {
+        List<String> out = new ArrayList<String>();
+        out.add(ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS RANKS");
+        out.add(ChatColor.GRAY + "Permanente Rangstufen");
+        out.add(ChatColor.BLUE.toString() + ChatColor.BOLD + "KNIGHT");
+        out.add(ChatColor.RED.toString() + ChatColor.BOLD + "PHOENIX");
+        out.add(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "ETERNAL");
+        out.add(ChatColor.DARK_AQUA.toString() + ChatColor.BOLD + "EXILE");
+        out.add(ChatColor.DARK_GRAY.toString() + ChatColor.BOLD + "ENDLING");
+        out.add(ChatColor.YELLOW.toString() + ChatColor.BOLD + "KING");
+        out.add(ChatColor.GRAY + "/raenge fuer Details");
         return out;
     }
 
@@ -206,6 +221,7 @@ public final class MapDisplayService implements Listener {
         if ("topkills".equals(n) || "kills".equals(n) || "top".equals(n)) return Type.TOP_KILLS;
         if ("king".equals(n) || "koth".equals(n) || "kingaltar".equals(n)) return Type.KING;
         if ("hotzones".equals(n) || "hotzone".equals(n)) return Type.HOT_ZONES;
+        if ("ranks".equals(n) || "rank".equals(n) || "paidranks".equals(n) || "paidrank".equals(n)) return Type.PAID_RANKS;
         return null;
     }
 
