@@ -13,7 +13,7 @@ function Run-Step([string]$Name, [scriptblock]$Action) {
     if (-not $?) { throw "$Name ist fehlgeschlagen." }
 }
 
-Write-Host 'SkyKings Local Test Preparation' -ForegroundColor Gold
+Write-Host 'SkyKings Local Test Preparation' -ForegroundColor Yellow
 Write-Host 'Server muss vorher mit "stop" vollstaendig beendet sein.' -ForegroundColor Yellow
 
 Run-Step 'Release Preflight' { & "$PSScriptRoot\release-preflight.ps1" }
