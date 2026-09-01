@@ -38,8 +38,8 @@ commands:
     aliases: [deletewarp]
     permission: skykings.admin.warps
   maptp:
-    description: Staff-Schnellreise zu SkyKings-Welten.
-    usage: /maptp <main|plots|islands|events|community>
+    description: Staff-Schnellreise zu den offiziellen SkyKings-Welten.
+    usage: /maptp <main|plots|islands|community>
     permission: skykings.admin.maptp
   skcheck:
     description: Prüft Plugins, Services und Kernwelten nach einem Deploy.
