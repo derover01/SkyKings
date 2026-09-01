@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.event.CrateOpenedEvent;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.item.SkyKingsCurrencyItems;
 import net.skykings.core.logging.AuditEvent;
@@ -244,6 +245,7 @@ public final class CrateInteractionListener implements Listener {
                         return;
                     }
                     removeOne(player, serial);
+                    Bukkit.getPluginManager().callEvent(new CrateOpenedEvent(player, crate.getId()));
                     player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "CRATE GEWINN: " + ChatColor.YELLOW + rewardText(reward));
                     player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.5F);
                     finish(onFinished);
@@ -298,7 +300,6 @@ public final class CrateInteractionListener implements Listener {
         try {
             switch (reward.getType()) {
                 case COINS:
-                    // Legacy-Fallback fuer alte externe Configs. Neue Defaults geben Coins als Gutschein aus.
                     core.getEconomyService().deposit(player.getUniqueId(), reward.getAmount(), "CRATE", "Crate-Reward " + reward.getId());
                     return true;
                 case NETHERSTARS:
