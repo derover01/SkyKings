@@ -18,6 +18,10 @@ permissions:
     aliases: [ec]
     node: skykings.perk.enderchest
     display-name: '&5Enderchest'
+  statsreset:
+    aliases: [resetstats]
+    node: skykings.perk.statsreset
+    display-name: '&cStats Reset'
   crate-openall:
     aliases: [openall, crateopenall]
     node: skykings.perk.crate.openall
