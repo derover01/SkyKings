@@ -46,3 +46,19 @@ permissions:
     aliases: [kill-ender, ender]
     node: skykings.killeffect.ender
     display-name: '&5Kill-Effect Ender'
+  deathmessage-royal:
+    aliases: [death-royal, royal-message]
+    node: skykings.deathmessage.royal
+    display-name: '&6Death Message Royal'
+  deathmessage-void:
+    aliases: [death-void, void-message]
+    node: skykings.deathmessage.void
+    display-name: '&5Death Message Void'
+  deathmessage-hunter:
+    aliases: [death-hunter, hunter-message]
+    node: skykings.deathmessage.hunter
+    display-name: '&3Death Message Hunter'
+  deathmessage-legend:
+    aliases: [death-legend, legend-message]
+    node: skykings.deathmessage.legend
+    display-name: '&dDeath Message Legend'
