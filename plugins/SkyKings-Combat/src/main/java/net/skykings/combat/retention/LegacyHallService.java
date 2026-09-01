@@ -32,11 +32,7 @@ import java.util.UUID;
 /** Permanente Top-3-Historie abgeschlossener Seasons mit optionalen Head/Hologramm-Displays. */
 public final class LegacyHallService {
     public static final class Entry {
-        final int season;
-        final int rank;
-        final UUID uuid;
-        final String name;
-        final int xp;
+        final int season; final int rank; final UUID uuid; final String name; final int xp;
         Entry(int season, int rank, UUID uuid, String name, int xp) {
             this.season = season; this.rank = rank; this.uuid = uuid; this.name = name; this.xp = xp;
         }
@@ -60,11 +56,9 @@ public final class LegacyHallService {
             Map.Entry<UUID, Integer> value = ranking.get(i);
             String name = Bukkit.getOfflinePlayer(value.getKey()).getName();
             if (name == null) name = value.getKey().toString().substring(0, 8);
-            Entry entry = new Entry(season, i + 1, value.getKey(), name, value.getValue());
-            entries.put(key(season, i + 1), entry);
+            entries.put(key(season, i + 1), new Entry(season, i + 1, value.getKey(), name, value.getValue()));
         }
-        save();
-        respawnDisplays();
+        save(); respawnDisplays();
     }
 
     public Entry get(int season, int rank) { return entries.get(key(season, rank)); }
@@ -93,24 +87,21 @@ public final class LegacyHallService {
         }
         if (list.isEmpty()) gui.setItem(22, UiItems.empty("Noch keine Legacy", "Die erste abgeschlossene Season erscheint hier."));
         if (current > 1) gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p, current - 1));
+        else gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> { SoundFeedback.back(p); Bukkit.dispatchCommand(p, "profile"); });
         gui.setItem(UiTheme.NAV_HOME, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Legacy Hall",
                 UiTheme.MUTED + "Permanente Season-Historie", UiTheme.TEXT.toString() + list.size() + UiTheme.MUTED + " Eintraege"));
         if (current < pages) gui.setItem(UiTheme.NAV_NEXT, UiItems.next(), (p,e,s) -> open(p, current + 1));
-        GuiManager.active().open(gui);
-        SoundFeedback.menuOpen(player);
+        GuiManager.active().open(gui); SoundFeedback.menuOpen(player);
     }
 
     public boolean setDisplay(Player staff, int season, int rank) {
-        Entry entry = get(season, rank);
-        if (entry == null) return false;
+        Entry entry = get(season, rank); if (entry == null) return false;
         Location location = staff.getLocation();
         String path = "displays." + season + "." + rank + ".";
         data.set(path + "world", location.getWorld().getName());
         data.set(path + "x", location.getX()); data.set(path + "y", location.getY()); data.set(path + "z", location.getZ());
         data.set(path + "yaw", location.getYaw()); data.set(path + "pitch", location.getPitch());
-        saveFile();
-        spawnDisplay(entry, location);
-        return true;
+        saveFile(); spawnDisplay(entry, location); return true;
     }
 
     public boolean removeDisplay(int season, int rank) {
@@ -118,9 +109,7 @@ public final class LegacyHallService {
         if (!data.contains(base)) return false;
         Location location = displayLocation(season, rank);
         if (location != null) removeExisting(entryName(season, rank), location);
-        data.set(base, null);
-        saveFile();
-        return true;
+        data.set(base, null); saveFile(); return true;
     }
 
     private void respawnDisplays() {
@@ -132,8 +121,7 @@ public final class LegacyHallService {
             for (String rankRaw : ranks.getKeys(false)) {
                 try {
                     int season = Integer.parseInt(seasonRaw), rank = Integer.parseInt(rankRaw);
-                    Entry entry = get(season, rank);
-                    Location loc = displayLocation(season, rank);
+                    Entry entry = get(season, rank); Location loc = displayLocation(season, rank);
                     if (entry != null && loc != null) spawnDisplay(entry, loc);
                 } catch (NumberFormatException ignored) { }
             }
@@ -142,19 +130,12 @@ public final class LegacyHallService {
 
     private void spawnDisplay(Entry entry, Location location) {
         if (location.getWorld() == null) return;
-        location.getChunk().load();
-        removeExisting(entryName(entry.season, entry.rank), location);
+        location.getChunk().load(); removeExisting(entryName(entry.season, entry.rank), location);
         ArmorStand stand = location.getWorld().spawn(location, ArmorStand.class);
-        stand.setVisible(false);
-        stand.setGravity(false);
-        stand.setSmall(false);
-        stand.setCustomName(entryName(entry.season, entry.rank));
-        stand.setCustomNameVisible(true);
+        stand.setVisible(false); stand.setGravity(false); stand.setSmall(false);
+        stand.setCustomName(entryName(entry.season, entry.rank)); stand.setCustomNameVisible(true);
         ItemStack head = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
-        SkullMeta meta = (SkullMeta) head.getItemMeta();
-        meta.setOwner(entry.name);
-        head.setItemMeta(meta);
-        stand.setHelmet(head);
+        SkullMeta meta = (SkullMeta) head.getItemMeta(); meta.setOwner(entry.name); head.setItemMeta(meta); stand.setHelmet(head);
     }
 
     private void removeExisting(String name, Location location) {
@@ -180,24 +161,21 @@ public final class LegacyHallService {
                 (float) data.getDouble(path + "yaw"), (float) data.getDouble(path + "pitch"));
     }
 
-    private String medalColor(int rank) {
-        return rank == 1 ? UiTheme.LEGENDARY.toString() : rank == 2 ? UiTheme.PRIMARY.toString() : UiTheme.WARNING.toString();
-    }
-
+    private String medalColor(int rank) { return rank == 1 ? UiTheme.LEGENDARY.toString() : rank == 2 ? UiTheme.PRIMARY.toString() : UiTheme.WARNING.toString(); }
     private String key(int season, int rank) { return season + ":" + rank; }
 
     private void load() {
         ConfigurationSection seasons = data.getConfigurationSection("seasons");
         if (seasons == null) return;
         for (String seasonRaw : seasons.getKeys(false)) {
-            ConfigurationSection ranks = seasons.getConfigurationSection(seasonRaw);
-            if (ranks == null) continue;
+            ConfigurationSection ranks = seasons.getConfigurationSection(seasonRaw); if (ranks == null) continue;
             for (String rankRaw : ranks.getKeys(false)) {
                 try {
                     int season = Integer.parseInt(seasonRaw), rank = Integer.parseInt(rankRaw);
                     String base = "seasons." + season + "." + rank + ".";
                     UUID uuid = UUID.fromString(data.getString(base + "uuid"));
-                    entries.put(key(season, rank), new Entry(season, rank, uuid, data.getString(base + "name", uuid.toString().substring(0, 8)), data.getInt(base + "xp", 0)));
+                    entries.put(key(season, rank), new Entry(season, rank, uuid,
+                            data.getString(base + "name", uuid.toString().substring(0, 8)), data.getInt(base + "xp", 0)));
                 } catch (RuntimeException ignored) { }
             }
         }
@@ -213,11 +191,7 @@ public final class LegacyHallService {
     }
 
     private void saveFile() {
-        try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            data.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("legacy-hall.yml konnte nicht gespeichert werden: " + ex.getMessage());
-        }
+        try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(file); }
+        catch (IOException ex) { plugin.getLogger().warning("legacy-hall.yml konnte nicht gespeichert werden: " + ex.getMessage()); }
     }
 }
