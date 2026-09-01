@@ -1,12 +1,15 @@
 package net.skykings.combat.event;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Verlustfreier Snapshot fuer temporaere Duel-Loadouts.
@@ -59,7 +62,7 @@ final class DuelInventorySnapshot {
     }
 
     /** Vollstaendige Wiederherstellung fuer lebende Spieler. */
-    void restore(Player player) {
+    void restore(final Player player) {
         restoreLoadout(player);
         restoreVitals(player);
     }
@@ -82,9 +85,30 @@ final class DuelInventorySnapshot {
         player.updateInventory();
     }
 
-    /** Survival-Werte erst auf lebenden Spielern bzw. nach dem Respawn anwenden. */
-    void restoreVitals(Player player) {
+    /**
+     * Survival-Werte fuer lebende Spieler restaurieren. Der zweite Restore im naechsten Tick
+     * ist absichtlich: Der bestehende Duel-Abschluss normalisiert den Gewinner direkt danach
+     * noch einmal via prepare(). Ohne diesen Schutz waere jedes Duel ein kostenloser Heal- und
+     * Hunger-Reset. Auf Shutdown bleibt der sofortige Restore ausreichend erhalten.
+     */
+    void restoreVitals(final Player player) {
         if (player == null || player.isDead()) return;
+        applyVitals(player);
+
+        try {
+            final Plugin combat = Bukkit.getPluginManager().getPlugin("SkyKings-Combat");
+            if (combat == null || !combat.isEnabled()) return;
+            final UUID uuid = player.getUniqueId();
+            Bukkit.getScheduler().runTask(combat, () -> {
+                Player online = Bukkit.getPlayer(uuid);
+                if (online != null && online.isOnline() && !online.isDead()) applyVitals(online);
+            });
+        } catch (RuntimeException ignored) {
+            // Unit-Tests oder Plugin-Shutdown ohne aktiven Bukkit-Scheduler: Sofort-Restore reicht.
+        }
+    }
+
+    private void applyVitals(Player player) {
         double maxHealth = player.getMaxHealth();
         double restoredHealth = Math.max(0.5D, Math.min(maxHealth, health));
         player.setHealth(restoredHealth);
