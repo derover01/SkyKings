@@ -1,5 +1,6 @@
 package net.skykings.core.api;
 
+import net.skykings.core.clan.ClanService;
 import net.skykings.core.cooldown.CooldownService;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
@@ -36,4 +37,6 @@ public interface SkyKingsCoreAPI {
     VoucherPermissionService getVoucherPermissionService();
 
     ShopTransactionService getShopTransactionService();
+
+    ClanService getClanService();
 }
