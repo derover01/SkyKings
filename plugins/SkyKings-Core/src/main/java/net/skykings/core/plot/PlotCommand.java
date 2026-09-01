@@ -23,6 +23,10 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
     private final PlotService plots;
     private final PlotMenu menu;
 
+    public PlotCommand(PlotService plots) {
+        this(plots, plots.getBorderService());
+    }
+
     public PlotCommand(PlotService plots, PlotBorderService borders) {
         this.plots = plots;
         this.menu = new PlotMenu(plots, borders);
