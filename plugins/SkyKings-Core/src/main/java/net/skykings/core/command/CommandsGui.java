@@ -26,12 +26,11 @@ public final class CommandsGui {
         category(gui, 10, Material.DIAMOND_SWORD, ChatColor.RED + "PvP & Profil",
                 "Stats, Bounties, Cosmetics", p -> openPvp(p));
         category(gui, 12, Material.GOLD_INGOT, ChatColor.GOLD + "Economy & Handel",
-                "Shop, Trade, Jackpot, PlayerShop", p -> openEconomy(p));
+                "Shop, Trade, Rentals, Jackpot", p -> openEconomy(p));
         category(gui, 14, Material.GRASS, ChatColor.GREEN + "Islands & Plots",
                 "Private Welten & Schutz", p -> openClaims(p));
         category(gui, 16, Material.EXP_BOTTLE, ChatColor.AQUA + "Progression",
                 "Ranks, Kits, Season, Pass", p -> openProgression(p));
-
         category(gui, 28, Material.BLAZE_ROD, ChatColor.LIGHT_PURPLE + "Events",
                 "Duel, LMS, Clan War, Most Wanted", p -> openEvents(p));
         category(gui, 30, Material.NAME_TAG, ChatColor.YELLOW + "Social",
@@ -40,7 +39,6 @@ public final class CommandsGui {
                 "Fly, EC, Repair, Tools", p -> openPerks(p));
         category(gui, 34, Material.COMPASS, ChatColor.AQUA + "Travel & Warps",
                 "Spawn und Schnellreisen", p -> openTravel(p));
-
         category(gui, 40, Material.NETHER_STAR, ChatColor.GOLD + "Crates & Rewards",
                 "Crates, Rewards, Daily", p -> openCrates(p));
 
@@ -68,7 +66,7 @@ public final class CommandsGui {
         GuiSession gui = page(player, "PvP & Profil");
         action(gui, 10, Material.DIAMOND_SWORD, "/stats", "Profil & PvP-Stats", "stats");
         action(gui, 12, Material.GOLD_INGOT, "/top", "Leaderboards & Bounties", "top");
-        action(gui, 14, Material.BLAZE_POWDER, "/killeffect", "Kill-Effect auswählen", "killeffect");
+        action(gui, 14, Material.BLAZE_POWDER, "/killeffect", "Cosmetics Center", "killeffect");
         action(gui, 16, Material.SKULL_ITEM, "/collection", "Head Collection", "collection");
         action(gui, 28, Material.IRON_SWORD, "/stattrack", "Weapon History", "stattrack");
         action(gui, 30, Material.MAP, "/mapmastery", "Map-Fortschritt", "mapmastery");
@@ -86,7 +84,8 @@ public final class CommandsGui {
         info(gui, 16, Material.CHEST, "/trade <Spieler>", "Sicherer Spielerhandel");
         action(gui, 28, Material.NETHER_STAR, "/jackpot", "Serverweiter Coin-Jackpot", "jackpot");
         info(gui, 30, Material.MONSTER_EGG, "/playershop kaufen", "Eigenen Händler starten");
-        info(gui, 32, Material.HOPPER, "/playershop ...", "Stock, Preis, Einnahmen");
+        action(gui, 32, Material.EMERALD_BLOCK, "/shoprent", "Geschützten Marktstand mieten", "shoprent");
+        info(gui, 34, Material.HOPPER, "/playershop ...", "Stock, Preis, Einnahmen");
         nav(gui);
         guiManager.open(gui);
     }
@@ -121,7 +120,7 @@ public final class CommandsGui {
 
     private void openEvents(Player player) {
         GuiSession gui = page(player, "Events");
-        info(gui, 10, Material.DIAMOND_SWORD, "/duel <Spieler> [Einsatz]", "Sicheres 1v1");
+        info(gui, 10, Material.DIAMOND_SWORD, "/duel <Spieler>", "Setup: Kit + Coin-Einsatz");
         info(gui, 12, Material.FIREWORK, "/lms join", "Last Man Standing");
         info(gui, 14, Material.BANNER, "/clanwar <Clan-Owner>", "2v2 bis 5v5 Clan War");
         info(gui, 16, Material.COMPASS, "/targetevent status", "Most Wanted");
@@ -184,16 +183,11 @@ public final class CommandsGui {
 
     private void openTeam(Player player) {
         GuiSession gui = page(player, "Team");
-        if (player.hasPermission("skykings.staff.announcement"))
-            info(gui, 10, Material.PAPER, "/announcement <Text>", "Server-Ankündigung");
-        if (player.hasPermission("skykings.staff.clearchat"))
-            action(gui, 12, Material.EMPTY_MAP, "/clearchat", "Serverchat leeren", "clearchat");
-        if (player.hasPermission("skykings.staff.clear"))
-            action(gui, 14, Material.HOPPER, "/clear", "Boden-Clear starten", "clear");
-        if (player.hasPermission("skykings.staff.gamemode"))
-            info(gui, 16, Material.GRASS, "/gm <0|1|2|3>", "Gamemode ändern");
-        if (player.hasPermission("skykings.admin.buildmode"))
-            action(gui, 30, Material.GOLD_PICKAXE, "/buildmode", "Map-Baumodus", "buildmode");
+        if (player.hasPermission("skykings.staff.announcement")) info(gui, 10, Material.PAPER, "/announcement <Text>", "Server-Ankündigung");
+        if (player.hasPermission("skykings.staff.clearchat")) action(gui, 12, Material.EMPTY_MAP, "/clearchat", "Serverchat leeren", "clearchat");
+        if (player.hasPermission("skykings.staff.clear")) action(gui, 14, Material.HOPPER, "/clear", "Boden-Clear starten", "clear");
+        if (player.hasPermission("skykings.staff.gamemode")) info(gui, 16, Material.GRASS, "/gm <0|1|2|3>", "Gamemode ändern");
+        if (player.hasPermission("skykings.admin.buildmode")) action(gui, 30, Material.GOLD_PICKAXE, "/buildmode", "Map-Baumodus", "buildmode");
         nav(gui);
         guiManager.open(gui);
     }
@@ -208,6 +202,8 @@ public final class CommandsGui {
         info(gui, 30, Material.COMPASS, "/maptp <Ziel>", "Map-Schnellreise");
         action(gui, 32, Material.REDSTONE_BLOCK, "/skcheck", "Runtime prüfen", "skcheck");
         info(gui, 34, Material.SIGN, "/setwarp <Name>", "Warp setzen");
+        if (player.hasPermission("skykings.admin.shoprents"))
+            info(gui, 38, Material.EMERALD_BLOCK, "/shoprent pos1 / pos2", "Marktstände definieren");
         gui.setItem(40, UiItems.item(Material.BOOK,
                 ChatColor.RED + "Admin Hinweis",
                 ChatColor.GRAY + "Finale Positionen ingame setzen.",
