@@ -7,9 +7,9 @@ description: >
 authors: [SkyKings Team]
 commands:
   stats:
-    description: Öffnet das einheitliche SkyKings Spielerprofil.
+    description: Öffnet das einheitliche SkyKings Spielerprofil; /statsreset setzt eigene Combat-Stats zurück.
     usage: /stats [Spieler]
-    aliases: [pvpstats, profile, profil]
+    aliases: [pvpstats, profile, profil, statsreset, resetstats]
   top:
     description: Öffnet die SkyKings-PvP-Toplisten und das Bounty Board.
     usage: /top
@@ -186,6 +186,9 @@ permissions:
     default: false
   skykings.deathmessage.legend:
     description: Schaltet die Legend-Death-Message frei.
+    default: false
+  skykings.perk.statsreset:
+    description: Darf die eigenen Combat-Stats über /statsreset zurücksetzen.
     default: false
   skykings.admin.map:
     description: Darf Map-Gameplay, Spawn, Zonen, Secrets, Routen, Landmarks, Displays und Map-Import einrichten.
