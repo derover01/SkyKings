@@ -94,28 +94,43 @@ Mit einem zweiten bekannten Spieler:
 /is top
 ```
 - Grenze in Info: 129x129 / Center +/-64
-- `/is top` zeigt Top 10 nach Island-Level
+- `/is top` zeigt Top 10 nach Island-Level als Spielerkopf-GUI
+- Island-Level + Levelpunkte sind im `/is` Hauptmenue sichtbar
 - wertvolle Bloecke steigern Level; Abbauen reduziert es wieder
+- Level bleibt nach Serverrestart erhalten
 - `[Welcome]` bleibt Voraussetzung fuer `/is visit <Owner>`
 - Besucher landet direkt am Schild
 
 **Achtung:** Eine alte Testinsel behaelt ihre alte Form. Fuer den neuen klassischen Baum/Chest-Generator siehe Reset-Hinweis in `SERVER_SETUP_TODO.md`.
 
 ### Plots
-Nach einmaligem Pre-Release-Reset der alten `SkyPlots`-Testwelt:
+Vor dem ersten Test des neuen Grid-Generators den Server stoppen und die alte Testwelt **einmalig** loeschen:
+```text
+server/SkyPlots
+```
+Danach Server neu starten und testen:
 ```text
 /p auto
 /p h
 /p add <Spieler>
 /p trust <Spieler>
+/p remove <Spieler>
 /p deny <Spieler>
+/p undeny <Spieler>
+/p flags
 /p flag pvp an
+/p flag explosions an
+/p flag fire an
+/p flag mob-spawn an
 ```
-- 65x65 Plot + 7 Block Strassen
+- 65x65 Plot + 7 Block Strassen sichtbar
 - `add`: Baurecht nur solange Owner online
-- `trust`: dauerhaft
-- `deny`: Zutritt blockiert
-- Flags im GUI testbar
+- `trust`: dauerhaft, auch wenn Owner offline
+- `remove`: entfernt Add/Trust, hebt Deny nicht versehentlich auf
+- `deny`: Zutritt blockiert; `undeny` hebt nur die Sperre auf
+- PvP / Explosionen / Feuer / Mob-Spawns sind im GUI einzeln schaltbar
+- Strassen bleiben gegen Explosionen, Feuer und Mob-Spawns geschuetzt
+- Neustart behaelt Member/Trust/Deny und alle Flags
 
 ### Kits
 ```text

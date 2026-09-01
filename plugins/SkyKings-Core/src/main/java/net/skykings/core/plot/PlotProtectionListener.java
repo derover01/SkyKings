@@ -56,7 +56,7 @@ public final class PlotProtectionListener implements Listener {
     public void onCreatureSpawn(CreatureSpawnEvent e) {
         if (!plots.isPlotWorld(e.getLocation())) return;
         PlotService.PlotData plot = plots.findAt(e.getLocation());
-        if (plot != null && !plot.isMobSpawning()) e.setCancelled(true);
+        if (plot == null || !plot.isMobSpawning()) e.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -67,8 +67,14 @@ public final class PlotProtectionListener implements Listener {
     public void onBlockExplode(BlockExplodeEvent e) {
         e.blockList().removeIf(b -> plots.isPlotWorld(b.getLocation()) && !plots.areExplosionsAllowed(b.getLocation()));
     }
-    @EventHandler(ignoreCancelled = true) public void onBurn(BlockBurnEvent e) { if (plots.isPlotWorld(e.getBlock().getLocation())) e.setCancelled(true); }
-    @EventHandler(ignoreCancelled = true) public void onIgnite(BlockIgniteEvent e) { if (plots.isPlotWorld(e.getBlock().getLocation())) e.setCancelled(true); }
+    @EventHandler(ignoreCancelled = true)
+    public void onBurn(BlockBurnEvent e) {
+        if (plots.isPlotWorld(e.getBlock().getLocation()) && !plots.isFireAllowed(e.getBlock().getLocation())) e.setCancelled(true);
+    }
+    @EventHandler(ignoreCancelled = true)
+    public void onIgnite(BlockIgniteEvent e) {
+        if (plots.isPlotWorld(e.getBlock().getLocation()) && !plots.isFireAllowed(e.getBlock().getLocation())) e.setCancelled(true);
+    }
     @EventHandler(ignoreCancelled = true)
     public void onFlow(BlockFromToEvent e) {
         if (!plots.isPlotWorld(e.getBlock().getLocation())) return;

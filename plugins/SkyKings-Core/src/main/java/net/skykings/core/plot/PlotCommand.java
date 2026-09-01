@@ -7,13 +7,19 @@ import org.bukkit.Sound;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 /** PlotSquared-inspirierte /plot Bedienung auf dem eigenen SkyKings-Claim-System. */
-public final class PlotCommand implements CommandExecutor {
+public final class PlotCommand implements CommandExecutor, TabCompleter {
     private final PlotService plots;
     private final PlotMenu menu;
 
@@ -39,50 +45,122 @@ public final class PlotCommand implements CommandExecutor {
             p.playSound(p.getLocation(), ok ? Sound.ORB_PICKUP : Sound.VILLAGER_NO, 0.7F, ok ? 1.4F : 1F); return true;
         }
         if ("info".equals(sub) || "i".equals(sub)) { menu.open(p); return true; }
+        if ("flags".equals(sub)) { menu.openFlags(p); return true; }
 
-        if (("add".equals(sub) || "trust".equals(sub) || "remove".equals(sub) || "untrust".equals(sub)
-                || "deny".equals(sub) || "undeny".equals(sub)) && args.length >= 2) {
-            Player target = Bukkit.getPlayer(args[1]);
-            if (target == null) { p.sendMessage(ChatColor.RED + "Spieler muss online sein."); return true; }
+        if ("add".equals(sub) || "trust".equals(sub) || "remove".equals(sub) || "untrust".equals(sub)
+                || "deny".equals(sub) || "undeny".equals(sub)) {
+            if (!plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt keinen Plot."); return true; }
+            if (args.length < 2) {
+                p.sendMessage(ChatColor.AQUA + "Plot Verwaltung");
+                p.sendMessage(ChatColor.GRAY + "/p " + sub + " <Spieler>");
+                return true;
+            }
+            UUID target = resolveTarget(args[1]);
+            if (p.getUniqueId().equals(target)) { p.sendMessage(ChatColor.RED + "Du kannst dich nicht selbst verwalten."); return true; }
             boolean changed;
-            if ("add".equals(sub)) changed = plots.add(p.getUniqueId(), target.getUniqueId());
-            else if ("trust".equals(sub)) changed = plots.trust(p.getUniqueId(), target.getUniqueId());
-            else if ("deny".equals(sub)) changed = plots.deny(p.getUniqueId(), target.getUniqueId());
-            else if ("undeny".equals(sub)) changed = plots.undeny(p.getUniqueId(), target.getUniqueId());
-            else changed = plots.remove(p.getUniqueId(), target.getUniqueId());
-            p.sendMessage(changed ? ChatColor.GREEN + "Plot-Mitgliedschaft aktualisiert: " + target.getName() : ChatColor.YELLOW + "Keine Aenderung.");
+            String action;
+            if ("add".equals(sub)) { changed = plots.add(p.getUniqueId(), target); action = "Added"; }
+            else if ("trust".equals(sub)) { changed = plots.trust(p.getUniqueId(), target); action = "Trusted"; }
+            else if ("deny".equals(sub)) { changed = plots.deny(p.getUniqueId(), target); action = "Denied"; }
+            else if ("undeny".equals(sub)) { changed = plots.undeny(p.getUniqueId(), target); action = "Deny entfernt"; }
+            else { changed = plots.remove(p.getUniqueId(), target); action = "Baurechte entfernt"; }
+            p.sendMessage(changed
+                    ? ChatColor.GREEN + args[1] + ChatColor.GRAY + " - " + ChatColor.WHITE + action
+                    : ChatColor.YELLOW + "Keine Aenderung fuer " + args[1] + ".");
+            p.playSound(p.getLocation(), changed ? Sound.CLICK : Sound.VILLAGER_NO, 0.6F, changed ? 1.3F : 1.0F);
             return true;
         }
 
-        if ("flag".equals(sub) && args.length >= 3) {
+        if ("flag".equals(sub)) {
+            if (!plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt keinen Plot."); return true; }
+            if (args.length < 3) {
+                p.sendMessage(ChatColor.AQUA + "Plot Flags");
+                p.sendMessage(ChatColor.GRAY + "/p flag <pvp|explosions|fire|mob-spawn> <an|aus>");
+                return true;
+            }
             boolean value = "on".equalsIgnoreCase(args[2]) || "true".equalsIgnoreCase(args[2]) || "an".equalsIgnoreCase(args[2]);
             if (!value && !("off".equalsIgnoreCase(args[2]) || "false".equalsIgnoreCase(args[2]) || "aus".equalsIgnoreCase(args[2]))) {
                 p.sendMessage(ChatColor.RED + "Nutze an/aus bzw. on/off."); return true;
             }
             if (!plots.setFlag(p.getUniqueId(), args[1], value)) {
-                p.sendMessage(ChatColor.RED + "Unbekannte Flag. Verfuegbar: pvp, explosions, mob-spawn"); return true;
+                p.sendMessage(ChatColor.RED + "Unbekannte Flag. Verfuegbar: pvp, explosions, fire, mob-spawn"); return true;
             }
-            p.sendMessage(ChatColor.GREEN + "Plot-Flag " + args[1] + ": " + (value ? "AN" : "AUS")); return true;
+            p.sendMessage(ChatColor.GREEN + "Plot-Flag " + args[1] + ": " + (value ? "AN" : "AUS"));
+            p.playSound(p.getLocation(), Sound.CLICK, 0.6F, value ? 1.4F : 0.9F);
+            return true;
         }
 
         if (("visit".equals(sub) || "v".equals(sub)) && args.length >= 2) {
-            Player online = Bukkit.getPlayer(args[1]); UUID owner;
-            if (online != null) owner = online.getUniqueId();
-            else { @SuppressWarnings("deprecation") OfflinePlayer off = Bukkit.getOfflinePlayer(args[1]); owner = off.getUniqueId(); }
+            UUID owner = resolveTarget(args[1]);
             if (!plots.hasPlot(owner)) { p.sendMessage(ChatColor.RED + "Dieser Spieler besitzt keinen Plot."); return true; }
             plots.teleportHome(p, owner); return true;
         }
         usage(p); return true;
     }
 
+    @SuppressWarnings("deprecation")
+    private UUID resolveTarget(String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) return online.getUniqueId();
+        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        return offline.getUniqueId();
+    }
+
     private void usage(Player p) {
+        p.sendMessage(ChatColor.AQUA + "Plot Verwaltung");
         p.sendMessage(ChatColor.GREEN + "/p auto" + ChatColor.GRAY + " - freien Plot claimen");
         p.sendMessage(ChatColor.GREEN + "/p h" + ChatColor.GRAY + " - Plot-Home");
         p.sendMessage(ChatColor.GREEN + "/p add <Spieler>" + ChatColor.GRAY + " - baut wenn Owner online ist");
         p.sendMessage(ChatColor.GREEN + "/p trust <Spieler>" + ChatColor.GRAY + " - dauerhaft Baurechte");
-        p.sendMessage(ChatColor.GREEN + "/p remove <Spieler>" + ChatColor.GRAY + " - Mitglied entfernen");
+        p.sendMessage(ChatColor.GREEN + "/p remove <Spieler>" + ChatColor.GRAY + " - Add/Trust entfernen");
         p.sendMessage(ChatColor.GREEN + "/p deny <Spieler>" + ChatColor.GRAY + " - Plot-Zutritt sperren");
-        p.sendMessage(ChatColor.GREEN + "/p flag <pvp|explosions|mob-spawn> <an|aus>");
+        p.sendMessage(ChatColor.GREEN + "/p undeny <Spieler>" + ChatColor.GRAY + " - Sperre entfernen");
+        p.sendMessage(ChatColor.GREEN + "/p flags" + ChatColor.GRAY + " - Flag-Menue");
         p.sendMessage(ChatColor.GREEN + "/p visit <Spieler>" + ChatColor.GRAY + " - Plot besuchen");
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            return filter(Arrays.asList("menu", "auto", "home", "sethome", "info", "add", "trust", "remove", "deny", "undeny", "flags", "flag", "visit"), args[0]);
+        }
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            if ("flag".equals(sub)) return filter(Arrays.asList("pvp", "explosions", "fire", "mob-spawn"), args[1]);
+            if (sender instanceof Player) {
+                Player player = (Player) sender;
+                PlotService.PlotData data = plots.get(player.getUniqueId());
+                if (("remove".equals(sub) || "untrust".equals(sub)) && data != null) {
+                    List<String> values = new ArrayList<String>();
+                    addNames(values, data.getMembers()); addNames(values, data.getTrusted());
+                    return filter(values, args[1]);
+                }
+                if ("undeny".equals(sub) && data != null) {
+                    List<String> values = new ArrayList<String>(); addNames(values, data.getDenied()); return filter(values, args[1]);
+                }
+            }
+            if ("add".equals(sub) || "trust".equals(sub) || "deny".equals(sub) || "visit".equals(sub) || "v".equals(sub)) {
+                List<String> names = new ArrayList<String>();
+                for (Player online : Bukkit.getOnlinePlayers()) if (!(sender instanceof Player) || !online.getUniqueId().equals(((Player) sender).getUniqueId())) names.add(online.getName());
+                return filter(names, args[1]);
+            }
+        }
+        if (args.length == 3 && "flag".equalsIgnoreCase(args[0])) return filter(Arrays.asList("an", "aus"), args[2]);
+        return Collections.emptyList();
+    }
+
+    private void addNames(List<String> out, Set<UUID> values) {
+        for (UUID uuid : values) {
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
+            if (offline.getName() != null) out.add(offline.getName());
+        }
+    }
+
+    private List<String> filter(List<String> values, String raw) {
+        String prefix = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
+        List<String> out = new ArrayList<String>();
+        for (String value : values) if (value != null && value.toLowerCase(Locale.ROOT).startsWith(prefix)) out.add(value);
+        Collections.sort(out, String.CASE_INSENSITIVE_ORDER);
+        return out;
     }
 }

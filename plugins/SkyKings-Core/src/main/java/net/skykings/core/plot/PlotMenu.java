@@ -32,7 +32,8 @@ public final class PlotMenu {
             });
             gui.setItem(31, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Plot Verwaltung",
                     UiTheme.TEXT + "/p auto  /p h  /p visit",
-                    UiTheme.TEXT + "/p add  /p trust  /p deny"));
+                    UiTheme.TEXT + "/p add  /p trust  /p deny",
+                    UiTheme.TEXT + "/p flags"));
         } else {
             PlotService.PlotData data = plots.get(player.getUniqueId());
             gui.setItem(10, UiItems.item(Material.ENDER_PEARL, UiTheme.SUCCESS + "Plot Home",
@@ -50,7 +51,7 @@ public final class PlotMenu {
                     UiTheme.MUTED + "Denied: " + UiTheme.TEXT + data.getDenied().size(),
                     "", UiItems.action("Uebersicht oeffnen")), (p,e,s) -> openMembers(p));
             gui.setItem(16, UiItems.item(Material.REDSTONE_COMPARATOR, UiTheme.PRIMARY + "Plot Flags",
-                    UiTheme.MUTED + "PvP, Explosionen und Mob-Spawns.",
+                    UiTheme.MUTED + "PvP, Explosionen, Feuer und Mob-Spawns.",
                     "", UiItems.action("Einstellungen oeffnen")), (p,e,s) -> openFlags(p));
             gui.setItem(22, UiItems.item(Material.SMOOTH_BRICK, UiTheme.TEXT + "Plot #" + data.index,
                     UiTheme.MUTED + "Groesse: " + UiTheme.TEXT + "65 x 65",
@@ -60,27 +61,34 @@ public final class PlotMenu {
             gui.setItem(31, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Plot Verwaltung",
                     UiTheme.TEXT + "/p add <Spieler>",
                     UiTheme.TEXT + "/p trust <Spieler>",
-                    UiTheme.TEXT + "/p deny <Spieler>",
-                    UiTheme.TEXT + "/p remove <Spieler>"));
+                    UiTheme.TEXT + "/p remove <Spieler>",
+                    UiTheme.TEXT + "/p deny / undeny <Spieler>",
+                    UiTheme.TEXT + "/p flags"));
         }
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
     }
 
-    private void openFlags(Player player) {
+    public void openFlags(Player player) {
         PlotService.PlotData data = plots.get(player.getUniqueId());
         if (data == null) { open(player); return; }
         GuiSession gui = GuiSession.create(player, UiTheme.title("Plot Flags"), 27);
-        gui.setItem(10, flag(Material.DIAMOND_SWORD, "PvP", data.isPvp()), (p,e,s) -> { plots.setFlag(p.getUniqueId(), "pvp", !data.isPvp()); openFlags(p); });
-        gui.setItem(13, flag(Material.TNT, "Explosionen", data.isExplosions()), (p,e,s) -> { plots.setFlag(p.getUniqueId(), "explosions", !data.isExplosions()); openFlags(p); });
-        gui.setItem(16, flag(Material.MONSTER_EGG, "Mob-Spawns", data.isMobSpawning()), (p,e,s) -> { plots.setFlag(p.getUniqueId(), "mob-spawn", !data.isMobSpawning()); openFlags(p); });
+        gui.setItem(10, flag(Material.DIAMOND_SWORD, "PvP", "Spielerduelle auf deinem Plot.", data.isPvp()),
+                (p,e,s) -> { plots.setFlag(p.getUniqueId(), "pvp", !data.isPvp()); openFlags(p); });
+        gui.setItem(12, flag(Material.TNT, "Explosionen", "TNT und Entity-Explosionen.", data.isExplosions()),
+                (p,e,s) -> { plots.setFlag(p.getUniqueId(), "explosions", !data.isExplosions()); openFlags(p); });
+        gui.setItem(14, flag(Material.FLINT_AND_STEEL, "Feuer", "Entzuenden und Abbrennen erlauben.", data.isFire()),
+                (p,e,s) -> { plots.setFlag(p.getUniqueId(), "fire", !data.isFire()); openFlags(p); });
+        gui.setItem(16, flag(Material.MONSTER_EGG, "Mob-Spawns", "Natuerliche Kreaturen auf dem Plot.", data.isMobSpawning()),
+                (p,e,s) -> { plots.setFlag(p.getUniqueId(), "mob-spawn", !data.isMobSpawning()); openFlags(p); });
         gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p));
         guiManager.open(gui);
     }
 
-    private org.bukkit.inventory.ItemStack flag(Material material, String name, boolean value) {
-        return UiItems.item(material, (value ? UiTheme.SUCCESS : UiTheme.DANGER) + name,
-                value ? UiTheme.SUCCESS + "AN" : UiTheme.DANGER + "AUS",
+    private org.bukkit.inventory.ItemStack flag(Material material, String name, String description, boolean value) {
+        return UiItems.item(material, (value ? UiTheme.SUCCESS : UiTheme.TEXT) + name,
+                UiTheme.MUTED + description,
+                value ? UiTheme.SUCCESS + "ACTIVE" : UiTheme.DISABLED + "DISABLED",
                 "", UiItems.action("Klicken zum Umschalten"));
     }
 
@@ -89,23 +97,28 @@ public final class PlotMenu {
         if (data == null) { open(player); return; }
         GuiSession gui = GuiSession.create(player, UiTheme.title("Plot Mitglieder"), 45);
         int slot = 9;
-        slot = addSet(gui, slot, data.getTrusted(), UiTheme.SUCCESS + "Trusted", "Dauerhafte Baurechte");
-        slot = addSet(gui, slot, data.getMembers(), UiTheme.PRIMARY + "Added", "Baut wenn Owner online ist");
-        addSet(gui, slot, data.getDenied(), UiTheme.DANGER + "Denied", "Darf Plot nicht betreten");
+        slot = addSet(gui, slot, data.getTrusted(), UiTheme.SUCCESS + "Trusted", "Dauerhafte Baurechte", false);
+        slot = addSet(gui, slot, data.getMembers(), UiTheme.PRIMARY + "Added", "Baut wenn Owner online ist", false);
+        addSet(gui, slot, data.getDenied(), UiTheme.DANGER + "Denied", "Darf Plot nicht betreten", true);
         if (data.getTrusted().isEmpty() && data.getMembers().isEmpty() && data.getDenied().isEmpty()) {
             gui.setItem(22, UiItems.empty("Keine Eintraege", "/p add, /p trust oder /p deny verwenden."));
         }
-        gui.setItem(36, UiItems.back(), (p,e,s) -> open(p));
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p));
         guiManager.open(gui);
     }
 
-    private int addSet(GuiSession gui, int slot, java.util.Set<UUID> values, String category, String info) {
+    private int addSet(GuiSession gui, int slot, java.util.Set<UUID> values, String category, String info, boolean denied) {
         for (UUID uuid : values) {
             if (slot >= 36) break;
+            final UUID target = uuid;
             OfflinePlayer offline = Bukkit.getOfflinePlayer(uuid);
             String name = offline.getName() == null ? uuid.toString().substring(0, 8) : offline.getName();
             gui.setItem(slot++, UiItems.head(name, UiTheme.TEXT + name, category, UiTheme.MUTED + info,
-                    UiTheme.MUTED + "Entfernen: /p remove " + name));
+                    "", denied ? UiTheme.DANGER + "Klicken: Deny entfernen" : UiTheme.MUTED + "Klicken: Rechte entfernen"), (p,e,s) -> {
+                boolean changed = denied ? plots.undeny(p.getUniqueId(), target) : plots.remove(p.getUniqueId(), target);
+                p.playSound(p.getLocation(), changed ? Sound.CLICK : Sound.VILLAGER_NO, 0.6F, changed ? 1.25F : 1.0F);
+                openMembers(p);
+            });
         }
         return slot;
     }

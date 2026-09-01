@@ -71,7 +71,7 @@ public final class PlotService implements PlotAccessService {
         int cz = gz * SPACING + RADIUS;
         Location home = new Location(world, cx + 0.5D, Y + 0.1D, cz + 0.5D);
         PlotData data = new PlotData(uuid, index, cx, cz, home,
-                new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>(), false, false, false);
+                new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>(), false, false, false, false);
         plots.put(uuid, data);
         world.getChunkAt(home).load(true);
         save();
@@ -100,9 +100,10 @@ public final class PlotService implements PlotAccessService {
         boolean changed = plot.trusted.add(target); if (changed) save(); return changed;
     }
 
+    /** /p remove entfernt nur Add/Trust. Deny bleibt bewusst separat ueber /p undeny verwaltbar. */
     public synchronized boolean remove(UUID owner, UUID target) {
         PlotData plot = plots.get(owner); if (plot == null) return false;
-        boolean changed = plot.members.remove(target) | plot.trusted.remove(target) | plot.denied.remove(target);
+        boolean changed = plot.members.remove(target) | plot.trusted.remove(target);
         if (changed) save(); return changed;
     }
 
@@ -124,10 +125,11 @@ public final class PlotService implements PlotAccessService {
 
     public synchronized boolean setFlag(UUID owner, String flag, boolean value) {
         PlotData plot = plots.get(owner); if (plot == null || flag == null) return false;
-        String id = flag.toLowerCase();
+        String id = flag.toLowerCase(java.util.Locale.ROOT);
         if ("pvp".equals(id)) plot.pvp = value;
         else if ("explosion".equals(id) || "explosions".equals(id)) plot.explosions = value;
-        else if ("mobspawn".equals(id) || "mob-spawn".equals(id)) plot.mobSpawning = value;
+        else if ("fire".equals(id) || "feuer".equals(id)) plot.fire = value;
+        else if ("mobspawn".equals(id) || "mob-spawn".equals(id) || "mobs".equals(id)) plot.mobSpawning = value;
         else return false;
         save(); return true;
     }
@@ -142,6 +144,10 @@ public final class PlotService implements PlotAccessService {
 
     public boolean areExplosionsAllowed(Location location) {
         PlotData plot = findAt(location); return plot != null && plot.explosions;
+    }
+
+    public boolean isFireAllowed(Location location) {
+        PlotData plot = findAt(location); return plot != null && plot.fire;
     }
 
     public void teleportHome(Player player, UUID owner) {
@@ -188,6 +194,7 @@ public final class PlotService implements PlotAccessService {
                 plots.put(owner, new PlotData(owner, index, cx, cz, home, members, trusted, denied,
                         yaml.getBoolean(base + ".flags.pvp", false),
                         yaml.getBoolean(base + ".flags.explosions", false),
+                        yaml.getBoolean(base + ".flags.fire", false),
                         yaml.getBoolean(base + ".flags.mob-spawn", false)));
                 if (index >= nextIndex) nextIndex = index + 1;
             } catch (IllegalArgumentException ignored) { }
@@ -208,7 +215,8 @@ public final class PlotService implements PlotAccessService {
             yaml.set(base + ".home.x", plot.home.getX()); yaml.set(base + ".home.y", plot.home.getY()); yaml.set(base + ".home.z", plot.home.getZ());
             yaml.set(base + ".home.yaw", plot.home.getYaw()); yaml.set(base + ".home.pitch", plot.home.getPitch());
             yaml.set(base + ".members", strings(plot.members)); yaml.set(base + ".trusted", strings(plot.trusted)); yaml.set(base + ".denied", strings(plot.denied));
-            yaml.set(base + ".flags.pvp", plot.pvp); yaml.set(base + ".flags.explosions", plot.explosions); yaml.set(base + ".flags.mob-spawn", plot.mobSpawning);
+            yaml.set(base + ".flags.pvp", plot.pvp); yaml.set(base + ".flags.explosions", plot.explosions);
+            yaml.set(base + ".flags.fire", plot.fire); yaml.set(base + ".flags.mob-spawn", plot.mobSpawning);
         }
         try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); yaml.save(file); }
         catch (IOException ex) { plugin.getLogger().warning("plots.yml konnte nicht gespeichert werden: " + ex.getMessage()); }
@@ -221,13 +229,13 @@ public final class PlotService implements PlotAccessService {
     public static final class PlotData {
         public final UUID owner; public final int index; public final int centerX; public final int centerZ;
         private Location home; private final Set<UUID> members; private final Set<UUID> trusted; private final Set<UUID> denied;
-        private boolean pvp; private boolean explosions; private boolean mobSpawning;
+        private boolean pvp; private boolean explosions; private boolean fire; private boolean mobSpawning;
 
         PlotData(UUID owner, int index, int centerX, int centerZ, Location home, Set<UUID> members,
-                 Set<UUID> trusted, Set<UUID> denied, boolean pvp, boolean explosions, boolean mobSpawning) {
+                 Set<UUID> trusted, Set<UUID> denied, boolean pvp, boolean explosions, boolean fire, boolean mobSpawning) {
             this.owner = owner; this.index = index; this.centerX = centerX; this.centerZ = centerZ; this.home = home;
             this.members = members; this.trusted = trusted; this.denied = denied;
-            this.pvp = pvp; this.explosions = explosions; this.mobSpawning = mobSpawning;
+            this.pvp = pvp; this.explosions = explosions; this.fire = fire; this.mobSpawning = mobSpawning;
         }
         public Location getHome() { return home.clone(); }
         public Set<UUID> getMembers() { return Collections.unmodifiableSet(members); }
@@ -235,6 +243,7 @@ public final class PlotService implements PlotAccessService {
         public Set<UUID> getDenied() { return Collections.unmodifiableSet(denied); }
         public boolean isPvp() { return pvp; }
         public boolean isExplosions() { return explosions; }
+        public boolean isFire() { return fire; }
         public boolean isMobSpawning() { return mobSpawning; }
         public int getMinX() { return centerX - RADIUS; } public int getMaxX() { return centerX + RADIUS; }
         public int getMinZ() { return centerZ - RADIUS; } public int getMaxZ() { return centerZ + RADIUS; }
