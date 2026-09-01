@@ -9,17 +9,18 @@ import org.bukkit.inventory.meta.SkullMeta;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Stackbare Crates mit Batch-ID, Anti-Dupe-Meta und optionalen Custom-Head-Textures. */
+/** Normale Crates sind identisch pro Typ und damit voll stackbar; alte Batch-Crates bleiben lesbar. */
 public final class CrateItemCodec {
+    private static final String STACK_MARKER = ChatColor.BLACK + "skykings:crate-stack:";
     private static final String LEGACY_MARKER = ChatColor.BLACK + "skykings:crate:";
     private static final String META_MARKER = ChatColor.BLACK + "#sc";
     private static final String TEXTURE_PREFIX = "texture:";
-    private static final int META_CHUNK = 12;
     private final IssuedItemStore issuedStore;
 
     public CrateItemCodec() { this(IssuedItemStore.active()); }
@@ -32,10 +33,6 @@ public final class CrateItemCodec {
 
     public ItemStack create(CrateRegistry.CrateDefinition crate, int amount) {
         int safeAmount = Math.max(1, Math.min(64, amount));
-        UUID serial = UUID.randomUUID();
-        if (issuedStore != null && !issuedStore.issueCrate(serial, crate.getId(), safeAmount)) {
-            throw new IllegalStateException("Crate-Batch konnte nicht sicher registriert werden");
-        }
         ItemStack item = new ItemStack(Material.SKULL_ITEM, safeAmount, (short) 3);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
         applyHead(meta, crate.getHeadOwner());
@@ -45,7 +42,7 @@ public final class CrateItemCodec {
         lore.add(ChatColor.GRAY + "Rechtsklick: " + ChatColor.GREEN + "Crate oeffnen");
         lore.add(ChatColor.GRAY + "Shift + Rechtsklick:");
         lore.add(ChatColor.GOLD + "Alle oeffnen " + ChatColor.DARK_GRAY + "(Exile+)");
-        addMeta(lore, crate.getId().toLowerCase(Locale.ROOT) + "|" + serial + "|" + safeAmount);
+        lore.add(STACK_MARKER + crate.getId().toLowerCase(Locale.ROOT));
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -70,7 +67,8 @@ public final class CrateItemCodec {
         try {
             Class<?> profileClass = Class.forName("com.mojang.authlib.GameProfile");
             Constructor<?> profileCtor = profileClass.getConstructor(UUID.class, String.class);
-            Object profile = profileCtor.newInstance(UUID.randomUUID(), "SkyKingsCrate");
+            UUID profileId = UUID.nameUUIDFromBytes(("SkyKingsCrate:" + textureValue).getBytes(StandardCharsets.UTF_8));
+            Object profile = profileCtor.newInstance(profileId, "SkyKingsCrate");
 
             Method getProperties = profileClass.getMethod("getProperties");
             Object properties = getProperties.invoke(profile);
@@ -104,6 +102,15 @@ public final class CrateItemCodec {
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
 
+        for (String line : meta.getLore()) {
+            if (line != null && line.startsWith(STACK_MARKER)) {
+                String crateId = line.substring(STACK_MARKER.length()).trim().toLowerCase(Locale.ROOT);
+                if (crateId.isEmpty()) return null;
+                return new DecodedCrate(crateId, null, 1);
+            }
+        }
+
+        // Migration: bereits ausgegebene Batch-/Serial-Crates bleiben bis zum Aufbrauchen gueltig.
         StringBuilder payload = new StringBuilder();
         for (String line : meta.getLore()) {
             if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
@@ -126,7 +133,7 @@ public final class CrateItemCodec {
                     serial = UUID.fromString(parts[1]);
                     maxClaims = Math.max(1, Math.min(64, Integer.parseInt(parts[2])));
                 } else return null;
-                return validate(crateId, serial, maxClaims);
+                return validateLegacy(crateId, serial, maxClaims);
             } catch (IllegalArgumentException ignored) { return null; }
         }
         return null;
@@ -139,20 +146,13 @@ public final class CrateItemCodec {
             String crateId = parts[0].toLowerCase(Locale.ROOT);
             UUID serial = UUID.fromString(parts[1]);
             int maxClaims = Math.max(1, Math.min(64, Integer.parseInt(parts[2])));
-            return validate(crateId, serial, maxClaims);
+            return validateLegacy(crateId, serial, maxClaims);
         } catch (IllegalArgumentException ignored) { return null; }
     }
 
-    private DecodedCrate validate(String crateId, UUID serial, int maxClaims) {
+    private DecodedCrate validateLegacy(String crateId, UUID serial, int maxClaims) {
         if (issuedStore != null && !issuedStore.isIssuedCrate(serial, crateId, maxClaims)) return null;
         return new DecodedCrate(crateId, serial, maxClaims);
-    }
-
-    private void addMeta(List<String> lore, String payload) {
-        for (int start = 0; start < payload.length(); start += META_CHUNK) {
-            int end = Math.min(payload.length(), start + META_CHUNK);
-            lore.add(META_MARKER + payload.substring(start, end));
-        }
     }
 
     private String color(String raw) { return ChatColor.translateAlternateColorCodes('&', raw == null ? "" : raw); }
@@ -165,5 +165,6 @@ public final class CrateItemCodec {
         public String getCrateId() { return crateId; }
         public UUID getSerial() { return serial; }
         public int getMaxClaims() { return maxClaims; }
+        public boolean isLegacySerial() { return serial != null; }
     }
 }
