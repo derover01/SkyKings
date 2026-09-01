@@ -17,6 +17,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -157,15 +160,23 @@ public final class EventReturnRecoveryService implements Listener {
             yaml.set(base + "yaw", location.yaw);
             yaml.set(base + "pitch", location.pitch);
         }
+
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            File parent = file.getParentFile();
             if (parent != null && !parent.exists() && !parent.mkdirs()) {
                 plugin.getLogger().warning("Event-Return-Datenordner konnte nicht erstellt werden: " + parent);
                 return;
             }
-            yaml.save(file);
+            yaml.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException ex) {
-            plugin.getLogger().warning("Event-Returns konnten nicht gespeichert werden: " + ex.getMessage());
+            plugin.getLogger().warning("Event-Returns konnten nicht sicher gespeichert werden: " + ex.getMessage());
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
         }
     }
 
