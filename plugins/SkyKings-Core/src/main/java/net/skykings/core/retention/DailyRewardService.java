@@ -21,12 +21,18 @@ public final class DailyRewardService {
     private final EconomyService economy;
     private final File file;
     private final YamlConfiguration data;
+    private final JackpotService jackpotService;
 
     public DailyRewardService(JavaPlugin plugin, EconomyService economy) {
         this.plugin = plugin;
         this.economy = economy;
         this.file = new File(plugin.getDataFolder(), "daily-rewards.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        this.jackpotService = new JackpotService(plugin, economy);
+    }
+
+    public JackpotService getJackpotService() {
+        return jackpotService;
     }
 
     public boolean claim(Player player) {
