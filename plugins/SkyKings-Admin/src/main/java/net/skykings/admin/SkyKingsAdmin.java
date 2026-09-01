@@ -13,6 +13,7 @@ import net.skykings.admin.command.WarpAdminCommand;
 import net.skykings.admin.command.WarpCommand;
 import net.skykings.admin.discord.DiscordBridge;
 import net.skykings.admin.discord.DiscordEventRelay;
+import net.skykings.admin.event.FridayEventService;
 import net.skykings.admin.warp.WarpService;
 import net.skykings.admin.warp.WarpTeleportService;
 import net.skykings.combat.tag.CombatTagService;
@@ -24,12 +25,13 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** SkyKings-Admin: Staff-, Warp- und Verwaltungsfunktionen. */
+/** SkyKings-Admin: Staff-, Warp-, Community-Event- und Verwaltungsfunktionen. */
 public class SkyKingsAdmin extends JavaPlugin {
 
     private DiscordBridge discordBridge;
     private GroundClearService groundClearService;
     private WarpTeleportService warpTeleportService;
+    private FridayEventService fridayEventService;
 
     @Override
     public void onEnable() {
@@ -63,9 +65,12 @@ public class SkyKingsAdmin extends JavaPlugin {
         PluginCommand setWarpCommand = getCommand("setwarp");
         PluginCommand delWarpCommand = getCommand("delwarp");
         PluginCommand mapTeleportCommand = getCommand("maptp");
+        PluginCommand fridayCommand = getCommand("freitag");
+        PluginCommand raffleCommand = getCommand("verlosen");
         if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null
                 || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null
-                || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null) {
+                || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null
+                || fridayCommand == null || raffleCommand == null) {
             getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -101,17 +106,22 @@ public class SkyKingsAdmin extends JavaPlugin {
         mapTeleportCommand.setExecutor(mapExecutor);
         mapTeleportCommand.setTabCompleter(mapExecutor);
 
+        this.fridayEventService = new FridayEventService(this, core, warpService);
+        fridayCommand.setExecutor(fridayEventService);
+        raffleCommand.setExecutor(fridayEventService);
+
         systemCheckCommand.setExecutor(new SystemCheckCommand());
         discordTestCommand.setExecutor(new DiscordTestCommand(discordBridge));
 
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit sicheren Combat-Warps, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
     public void onDisable() {
+        if (fridayEventService != null) fridayEventService.shutdown();
         if (warpTeleportService != null) warpTeleportService.shutdown();
         if (groundClearService != null) groundClearService.stopAutomaticCycle();
         getServer().getServicesManager().unregisterAll(this);
