@@ -1,6 +1,5 @@
 package net.skykings.core.plot;
 
-import net.skykings.core.protection.MapProtectionService;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -16,19 +15,16 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 
-/** Schutz der SkyPlots-Welt. Staff-Bypass ist nur mit bewusst aktiviertem /buildmode möglich. */
+/** Schutz der SkyPlots-Welt. Fremde Claims werden auch fuer OP/Wildcard-Spieler nicht still umgangen. */
 public final class PlotProtectionListener implements Listener {
     private final PlotService plots;
-    private final MapProtectionService mapProtection;
 
-    public PlotProtectionListener(PlotService plots, MapProtectionService mapProtection) {
+    public PlotProtectionListener(PlotService plots) {
         this.plots = plots;
-        this.mapProtection = mapProtection;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (canBypass(event.getPlayer())) return;
         if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
@@ -37,7 +33,6 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (canBypass(event.getPlayer())) return;
         if (!plots.canBuild(event.getPlayer(), event.getBlock().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
@@ -46,7 +41,6 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
-        if (canBypass(event.getPlayer())) return;
         if (event.getClickedBlock() == null) return;
         Material type = event.getClickedBlock().getType();
         if (!protectedInteraction(type)) return;
@@ -58,7 +52,6 @@ public final class PlotProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucket(PlayerBucketEmptyEvent event) {
-        if (canBypass(event.getPlayer())) return;
         if (!plots.canBuild(event.getPlayer(), event.getBlockClicked().getLocation())) {
             event.setCancelled(true);
             deny(event.getPlayer());
@@ -89,10 +82,6 @@ public final class PlotProtectionListener implements Listener {
     public void onSpawn(CreatureSpawnEvent event) {
         if (!plots.isPlotWorld(event.getLocation().getWorld())) return;
         if (plots.getPlotAt(event.getLocation()) == null || !plots.isMobSpawningAllowed(event.getLocation())) event.setCancelled(true);
-    }
-
-    private boolean canBypass(Player player) {
-        return player != null && player.hasPermission("skykings.admin.plot.bypass") && mapProtection.canEdit(player);
     }
 
     private boolean protectedInteraction(Material material) {
