@@ -81,6 +81,10 @@ commands:
     description: Boss gegen Angreifer als asymmetrisches Serverevent.
     usage: /juggernaut <join|leave|status|start|stop>
     aliases: [jug]
+  clanwar:
+    description: Sichere 2v2- bis 5v5-Clan-Wars mit den echten SkyKings-Clans.
+    usage: /clanwar <Clan-Owner|accept|deny|status|stop>
+    aliases: [cw, clanwars]
   targetevent:
     description: Most-Wanted-Event innerhalb konfigurierter PvP-Regionen.
     usage: /targetevent <status|start|stop> [Spieler]
@@ -90,7 +94,7 @@ commands:
     usage: /verlosung <join|start|stop>
     aliases: [giveaway]
   eventarena:
-    description: Richtet persistente Arena-Punkte für Duel, LMS, Tournament und Juggernaut ein.
+    description: Richtet persistente Arena-Punkte für Duel, LMS, Tournament, Juggernaut und Clan Wars ein.
     usage: /eventarena <set|info|list|remove> [Arena] [Punkt]
     permission: skykings.admin.event
     aliases: [arenasetup, eventsetup]
