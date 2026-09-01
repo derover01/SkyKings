@@ -242,11 +242,21 @@ Danach Server starten und `/is create` neu testen.
 
 ## 8. Plots
 
-Neue Zielmechanik:
-- 65 x 65 Plot
-- 7 Block breite Strassen
+Zielmechanik wie ein klassisches PlotSquared-Raster:
+- **65 x 65 Grasflaeche = genau eine Plotzelle**
+- danach **7 Block Stone-Brick-Strasse = neutral, geschuetzt und gehoert niemandem**
+- freie Plotzelle hat einen Holzstufen-Rand
+- beim Claim wird der verwaltete Rand zur Steinstufe
+- `/p rand` kann diesen Aussenrand mit permanent gekauften Coin-Cosmetics wechseln
+- ein Merge entfernt nur die Strasse zwischen zwei verbundenen Zellen
+- nicht gemergte Stone-Brick-Wege bleiben unantastbar
+
+Spielerbefehle:
 - `/p auto`
 - `/p h`
+- `/p sethome`
+- `/p merge <nord|ost|sued|west>`
+- `/p rand`
 - `/p add <Spieler>` = Baurecht solange Owner online
 - `/p trust <Spieler>` = dauerhaftes Baurecht
 - `/p remove <Spieler>`
@@ -257,15 +267,26 @@ Neue Zielmechanik:
 - `/p flag fire <an|aus>`
 - `/p flag mob-spawn <an|aus>`
 
-### Nur fuer den aktuellen Pre-Release-Test
-Der alte `SkyPlots`-Weltordner enthaelt bereits Void-Chunks. Der neue Strassen-Generator kann bestehende Chunks nicht rueckwirkend ersetzen. Fuer einen echten Test der neuen Plot-Welt Server stoppen und **nur wenn Testdaten weg duerfen** loeschen:
+### Sauberer Pre-Release-Reset
 
-```text
-server/SkyPlots/
-server/plugins/SkyKings-Core/plots.yml
+Alte generierte Chunks koennen das neue Raster und die Holzstufen nicht rueckwirkend uebernehmen. Server zuerst mit `stop` beenden und danach im Projektroot ausfuehren:
+
+```powershell
+.\scripts\reset-skyplots.ps1
 ```
 
-Danach neu starten und `/p auto` testen.
+Das Script verschiebt **SkyPlots + plots.yml + plot-borders.yml zuerst in einen timestamped Backup-Ordner** unter `server/backups/` und startet den Plot-Test danach sauber bei null.
+
+Nach Neustart zwingend testen:
+1. komplette Grasflaeche zwischen den Wegen claimbar
+2. Stone-Brick-Weg nicht abbaubar/platzierbar
+3. Weg meldet, dass er keinem Plot gehoert
+4. fremde Grasflaeche nicht bebaubar
+5. `/p rand` Kauf/Wechsel/Restart-Persistenz
+6. auf eigenem Plot `/p merge ost` (oder andere Richtung)
+7. genau die Strasse zum freien Nachbarplot verschwindet
+8. entfernte Merge-Strasse danach bebaubar
+9. alle anderen Strassen bleiben geschuetzt
 
 ## 9. PlayerShops
 
@@ -316,14 +337,49 @@ Spaeter lokal setzen, niemals in GitHub committen:
 - Channel IDs in `discord.yml`
 - `/discordtest staff|audit|events|status`
 
-## 13. Noch offene Entwicklungs-/Balancepunkte
+## 13. Warps / Map-Travel
+
+Finale Warp-Namen und Koordinaten **nicht raten**. Auf der echten Map an die gewuenschte Position stellen:
+
+```text
+/setwarp <Name>
+```
+
+Verwalten:
+```text
+/delwarp <Name>
+```
+
+Spieler:
+- `/warp` oder `/warps` oeffnet die Auswahl
+- `/warp <Name>` startet direkt die sichere 3-Sekunden-Schnellreise
+- aktueller Combat blockiert den Warp
+- Bewegung, Schaden oder neu beginnender Combat brechen den Countdown ab
+
+Staff Map-Travel:
+```text
+/maptp main
+/maptp plots
+/maptp islands
+/maptp events
+/maptp community
+```
+
+Permissions:
+- `skykings.admin.warps`
+- `skykings.admin.maptp`
+
+## 14. Noch offene Entwicklungs-/Balancepunkte
 
 - Shoppreise final mit echter Economy balancen
 - Tournament Gameplay-Controller
 - Juggernaut Gameplay-Controller
+- Clan-Wars Event-Controller
 - Community-Eventmap nach erstem Ingame-Test optisch manuell verfeinern
 - Event-NPCs/Hologramme/Teleportzugang fuer Community-Events definieren
 - echtes AMS/Mob-Stacking + Performanceprofil
 - Clan Tag final in Chat/Tab integrieren, ohne Rangdarstellung zu zerstoeren
 - Discord-Events aus allen Modulen final anschliessen
-- komplette Restart-/Dupe-/Load-Testserie vor Release
+- kompletter Restart-/Dupe-/Load-/Backup-Test vor Release
+- Battle-Pass-Economy/XP nach echtem Spieler-Test balancen
+- optionaler eigener Resource-Pack-Layer fuer die Pixel-Battle-Pass-UI
