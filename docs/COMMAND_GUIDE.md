@@ -41,6 +41,7 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 
 ## 4. Islands & Plots
 
+- `/island` - registrierter Hauptcommand fuer das Island-System. Alias: `/is`.
 - `/is` - Island Hub.
 - `/is create` - Island erstellen.
 - `/is home` - zur Island teleportieren.
@@ -94,6 +95,7 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 - `/quests [daily|weekly|premium]` - Quest Center.
 - `/killeffect` - Cosmetics Center fuer Kill Effects und Death Messages.
 - `/stattrack [apply|give]` - Weapon History / StatTrack.
+- `/seasonadmin finish` - Admin: aktuelle Season sicher abschliessen und Hall of Fame/Medaillen archivieren.
 
 ## 7. PvP & Community Events
 
