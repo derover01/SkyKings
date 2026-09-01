@@ -3,6 +3,7 @@ package net.skykings.admin.command;
 import net.skykings.combat.event.EventParticipationService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
 import org.bukkit.Bukkit;
@@ -38,6 +39,8 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, Bukkit.getServicesManager().load(PlotAccessService.class) != null, "Plot Access API");
         check(sender, CombatTagServiceImpl.liveInstance() != null, "CombatTag Live Service");
         check(sender, EventParticipationService.global() != null, "Event Participation Runtime");
+        DiscordNotifier discord = Bukkit.getServicesManager().load(DiscordNotifier.class);
+        check(sender, discord != null, "Discord Bridge");
 
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         command(sender, "plot");
@@ -59,10 +62,16 @@ public final class SystemCheckCommand implements CommandExecutor {
 
         int eventPlayers = EventParticipationService.global().snapshot().size();
         sender.sendMessage(ChatColor.GRAY + "Aktive Event-Spieler: " + ChatColor.WHITE + eventPlayers);
-        String discordToken = System.getenv("SKYKINGS_DISCORD_BOT_TOKEN");
-        sender.sendMessage((discordToken != null && !discordToken.trim().isEmpty()
-                ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
-                + ChatColor.GRAY + " Discord Bot Token");
+        if (discord == null || !discord.isEnabled()) {
+            sender.sendMessage(ChatColor.YELLOW + "[OPTIONAL]" + ChatColor.GRAY + " Discord deaktiviert/nicht konfiguriert");
+        } else {
+            sender.sendMessage((discord.isConfigured("events") ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
+                    + ChatColor.GRAY + " Discord Events Channel");
+            sender.sendMessage((discord.isConfigured("audit") ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
+                    + ChatColor.GRAY + " Discord Audit Channel");
+            sender.sendMessage((discord.isConfigured("status") ? ChatColor.GREEN + "[OK]" : ChatColor.YELLOW + "[OPTIONAL]")
+                    + ChatColor.GRAY + " Discord Status Channel");
+        }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
         return true;
     }
