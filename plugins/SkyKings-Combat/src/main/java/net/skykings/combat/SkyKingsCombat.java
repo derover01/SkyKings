@@ -21,6 +21,8 @@ import net.skykings.combat.event.EventParticipationService;
 import net.skykings.combat.event.LmsService;
 import net.skykings.combat.event.TargetEventCommand;
 import net.skykings.combat.event.TargetEventService;
+import net.skykings.combat.event.TournamentCommand;
+import net.skykings.combat.event.TournamentService;
 import net.skykings.combat.falldamage.FallDamageListener;
 import net.skykings.combat.kill.BountyService;
 import net.skykings.combat.kill.CombatDeathListener;
@@ -132,6 +134,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     private EventArenaService eventArenaService;
     private DuelService duelService;
     private LmsService lmsService;
+    private TournamentService tournamentService;
 
     @Override
     public void onEnable() {
@@ -187,6 +190,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         this.eventArenaService = new EventArenaService(this);
         this.duelService = new DuelService(this, eventArenaService, combatTagService, coreApi.getEconomyService());
         this.lmsService = new LmsService(this, eventArenaService, coreApi.getEconomyService());
+        this.tournamentService = new TournamentService(this, eventArenaService, coreApi.getEconomyService());
         this.targetEventService = new TargetEventService(this, pvpRegionService, coreApi.getEconomyService(), EventParticipationService.global());
         getServer().getServicesManager().register(PvpStatsProvider.class, pvpStatsService, this, ServicePriority.Normal);
 
@@ -225,6 +229,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         getServer().getPluginManager().registerEvents(questService, this);
         getServer().getPluginManager().registerEvents(duelService, this);
         getServer().getPluginManager().registerEvents(lmsService, this);
+        getServer().getPluginManager().registerEvents(tournamentService, this);
         getServer().getPluginManager().registerEvents(targetEventService, this);
         getServer().getPluginManager().registerEvents(new StarterKitRespawnListener(starterKitService), this);
         getServer().getPluginManager().registerEvents(new LootPickupListener(lootProtectionService), this);
@@ -249,6 +254,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         PluginCommand peaceCommand = getCommand("peace");
         PluginCommand duelCommand = getCommand("duel");
         PluginCommand lmsCommand = getCommand("lms");
+        PluginCommand tournamentCommand = getCommand("tournament");
         PluginCommand targetEventCommand = getCommand("targetevent");
         PluginCommand giveawayCommand = getCommand("verlosung");
         PluginCommand eventArenaCommand = getCommand("eventarena");
@@ -273,12 +279,12 @@ public final class SkyKingsCombat extends JavaPlugin {
                 || statTrackCommand == null || mapMasteryCommand == null || achievementsCommand == null
                 || seasonCommand == null || pvpLevelCommand == null || medalsCommand == null || seasonAdminCommand == null
                 || legacyHallCommand == null || battlePassCommand == null || questsCommand == null || peaceCommand == null
-                || duelCommand == null || lmsCommand == null || targetEventCommand == null || giveawayCommand == null
-                || eventArenaCommand == null || mapSetupCommand == null || mapLootCommand == null || supplyDropCommand == null
-                || kingAltarCommand == null || hotZoneCommand == null || endZoneCommand == null || pvpRegionCommand == null
-                || secretCommand == null || secretRoomCommand == null || routeCommand == null || landmarkCommand == null
-                || trashBinCommand == null || mapDisplayCommand == null || skyMapCommand == null || spawnCommand == null
-                || setSpawnCommand == null) {
+                || duelCommand == null || lmsCommand == null || tournamentCommand == null || targetEventCommand == null
+                || giveawayCommand == null || eventArenaCommand == null || mapSetupCommand == null || mapLootCommand == null
+                || supplyDropCommand == null || kingAltarCommand == null || hotZoneCommand == null || endZoneCommand == null
+                || pvpRegionCommand == null || secretCommand == null || secretRoomCommand == null || routeCommand == null
+                || landmarkCommand == null || trashBinCommand == null || mapDisplayCommand == null || skyMapCommand == null
+                || spawnCommand == null || setSpawnCommand == null) {
             getLogger().severe("Ein SkyKings-Combat-Command fehlt in plugin.yml - Modul wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -305,6 +311,7 @@ public final class SkyKingsCombat extends JavaPlugin {
         peaceCommand.setExecutor(new PeaceCommand(peaceService));
         duelCommand.setExecutor(new DuelCommand(duelService));
         lmsCommand.setExecutor(lmsService);
+        tournamentCommand.setExecutor(new TournamentCommand(tournamentService));
         targetEventCommand.setExecutor(new TargetEventCommand(targetEventService));
         giveawayCommand.setExecutor(new GiveawayCommand(this, coreApi.getEconomyService()));
         eventArenaCommand.setExecutor(new EventArenaCommand(eventArenaService));
@@ -333,6 +340,7 @@ public final class SkyKingsCombat extends JavaPlugin {
     @Override
     public void onDisable() {
         if (targetEventService != null) targetEventService.stop(false);
+        if (tournamentService != null) tournamentService.shutdown();
         if (lmsService != null) lmsService.shutdown();
         if (duelService != null) duelService.shutdown();
         if (eventArenaService != null) eventArenaService.save();
