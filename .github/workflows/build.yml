@@ -28,6 +28,10 @@ jobs:
           java -version
           mvn -version
 
+      - name: Static release audit
+        shell: pwsh
+        run: ./scripts/release-static-audit.ps1
+
       - name: Test and build all SkyKings modules
         run: mvn -B -U package
 
