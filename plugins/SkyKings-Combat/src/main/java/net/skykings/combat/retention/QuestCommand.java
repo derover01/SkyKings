@@ -41,17 +41,15 @@ public final class QuestCommand implements CommandExecutor {
         boolean premium = quests.isPremium(uuid);
         GuiSession gui = GuiSession.create(player, UiTheme.title("Quest Center"), 54);
 
-        // Header / Pass-Zusammenfassung
         int dailyDone = completedDaily(uuid);
         int weeklyDone = completedWeekly(uuid);
         int premiumDone = completedPremium(uuid);
         gui.setItem(4, UiItems.item(Material.ENCHANTED_BOOK, UiTheme.PRIMARY + "QUEST CENTER",
                 UiTheme.MUTED + "Daily " + UiTheme.TEXT + dailyDone + "/3",
                 UiTheme.MUTED + "Weekly " + UiTheme.TEXT + weeklyDone + "/2",
-                UiTheme.MUTED + "Premium " + (premium ? UiTheme.LEGENDARY + premiumDone + "/4" : UiTheme.DISABLED + "LOCKED"),
+                UiTheme.MUTED + "Premium " + (premium ? UiTheme.LEGENDARY.toString() + premiumDone + "/4" : UiTheme.DISABLED + "LOCKED"),
                 "", UiTheme.MUTED + "Quest-Rewards werden automatisch ausgezahlt."));
 
-        // Tab-Leiste
         gui.setItem(10, tab(Material.WATCH, "DAILY", page == Page.DAILY, dailyDone + "/3 erledigt"),
                 (p,e,s) -> open(p, Page.DAILY));
         gui.setItem(13, tab(Material.BEACON, "WEEKLY", page == Page.WEEKLY, weeklyDone + "/2 erledigt"),
@@ -60,7 +58,6 @@ public final class QuestCommand implements CommandExecutor {
                 premium ? premiumDone + "/4 erledigt" : "Premium erforderlich"),
                 (p,e,s) -> open(p, Page.PREMIUM));
 
-        // optische Trennlinie zwischen Navigation und Content
         for (int slot = 18; slot <= 26; slot++) gui.setItem(slot, panel((short) 15, " "));
 
         if (page == Page.DAILY) renderDaily(gui, uuid);
@@ -157,7 +154,7 @@ public final class QuestCommand implements CommandExecutor {
                 (premium ? UiTheme.LEGENDARY : UiTheme.PRIMARY) + name,
                 UiTheme.TEXT + task,
                 "", progress(shown, target),
-                UiTheme.MUTED + shown + "/" + target + " abgeschlossen",
+                UiTheme.MUTED.toString() + shown + "/" + target + " abgeschlossen",
                 UiTheme.MUTED + "Reward " + UiTheme.WARNING + reward,
                 "", status);
     }
