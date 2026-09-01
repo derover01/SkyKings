@@ -5,26 +5,35 @@ import net.skykings.core.gui.GuiSession;
 import net.skykings.core.ui.UiItems;
 import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.UUID;
 
 /** PlotSquared-inspiriertes Hauptmenue fuer das SkyKings-Plot-System. */
 public final class PlotMenu {
     private final PlotService plots;
+    private final PlotBorderService borders;
     private final GuiManager guiManager;
+    private final NumberFormat numbers = NumberFormat.getIntegerInstance(Locale.GERMANY);
 
-    public PlotMenu(PlotService plots) { this.plots = plots; this.guiManager = GuiManager.active(); }
+    public PlotMenu(PlotService plots, PlotBorderService borders) {
+        this.plots = plots;
+        this.borders = borders;
+        this.guiManager = GuiManager.active();
+    }
 
     public void open(Player player) {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Plots"), 45);
         if (!plots.hasPlot(player.getUniqueId())) {
             gui.setItem(22, UiItems.item(Material.GRASS, UiTheme.SUCCESS + "Plot automatisch claimen",
                     UiTheme.MUTED + "65x65 Baugrundstueck",
-                    UiTheme.MUTED + "mit 7 Block breiten Strassen.",
+                    UiTheme.MUTED + "mit neutralen Stone-Brick-Wegen.",
                     "", UiItems.action("Klicken zum Claimen")), (p,e,s) -> {
                 p.closeInventory();
                 if (plots.create(p)) p.sendMessage(UiTheme.SUCCESS + "Dein Plot wurde geclaimt.");
@@ -33,7 +42,7 @@ public final class PlotMenu {
             gui.setItem(31, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Plot Verwaltung",
                     UiTheme.TEXT + "/p auto  /p h  /p visit",
                     UiTheme.TEXT + "/p add  /p trust  /p deny",
-                    UiTheme.TEXT + "/p flags"));
+                    UiTheme.TEXT + "/p flags  /p rand"));
         } else {
             PlotService.PlotData data = plots.get(player.getUniqueId());
             gui.setItem(10, UiItems.item(Material.ENDER_PEARL, UiTheme.SUCCESS + "Plot Home",
@@ -51,22 +60,62 @@ public final class PlotMenu {
                     UiTheme.MUTED + "Denied: " + UiTheme.TEXT + data.getDenied().size(),
                     "", UiItems.action("Uebersicht oeffnen")), (p,e,s) -> openMembers(p));
             gui.setItem(16, UiItems.item(Material.REDSTONE_COMPARATOR, UiTheme.PRIMARY + "Plot Flags",
-                    UiTheme.MUTED + "PvP, Explosionen, Feuer und Mob-Spawns.",
+                    UiTheme.MUTED + "PvP, Explosionen, Feuer",
+                    UiTheme.MUTED + "und Mob-Spawns.",
                     "", UiItems.action("Einstellungen oeffnen")), (p,e,s) -> openFlags(p));
-            gui.setItem(22, UiItems.item(Material.SMOOTH_BRICK, UiTheme.TEXT + "Plot #" + data.index,
-                    UiTheme.MUTED + "Groesse: " + UiTheme.TEXT + "65 x 65",
-                    UiTheme.MUTED + "X: " + UiTheme.TEXT + data.getMinX() + " bis " + data.getMaxX(),
-                    UiTheme.MUTED + "Z: " + UiTheme.TEXT + data.getMinZ() + " bis " + data.getMaxZ(),
+            gui.setItem(22, UiItems.item(Material.GRASS, UiTheme.TEXT + "Plot #" + data.index,
+                    UiTheme.MUTED + "Claim: " + UiTheme.TEXT + "65 x 65",
+                    UiTheme.MUTED + "Nur die Flaeche innerhalb",
+                    UiTheme.MUTED + "der Stone-Brick-Wege gehoert dir.",
                     UiTheme.MUTED + "Owner: " + UiTheme.SUCCESS + player.getName()));
-            gui.setItem(31, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Plot Verwaltung",
+            gui.setItem(30, UiItems.item(borders.selected(player.getUniqueId()).getMaterial(), UiTheme.LEGENDARY + "Plot-Rand",
+                    UiTheme.MUTED + "Aktuell: " + UiTheme.TEXT + borders.selected(player.getUniqueId()).getDisplayName(),
+                    UiTheme.MUTED + "Raender mit Coins freischalten.",
+                    "", UiItems.action("Rand-Shop oeffnen")), (p,e,s) -> openBorders(p));
+            gui.setItem(32, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Plot Verwaltung",
                     UiTheme.TEXT + "/p add <Spieler>",
                     UiTheme.TEXT + "/p trust <Spieler>",
-                    UiTheme.TEXT + "/p remove <Spieler>",
                     UiTheme.TEXT + "/p deny / undeny <Spieler>",
-                    UiTheme.TEXT + "/p flags"));
+                    UiTheme.TEXT + "/p flags  /p rand"));
         }
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.25F);
+    }
+
+    public void openBorders(Player player) {
+        if (!plots.hasPlot(player.getUniqueId())) { open(player); return; }
+        GuiSession gui = GuiSession.create(player, UiTheme.title("Plot-Rand"), 45);
+        PlotBorderTheme selected = borders.selected(player.getUniqueId());
+        int[] slots = {10, 11, 12, 13, 14, 15, 16, 21, 23};
+        PlotBorderTheme[] themes = PlotBorderTheme.values();
+        for (int i = 0; i < themes.length && i < slots.length; i++) {
+            final PlotBorderTheme theme = themes[i];
+            boolean owned = borders.owns(player.getUniqueId(), theme);
+            boolean active = selected == theme;
+            String status = active ? UiTheme.SUCCESS + "ACTIVE"
+                    : owned ? UiTheme.PRIMARY + "FREIGESCHALTET"
+                    : UiTheme.WARNING + numbers.format(theme.getPrice()) + " Coins";
+            gui.setItem(slots[i], UiItems.item(theme.getMaterial(),
+                    (active ? UiTheme.SUCCESS : UiTheme.TEXT) + theme.getDisplayName(),
+                    status,
+                    active ? UiTheme.MUTED + "Dieser Rand ist aktiv."
+                            : owned ? UiItems.action("Klicken zum Auswaehlen")
+                            : UiItems.action("Klicken zum Kaufen")), (p,e,s) -> {
+                if (borders.purchaseAndSelect(p, theme)) {
+                    p.playSound(p.getLocation(), Sound.LEVEL_UP, 0.65F, 1.35F);
+                    p.sendMessage(UiTheme.SUCCESS + "Plot-Rand aktiviert: " + ChatColor.WHITE + theme.getDisplayName());
+                    openBorders(p);
+                } else {
+                    p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+                    p.sendMessage(UiTheme.DANGER + "Dafuer fehlen dir Coins.");
+                }
+            });
+        }
+        gui.setItem(31, UiItems.item(Material.GOLD_NUGGET, UiTheme.LEGENDARY + "Deine Coins",
+                UiTheme.TEXT + numbers.format(borders.balance(player.getUniqueId())) + " Coins"));
+        gui.setItem(UiTheme.NAV_BACK, UiItems.back(), (p,e,s) -> open(p));
+        guiManager.open(gui);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.3F);
     }
 
     public void openFlags(Player player) {
