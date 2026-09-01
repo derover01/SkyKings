@@ -183,7 +183,6 @@ public final class LmsService implements Listener, CommandExecutor {
         sessionId = "lms-" + System.currentTimeMillis();
         alive.clear();
         returnLocations.clear();
-        pendingRespawns.clear();
         queue.clear();
 
         int index = 1;
