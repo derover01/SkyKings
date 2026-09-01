@@ -111,7 +111,6 @@ public final class DuelService implements Listener {
     private final Map<UUID, Request> requests = new HashMap<UUID, Request>();
     private final Map<UUID, Session> sessions = new HashMap<UUID, Session>();
     private final Map<UUID, Location> pendingRespawns = new HashMap<UUID, Location>();
-    private final Map<UUID, DuelInventorySnapshot> pendingSnapshots = new HashMap<UUID, DuelInventorySnapshot>();
 
     public DuelService(JavaPlugin plugin, EventArenaService arenas, CombatTagService combatTags, EconomyService economy) {
         this.plugin = plugin;
@@ -367,10 +366,10 @@ public final class DuelService implements Listener {
         sessions.remove(session.second);
 
         UUID loserId = loser.getUniqueId();
-        Location loserReturn = session.returnFor(loserId);
-        pendingRespawns.put(loserId, loserReturn);
-        DuelInventorySnapshot loserSnapshot = session.snapshotFor(loserId);
-        if (loserSnapshot != null) pendingSnapshots.put(loserId, loserSnapshot);
+        pendingRespawns.put(loserId, session.returnFor(loserId));
+        // Entscheidend: Originalinventar noch im DeathEvent wiederherstellen. Durch keepInventory
+        // wird es in den Respawn uebernommen; Quit auf dem Death-Screen kann keinen Kit-Zustand festhalten.
+        restoreSnapshot(session, loser);
 
         UUID winnerId = session.opponent(loserId);
         settleWinner(session, winnerId);
@@ -393,10 +392,8 @@ public final class DuelService implements Listener {
         Location back = pendingRespawns.remove(player.getUniqueId());
         if (back == null) return;
         event.setRespawnLocation(back);
-        final DuelInventorySnapshot snapshot = pendingSnapshots.remove(player.getUniqueId());
         Bukkit.getScheduler().runTask(plugin, () -> {
             participation.leave(player.getUniqueId());
-            if (snapshot != null) snapshot.restore(player);
             prepare(player);
         });
     }
@@ -415,9 +412,10 @@ public final class DuelService implements Listener {
         sessions.remove(session.first);
         sessions.remove(session.second);
         pendingRespawns.remove(quitter.getUniqueId());
-        pendingSnapshots.remove(quitter.getUniqueId());
         participation.leave(quitter.getUniqueId());
         restoreSnapshot(session, quitter);
+        Location quitterReturn = session.returnFor(quitter.getUniqueId());
+        if (quitterReturn != null) quitter.teleport(quitterReturn);
 
         UUID opponentId = session.opponent(quitter.getUniqueId());
         settleWinner(session, opponentId);
@@ -475,7 +473,6 @@ public final class DuelService implements Listener {
         sessions.clear();
         requests.clear();
         pendingRespawns.clear();
-        pendingSnapshots.clear();
         participation.clear();
     }
 
