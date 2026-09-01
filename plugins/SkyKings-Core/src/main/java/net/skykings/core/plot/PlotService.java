@@ -3,6 +3,7 @@ package net.skykings.core.plot;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
@@ -23,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** PlotSquared-inspiriertes Claim-System mit 65x65 Plots, Strassen, Add/Trust/Deny und Flags. */
+/** PlotSquared-inspiriertes Claim-System mit 65x65 Plots, neutralen Strassen und klaren Zellgrenzen. */
 public final class PlotService implements PlotAccessService {
     public static final String WORLD_NAME = "SkyPlots";
     public static final int PLOT_SIZE = 65;
@@ -74,6 +75,7 @@ public final class PlotService implements PlotAccessService {
                 new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>(), false, false, false, false);
         plots.put(uuid, data);
         world.getChunkAt(home).load(true);
+        applyBorder(data, Material.STEP);
         save();
         player.teleport(home);
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.25F);
@@ -82,10 +84,42 @@ public final class PlotService implements PlotAccessService {
 
     public synchronized PlotData get(UUID owner) { return plots.get(owner); }
 
+    /**
+     * Generator und Claim-System benutzen exakt dasselbe 72er Raster:
+     * lokal 0..64 = Plotzelle, lokal 65..71 = neutrale Strasse.
+     */
     public synchronized PlotData findAt(Location location) {
-        if (!isPlotWorld(location)) return null;
-        for (PlotData plot : plots.values()) if (plot.contains(location)) return plot;
+        if (!isPlotWorld(location) || isRoad(location)) return null;
+        int cellX = Math.floorDiv(location.getBlockX(), SPACING);
+        int cellZ = Math.floorDiv(location.getBlockZ(), SPACING);
+        int index = cellZ * 100 + cellX;
+        for (PlotData plot : plots.values()) if (plot.index == index) return plot;
         return null;
+    }
+
+    public boolean isRoad(Location location) {
+        if (!isPlotWorld(location)) return false;
+        int localX = Math.floorMod(location.getBlockX(), SPACING);
+        int localZ = Math.floorMod(location.getBlockZ(), SPACING);
+        return localX >= PLOT_SIZE || localZ >= PLOT_SIZE;
+    }
+
+    @SuppressWarnings("deprecation")
+    public void applyBorder(PlotData plot, Material material) {
+        World world = ensureWorld();
+        if (world == null || plot == null) return;
+        int minX = plot.getMinX();
+        int maxX = plot.getMaxX();
+        int minZ = plot.getMinZ();
+        int maxZ = plot.getMaxZ();
+        for (int x = minX; x <= maxX; x++) {
+            world.getBlockAt(x, Y - 1, minZ).setType(material, false);
+            world.getBlockAt(x, Y - 1, maxZ).setType(material, false);
+        }
+        for (int z = minZ + 1; z < maxZ; z++) {
+            world.getBlockAt(minX, Y - 1, z).setType(material, false);
+            world.getBlockAt(maxX, Y - 1, z).setType(material, false);
+        }
     }
 
     public synchronized boolean add(UUID owner, UUID target) {
@@ -100,7 +134,6 @@ public final class PlotService implements PlotAccessService {
         boolean changed = plot.trusted.add(target); if (changed) save(); return changed;
     }
 
-    /** /p remove entfernt nur Add/Trust. Deny bleibt bewusst separat ueber /p undeny verwaltbar. */
     public synchronized boolean remove(UUID owner, UUID target) {
         PlotData plot = plots.get(owner); if (plot == null) return false;
         boolean changed = plot.members.remove(target) | plot.trusted.remove(target);
@@ -137,18 +170,9 @@ public final class PlotService implements PlotAccessService {
     public boolean canEnter(UUID player, Location location) {
         PlotData plot = findAt(location); return plot == null || !plot.denied.contains(player);
     }
-
-    public boolean isPvpAllowed(Location location) {
-        PlotData plot = findAt(location); return plot != null && plot.pvp;
-    }
-
-    public boolean areExplosionsAllowed(Location location) {
-        PlotData plot = findAt(location); return plot != null && plot.explosions;
-    }
-
-    public boolean isFireAllowed(Location location) {
-        PlotData plot = findAt(location); return plot != null && plot.fire;
-    }
+    public boolean isPvpAllowed(Location location) { PlotData plot = findAt(location); return plot != null && plot.pvp; }
+    public boolean areExplosionsAllowed(Location location) { PlotData plot = findAt(location); return plot != null && plot.explosions; }
+    public boolean isFireAllowed(Location location) { PlotData plot = findAt(location); return plot != null && plot.fire; }
 
     public void teleportHome(Player player, UUID owner) {
         PlotData plot = get(owner);
@@ -185,17 +209,18 @@ public final class PlotService implements PlotAccessService {
             try {
                 UUID owner = UUID.fromString(raw); String base = "plots." + raw;
                 int index = yaml.getInt(base + ".index");
-                int cx = yaml.getInt(base + ".center-x"); int cz = yaml.getInt(base + ".center-z");
+                int gx = index % 100;
+                int gz = index / 100;
+                int cx = gx * SPACING + RADIUS;
+                int cz = gz * SPACING + RADIUS;
                 Location home = new Location(world, yaml.getDouble(base + ".home.x", cx + 0.5D), yaml.getDouble(base + ".home.y", Y + 0.1D),
                         yaml.getDouble(base + ".home.z", cz + 0.5D), (float) yaml.getDouble(base + ".home.yaw", 0D), (float) yaml.getDouble(base + ".home.pitch", 0D));
                 Set<UUID> members = readSet(yaml, base + ".members");
                 Set<UUID> trusted = readSet(yaml, base + ".trusted");
                 Set<UUID> denied = readSet(yaml, base + ".denied");
                 plots.put(owner, new PlotData(owner, index, cx, cz, home, members, trusted, denied,
-                        yaml.getBoolean(base + ".flags.pvp", false),
-                        yaml.getBoolean(base + ".flags.explosions", false),
-                        yaml.getBoolean(base + ".flags.fire", false),
-                        yaml.getBoolean(base + ".flags.mob-spawn", false)));
+                        yaml.getBoolean(base + ".flags.pvp", false), yaml.getBoolean(base + ".flags.explosions", false),
+                        yaml.getBoolean(base + ".flags.fire", false), yaml.getBoolean(base + ".flags.mob-spawn", false)));
                 if (index >= nextIndex) nextIndex = index + 1;
             } catch (IllegalArgumentException ignored) { }
         }
@@ -245,9 +270,14 @@ public final class PlotService implements PlotAccessService {
         public boolean isExplosions() { return explosions; }
         public boolean isFire() { return fire; }
         public boolean isMobSpawning() { return mobSpawning; }
-        public int getMinX() { return centerX - RADIUS; } public int getMaxX() { return centerX + RADIUS; }
-        public int getMinZ() { return centerZ - RADIUS; } public int getMaxZ() { return centerZ + RADIUS; }
-        public boolean contains(Location l) { return l != null && l.getWorld() != null && WORLD_NAME.equals(l.getWorld().getName())
-                && Math.abs(l.getX() - centerX) <= RADIUS && Math.abs(l.getZ() - centerZ) <= RADIUS; }
+        public int getMinX() { return (index % 100) * SPACING; }
+        public int getMaxX() { return getMinX() + PLOT_SIZE - 1; }
+        public int getMinZ() { return (index / 100) * SPACING; }
+        public int getMaxZ() { return getMinZ() + PLOT_SIZE - 1; }
+        public boolean contains(Location l) {
+            if (l == null || l.getWorld() == null || !WORLD_NAME.equals(l.getWorld().getName())) return false;
+            int x = l.getBlockX(); int z = l.getBlockZ();
+            return x >= getMinX() && x <= getMaxX() && z >= getMinZ() && z <= getMaxZ();
+        }
     }
 }
