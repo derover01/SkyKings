@@ -40,20 +40,48 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
         String sub = args[0].toLowerCase(Locale.ROOT);
 
         if ("create".equals(sub) || "auto".equals(sub) || "claim".equals(sub) || "a".equals(sub) || "c".equals(sub)) {
-            if (plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt bereits einen Plot."); return true; }
+            if (plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt bereits einen Plot. Fuer mehr Flaeche nutze /p merge."); return true; }
             if (!plots.create(p)) { p.sendMessage(ChatColor.RED + "Plot konnte nicht erstellt werden."); return true; }
-            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT GECLAIMT! " + ChatColor.GRAY + "65x65 Baugrundstueck. Die Wege bleiben neutral.");
+            p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOT GECLAIMT! " + ChatColor.GRAY + "Die 65x65 Grasflaeche gehoert dir. Stone-Brick-Wege bleiben neutral.");
             return true;
         }
         if ("home".equals(sub) || "h".equals(sub)) { plots.teleportHome(p, p.getUniqueId()); return true; }
         if ("sethome".equals(sub) || "seth".equals(sub)) {
             boolean ok = plots.setHome(p.getUniqueId(), p.getLocation());
-            p.sendMessage(ok ? ChatColor.GREEN + "Plot-Home gesetzt." : ChatColor.RED + "Du musst auf deinem Plot stehen.");
+            p.sendMessage(ok ? ChatColor.GREEN + "Plot-Home gesetzt." : ChatColor.RED + "Du musst auf deiner Plotflaeche stehen.");
             p.playSound(p.getLocation(), ok ? Sound.ORB_PICKUP : Sound.VILLAGER_NO, 0.7F, ok ? 1.4F : 1F); return true;
         }
         if ("info".equals(sub) || "i".equals(sub)) { menu.open(p); return true; }
         if ("flags".equals(sub)) { menu.openFlags(p); return true; }
         if ("rand".equals(sub) || "border".equals(sub)) { menu.openBorders(p); return true; }
+
+        if ("merge".equals(sub) || "verbinden".equals(sub)) {
+            if (!plots.hasPlot(p.getUniqueId())) { p.sendMessage(ChatColor.RED + "Du besitzt keinen Plot."); return true; }
+            if (args.length < 2) {
+                p.sendMessage(ChatColor.AQUA + "Plot Merge " + ChatColor.GRAY + "- /p merge <nord|ost|sued|west>");
+                p.sendMessage(ChatColor.DARK_GRAY + "Stell dich auf die Plotflaeche, von der aus du erweitern willst.");
+                return true;
+            }
+            PlotService.MergeDirection direction = PlotService.MergeDirection.parse(args[1]);
+            PlotService.MergeResult result = plots.merge(p.getUniqueId(), p.getLocation(), direction);
+            if (result == PlotService.MergeResult.SUCCESS) {
+                p.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLOTS VERBUNDEN! " + ChatColor.GRAY + "Die Stone-Brick-Strasse dazwischen wurde zur Baufläche.");
+                p.playSound(p.getLocation(), Sound.ANVIL_USE, 0.65F, 1.35F);
+            } else if (result == PlotService.MergeResult.CLAIMED_BY_OTHER) {
+                p.sendMessage(ChatColor.RED + "Die angrenzende Plotflaeche ist bereits vergeben.");
+            } else if (result == PlotService.MergeResult.ALREADY_MERGED) {
+                p.sendMessage(ChatColor.YELLOW + "Diese Plotflaeche ist bereits mit deinem Plot verbunden.");
+            } else if (result == PlotService.MergeResult.NOT_ON_OWN_PLOT) {
+                p.sendMessage(ChatColor.RED + "Stell dich auf eine deiner Grasflaechen und versuche es erneut.");
+            } else if (result == PlotService.MergeResult.WORLD_EDGE) {
+                p.sendMessage(ChatColor.RED + "In diese Richtung kann nicht erweitert werden.");
+            } else if (result == PlotService.MergeResult.INVALID_DIRECTION) {
+                p.sendMessage(ChatColor.RED + "Richtung: nord, ost, sued oder west.");
+            } else {
+                p.sendMessage(ChatColor.RED + "Plot konnte nicht verbunden werden.");
+            }
+            return true;
+        }
 
         if ("add".equals(sub) || "trust".equals(sub) || "remove".equals(sub) || "untrust".equals(sub)
                 || "deny".equals(sub) || "undeny".equals(sub)) {
@@ -118,6 +146,7 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
         p.sendMessage(ChatColor.AQUA + "Plot Verwaltung");
         p.sendMessage(ChatColor.GREEN + "/p auto" + ChatColor.GRAY + " - freien Plot claimen");
         p.sendMessage(ChatColor.GREEN + "/p h" + ChatColor.GRAY + " - Plot-Home");
+        p.sendMessage(ChatColor.GREEN + "/p merge <Richtung>" + ChatColor.GRAY + " - angrenzenden Plot verbinden");
         p.sendMessage(ChatColor.GREEN + "/p add <Spieler>" + ChatColor.GRAY + " - baut wenn Owner online ist");
         p.sendMessage(ChatColor.GREEN + "/p trust <Spieler>" + ChatColor.GRAY + " - dauerhaft Baurechte");
         p.sendMessage(ChatColor.GREEN + "/p remove <Spieler>" + ChatColor.GRAY + " - Add/Trust entfernen");
@@ -131,11 +160,12 @@ public final class PlotCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(Arrays.asList("menu", "auto", "home", "sethome", "info", "add", "trust", "remove", "deny", "undeny", "flags", "flag", "rand", "visit"), args[0]);
+            return filter(Arrays.asList("menu", "auto", "home", "sethome", "info", "merge", "add", "trust", "remove", "deny", "undeny", "flags", "flag", "rand", "visit"), args[0]);
         }
         if (args.length == 2) {
             String sub = args[0].toLowerCase(Locale.ROOT);
             if ("flag".equals(sub)) return filter(Arrays.asList("pvp", "explosions", "fire", "mob-spawn"), args[1]);
+            if ("merge".equals(sub) || "verbinden".equals(sub)) return filter(Arrays.asList("nord", "ost", "sued", "west"), args[1]);
             if (sender instanceof Player) {
                 Player player = (Player) sender;
                 PlotService.PlotData data = plots.get(player.getUniqueId());
