@@ -326,4 +326,5 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
     @Override public GuiManager getGuiManager() { return guiManager; }
     @Override public VoucherPermissionService getVoucherPermissionService() { return voucherPermissionService; }
     @Override public ShopTransactionService getShopTransactionService() { return shopTransactionService; }
+    @Override public ClanService getClanService() { return clanService; }
 }
