@@ -15,6 +15,7 @@ import net.skykings.admin.discord.DiscordBridge;
 import net.skykings.admin.warp.WarpService;
 import net.skykings.admin.warp.WarpTeleportService;
 import net.skykings.combat.tag.CombatTagService;
+import net.skykings.combat.tag.CombatTagServiceImpl;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.discord.DiscordNotifier;
 import org.bukkit.command.PluginCommand;
@@ -39,14 +40,12 @@ public class SkyKingsAdmin extends JavaPlugin {
             return;
         }
         SkyKingsCoreAPI core = registration.getProvider();
-        RegisteredServiceProvider<CombatTagService> combatRegistration =
-                getServer().getServicesManager().getRegistration(CombatTagService.class);
-        if (combatRegistration == null) {
+        CombatTagService combatTags = CombatTagServiceImpl.liveInstance();
+        if (combatTags == null) {
             getLogger().severe("CombatTagService nicht gefunden - sichere Warps koennen nicht gestartet werden.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        CombatTagService combatTags = combatRegistration.getProvider();
 
         this.discordBridge = new DiscordBridge(this);
         getServer().getServicesManager().register(DiscordNotifier.class, discordBridge, this, ServicePriority.Normal);
