@@ -5,10 +5,14 @@ import net.skykings.admin.command.AnnouncementCommand;
 import net.skykings.admin.command.ClearChatCommand;
 import net.skykings.admin.command.DiscordTestCommand;
 import net.skykings.admin.command.GroundClearCommand;
+import net.skykings.admin.command.MapTeleportCommand;
 import net.skykings.admin.command.RankAdminCommand;
 import net.skykings.admin.command.RightsAdminCommand;
 import net.skykings.admin.command.SystemCheckCommand;
+import net.skykings.admin.command.WarpAdminCommand;
+import net.skykings.admin.command.WarpCommand;
 import net.skykings.admin.discord.DiscordBridge;
+import net.skykings.admin.warp.WarpService;
 import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.discord.DiscordNotifier;
 import org.bukkit.command.PluginCommand;
@@ -16,7 +20,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** SkyKings-Admin: Staff- und Verwaltungsfunktionen. */
+/** SkyKings-Admin: Staff-, Warp- und Verwaltungsfunktionen. */
 public class SkyKingsAdmin extends JavaPlugin {
 
     private DiscordBridge discordBridge;
@@ -42,8 +46,13 @@ public class SkyKingsAdmin extends JavaPlugin {
         PluginCommand groundClearCommand = getCommand("clear");
         PluginCommand systemCheckCommand = getCommand("skcheck");
         PluginCommand discordTestCommand = getCommand("discordtest");
+        PluginCommand warpCommand = getCommand("warp");
+        PluginCommand setWarpCommand = getCommand("setwarp");
+        PluginCommand delWarpCommand = getCommand("delwarp");
+        PluginCommand mapTeleportCommand = getCommand("maptp");
         if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null
-                || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null) {
+                || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null
+                || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null) {
             getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -64,13 +73,26 @@ public class SkyKingsAdmin extends JavaPlugin {
         groundClearCommand.setExecutor(new GroundClearCommand(groundClearService));
         groundClearService.startAutomaticCycle();
 
+        WarpService warpService = new WarpService(this);
+        WarpCommand warpExecutor = new WarpCommand(warpService);
+        warpCommand.setExecutor(warpExecutor);
+        warpCommand.setTabCompleter(warpExecutor);
+        WarpAdminCommand warpAdminExecutor = new WarpAdminCommand(warpService);
+        setWarpCommand.setExecutor(warpAdminExecutor);
+        setWarpCommand.setTabCompleter(warpAdminExecutor);
+        delWarpCommand.setExecutor(warpAdminExecutor);
+        delWarpCommand.setTabCompleter(warpAdminExecutor);
+        MapTeleportCommand mapExecutor = new MapTeleportCommand();
+        mapTeleportCommand.setExecutor(mapExecutor);
+        mapTeleportCommand.setTabCompleter(mapExecutor);
+
         systemCheckCommand.setExecutor(new SystemCheckCommand());
         discordTestCommand.setExecutor(new DiscordTestCommand(discordBridge));
 
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Rang-, Rechte-, Announcement-, Chat-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Warp-, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
