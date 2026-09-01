@@ -1,5 +1,6 @@
 package net.skykings.admin;
 
+import net.skykings.admin.casino.CasinoCommand;
 import net.skykings.admin.cleanup.GroundClearService;
 import net.skykings.admin.command.AnnouncementCommand;
 import net.skykings.admin.command.ClearChatCommand;
@@ -25,7 +26,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/** SkyKings-Admin: Staff-, Warp-, Community-Event- und Verwaltungsfunktionen. */
+/** SkyKings-Admin: Staff-, Warp-, Community-Event-, Casino- und Verwaltungsfunktionen. */
 public class SkyKingsAdmin extends JavaPlugin {
 
     private DiscordBridge discordBridge;
@@ -67,10 +68,11 @@ public class SkyKingsAdmin extends JavaPlugin {
         PluginCommand mapTeleportCommand = getCommand("maptp");
         PluginCommand fridayCommand = getCommand("freitag");
         PluginCommand raffleCommand = getCommand("verlosen");
+        PluginCommand casinoCommand = getCommand("casino");
         if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null
                 || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null
                 || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null
-                || fridayCommand == null || raffleCommand == null) {
+                || fridayCommand == null || raffleCommand == null || casinoCommand == null) {
             getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
             return;
@@ -109,6 +111,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         this.fridayEventService = new FridayEventService(this, core, warpService);
         fridayCommand.setExecutor(fridayEventService);
         raffleCommand.setExecutor(fridayEventService);
+        casinoCommand.setExecutor(new CasinoCommand(core));
 
         systemCheckCommand.setExecutor(new SystemCheckCommand());
         discordTestCommand.setExecutor(new DiscordTestCommand(discordBridge));
@@ -116,7 +119,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Void-Crown-Casino, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
