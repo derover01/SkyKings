@@ -54,9 +54,9 @@ commands:
     usage: /legacyhall [page|set|remove]
     aliases: [halloffame, hof]
   battlepass:
-    description: Öffnet den Season Battle Pass mit Free- und Premium-Track.
-    usage: /battlepass [rewards|quests]
-    aliases: [bp]
+    description: Öffnet den Season Battle Pass; Staff kann über /premiumpass Premium vergeben oder entfernen.
+    usage: /battlepass [rewards|quests] | /premiumpass <give|remove> <Spieler>
+    aliases: [bp, premiumpass]
   quests:
     description: Öffnet das Battle-Pass-Quest-Center.
     usage: /quests [daily|weekly|premium]
@@ -152,8 +152,8 @@ commands:
     permission: skykings.admin.map
     aliases: [mapholo, maphologram]
   skymap:
-    description: Lädt die Produktionsmap oder generiert Event-/Community-Testwelten.
-    usage: /skymap <load|event|community|generate> [Weltname]
+    description: Listet und lädt die offiziellen SkyKings-Maps oder erzeugt die Community-/Legacy-Testwelt.
+    usage: /skymap <list|load|community|generate> [Weltname]
     permission: skykings.admin.map
   spawn:
     description: Teleportiert dich nach 3 Sekunden zum globalen SkyKings-Spawn.
