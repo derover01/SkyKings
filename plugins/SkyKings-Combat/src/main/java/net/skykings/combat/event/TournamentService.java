@@ -10,6 +10,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -91,15 +95,23 @@ public final class TournamentService implements Listener {
 
         Location lobby = arenas.get("tournament", "lobby");
         Location spectator = arenas.get("tournament", "spectator");
+        List<UUID> admitted = new ArrayList<UUID>();
         for (UUID uuid : players) {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null || !player.isOnline()) continue;
-            returnLocations.put(uuid, player.getLocation().clone());
             if (!participation.join(uuid, EventParticipationService.Type.TOURNAMENT, sessionId)) continue;
+            returnLocations.put(uuid, player.getLocation().clone());
+            admitted.add(uuid);
             Location target = lobby != null ? lobby : spectator;
             if (target != null) player.teleport(target);
         }
-        broadcast(UiTheme.PRIMARY + "TOURNAMENT" + UiTheme.MUTED + " startet mit " + UiTheme.TEXT + players.size() + UiTheme.MUTED + " Spielern.");
+        if (admitted.size() < 4) {
+            for (UUID uuid : admitted) restore(uuid);
+            resetRuntime();
+            return false;
+        }
+        currentRound = admitted;
+        broadcast(UiTheme.PRIMARY + "TOURNAMENT" + UiTheme.MUTED + " startet mit " + UiTheme.TEXT + admitted.size() + UiTheme.MUTED + " Spielern.");
         Bukkit.getScheduler().runTaskLater(plugin, this::startNextMatch, 40L);
         return true;
     }
@@ -115,7 +127,6 @@ public final class TournamentService implements Listener {
     private void startNextMatch() {
         if (!running) return;
 
-        // Runde beendet -> Siegerliste wird neue Runde.
         if (matchCursor >= currentRound.size()) {
             if (nextRound.size() == 1) {
                 finishTournament(nextRound.get(0));
@@ -128,7 +139,11 @@ public final class TournamentService implements Listener {
             broadcast(UiTheme.PRIMARY + "TOURNAMENT" + UiTheme.MUTED + " • Runde " + UiTheme.TEXT + roundNumber);
         }
 
-        // Freilos bei ungerader Spielerzahl.
+        if (currentRound.isEmpty()) {
+            stop(true);
+            return;
+        }
+
         if (matchCursor == currentRound.size() - 1) {
             UUID bye = currentRound.get(matchCursor++);
             if (isOnlineParticipant(bye)) {
@@ -144,11 +159,11 @@ public final class TournamentService implements Listener {
         fighterB = currentRound.get(matchCursor++);
         Player a = Bukkit.getPlayer(fighterA);
         Player b = Bukkit.getPlayer(fighterB);
-        if (a == null || !a.isOnline()) {
+        if (!isOnlineParticipant(fighterA) || a == null) {
             advanceWithoutFight(fighterB);
             return;
         }
-        if (b == null || !b.isOnline()) {
+        if (!isOnlineParticipant(fighterB) || b == null) {
             advanceWithoutFight(fighterA);
             return;
         }
@@ -187,14 +202,14 @@ public final class TournamentService implements Listener {
         event.setDeathMessage(null);
 
         UUID winner = loser.equals(fighterA) ? fighterB : fighterA;
-        nextRound.add(winner);
+        if (winner != null && isOnlineParticipant(winner)) nextRound.add(winner);
         fighterA = null; fighterB = null;
 
         Location back = returnLocations.get(loser);
         if (back != null) pendingRespawns.put(loser, back);
         participation.leave(loser);
 
-        Player winnerPlayer = Bukkit.getPlayer(winner);
+        Player winnerPlayer = winner == null ? null : Bukkit.getPlayer(winner);
         if (winnerPlayer != null && winnerPlayer.isOnline()) {
             prepare(winnerPlayer);
             Location lobby = arenas.get("tournament", "lobby");
@@ -218,12 +233,12 @@ public final class TournamentService implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         queue.remove(uuid);
-        if (!running || !participation.isInEvent(uuid)) return;
+        if (!running || !isParticipant(uuid)) return;
         if (uuid.equals(fighterA) || uuid.equals(fighterB)) {
             UUID winner = uuid.equals(fighterA) ? fighterB : fighterA;
             participation.leave(uuid);
             returnLocations.remove(uuid);
-            nextRound.add(winner);
+            if (winner != null && isOnlineParticipant(winner)) nextRound.add(winner);
             fighterA = null; fighterB = null;
             Bukkit.getScheduler().runTaskLater(plugin, this::startNextMatch, 20L);
             return;
@@ -232,6 +247,39 @@ public final class TournamentService implements Listener {
         currentRound.remove(uuid);
         nextRound.remove(uuid);
         returnLocations.remove(uuid);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(PlayerDropItemEvent event) {
+        if (isParticipant(event.getPlayer().getUniqueId())) event.setCancelled(true);
+    }
+
+    @SuppressWarnings("deprecation")
+    @EventHandler(ignoreCancelled = true)
+    public void onPickup(PlayerPickupItemEvent event) {
+        if (isParticipant(event.getPlayer().getUniqueId())) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player)) return;
+        Player player = (Player) event.getPlayer();
+        if (!isParticipant(player.getUniqueId())) return;
+        if (event.getInventory().getHolder() instanceof Player) return;
+        event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onCommand(PlayerCommandPreprocessEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (!isParticipant(uuid)) return;
+        if (event.getPlayer().hasPermission("skykings.admin.event.bypass")) return;
+        String lower = event.getMessage().toLowerCase(java.util.Locale.ROOT);
+        if (lower.equals("/tournament") || lower.startsWith("/tournament ")
+                || lower.equals("/turnier") || lower.startsWith("/turnier ")) return;
+        event.setCancelled(true);
+        event.getPlayer().sendMessage(UiTheme.DANGER + "Commands sind waehrend des Tournaments deaktiviert.");
+        SoundFeedback.error(event.getPlayer());
     }
 
     private void finishTournament(UUID winnerId) {
@@ -263,9 +311,15 @@ public final class TournamentService implements Listener {
                 && (arenas.get("tournament", "lobby") != null || arenas.get("tournament", "spectator") != null);
     }
 
+    private boolean isParticipant(UUID uuid) {
+        EventParticipationService.Participation state = participation.get(uuid);
+        return state != null && state.getType() == EventParticipationService.Type.TOURNAMENT
+                && sessionId != null && sessionId.equals(state.getSessionId());
+    }
+
     private boolean isOnlineParticipant(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
-        return player != null && player.isOnline() && participation.isSameSession(uuid, uuid);
+        return player != null && player.isOnline() && isParticipant(uuid);
     }
 
     private void prepare(Player player) {
