@@ -23,20 +23,18 @@ $env:Path += ";C:\Users\marti\OneDrive\Desktop\SkyKings\tools\apache-maven-3.9.1
 mvn -version
 ```
 
-## 3. Alles vorbereiten: Preflight + Tests + Build + Deploy + einmaliger Plot-Reset
+## 3. Alles vorbereiten
 
-Fuer den ersten Test des neuen Plot-Rasters genau einmal:
-
-```powershell
-.\scripts\prepare-local-test.ps1 -ResetSkyPlots
-```
-
-Der Befehl fuehrt Release-Preflight, statischen Release-Audit, Maven-Tests, Build und Deploy aus. Mit `-ResetSkyPlots` wird die alte Testwelt vorher sicher in einen timestamped Backup-Ordner verschoben.
-
-Bei spaeteren Testlaeufen ohne Plot-Reset reicht:
+Normaler Testlauf ohne Plot-Reset:
 
 ```powershell
 .\scripts\prepare-local-test.ps1
+```
+
+Nur fuer einen bewusst komplett frischen Plot-Raster-Test:
+
+```powershell
+.\scripts\prepare-local-test.ps1 -ResetSkyPlots
 ```
 
 Erwartetes Plot-Raster:
@@ -44,8 +42,12 @@ Erwartetes Plot-Raster:
 - 7 Block Stone-Brick = neutrale, unantastbare Strasse
 - freie Plotgrenze = Holzstufe
 - geclaimte Plotgrenze = Steinstufe
+- WICHTIG: Plotboden liegt auf Y=64, der sichtbare Rand exakt eine Blockebene hoeher auf Y=65
+- unter dem Rand bleibt Gras; der Rand ersetzt nicht mehr den Plotboden
+- ueber der 7-Block-Strasse bleibt Y=65 frei
 - Strasse gehoert keinem Plot
-- Merge entfernt nur die Strasse zwischen zusammengefuehrten Plotzellen
+- Merge entfernt nur die Strasse und den internen erhoehten Rand zwischen zusammengefuehrten Plotzellen
+- bestehende Claims werden beim Start auf das erhoehte Randmodell migriert; dafuer ist kein Plot-Reset noetig
 
 ## 4. Server starten
 
@@ -62,27 +64,31 @@ Ingame:
 
 ```text
 /skcheck
+/skymap list
 ```
 
-Kritische Module/Services/Commands muessen OK sein. Der Check umfasst Core API, CombatTag, Clan Service, Event Participation, Discord Bridge, Duel, LMS und Clan Wars. Discord-Channels duerfen OPTIONAL sein, solange Discord noch nicht eingerichtet ist.
+Kritische Module/Services/Commands muessen OK sein. Discord-Channels duerfen OPTIONAL sein, solange Discord noch nicht eingerichtet ist.
 
 Falls beim Jackpot nach einem unsauberen Abbruch ein Recovery-Fall erkannt wurde, muss `/skcheck` deutlich `REVIEW` anzeigen. In diesem Zustand nicht blind weiter auszahlen, sondern Gewinner/Payout zuerst pruefen.
 
 ## 6. Plot-Test — zuerst machen
 
-1. `/p auto`
+1. Bestehenden Claim ansehen oder `/p auto` nutzen.
 2. Pruefen: Grasflaeche liegt exakt zwischen vier Stone-Brick-Strassen.
-3. Pruefen: Strasse kann nicht abgebaut/platziert werden, auch nicht als OP.
-4. Pruefen: fremde/unclaimed Grasflaeche kann nicht bebaut werden.
-5. Pruefen: Claim-Rand ist Steinstufe.
-6. `/p rand` oeffnen.
-7. Rand-Kauf mit Confirmation testen.
-8. Restart: gekaufter Rand bleibt freigeschaltet.
-9. Auf eigenem Plot stehen: `/p merge ost`.
-10. Nur die Strasse zum oestlichen Nachbarplot muss verschwinden.
-11. Auf der ehemaligen Strasse muss danach gebaut werden koennen.
-12. Andere Strassen bleiben neutral.
-13. Spaeter 2x2-Merge testen und Kreuzung pruefen.
+3. Pruefen: der Holz-/Stein-/Cosmetic-Rand steht sichtbar EINE Blockebene ueber dem Gras.
+4. Pruefen: unter dem Rand liegt Gras und nicht der Randblock selbst.
+5. Pruefen: ueber der Strasse steht kein Randblock.
+6. Pruefen: Rand ist exakt eine Blockreihe breit und liegt auf der aeussersten Plot-Koordinatenreihe.
+7. Pruefen: Strasse kann nicht abgebaut/platziert werden, auch nicht als OP.
+8. Pruefen: fremde/unclaimed Grasflaeche kann nicht bebaut werden.
+9. `/p rand` oeffnen und Cosmetic-Rand wechseln/kaufen.
+10. Jeder Cosmetic-Rand muss ebenfalls auf Y+1 liegen.
+11. Restart: gekaufter Rand bleibt freigeschaltet und auf richtiger Hoehe.
+12. Auf eigenem Plot stehen: `/p merge ost`.
+13. Nur die Strasse zum oestlichen Nachbarplot und der interne Rand muessen verschwinden.
+14. Auf der ehemaligen Strasse muss danach gebaut werden koennen.
+15. Andere Strassen und Aussenraender bleiben neutral/erhoeht.
+16. Spaeter 2x2-Merge testen und Kreuzung pruefen.
 
 ## 7. Battle Pass / Quests / Kits / Crates / Commands testen
 
@@ -100,6 +106,7 @@ Pruefen:
 - alle grossen Menues folgen demselben Custom-Panel-Stil
 - Hub wirkt sauber und nicht wie eine Item-Wand
 - Free/Premium-Track getrennt
+- jedes Level 1-100 hat einen Free-Reward und einen zusaetzlichen Premium-Reward
 - Daily/Weekly/Premium-Tabs klar erkennbar
 - Kit Arsenal zeigt READY / LOCKED / COOLDOWN sauber
 - Crate Center zeigt Rang-Rail und Reward-Cards sauber
@@ -107,10 +114,12 @@ Pruefen:
 - Seitenwechsel und Zurueck/Home funktionieren
 - Rewards nur einmal claimbar
 - Premium-Rewards ohne Premium gesperrt
+- `/premiumpass give <Spieler>` und `/premiumpass remove <Spieler>` testen
 - legitime PvP-Kills erhoehen Questfortschritt
 - Anti-Farm-Kills zaehlen nicht fuer PvP-Quests
 - Enderperlen-Quest funktioniert ausserhalb von Events
 - King-Altar-Captures zaehlen
+- Duel-Sieg, echter Crate-Open, Bounty-Claim und Rare/Epic Map Chest pruefen
 - Quest-Abschluss gibt Coins + SkyKings Sterne + Season-XP
 - Restart-Persistenz testen
 
@@ -122,16 +131,30 @@ Pruefen:
 
 Pruefen:
 - kosmetischen Prefix separat AN/AUS schalten
-- Rang neben kosmetischem Prefix separat AN/AUS schalten
-- Rang bleibt ohne kosmetischen Prefix sichtbar
-- Clan-Mitglieder zeigen den Clan-Tag sauber im Chat
+- Rang im Chat separat AN/AUS schalten, unabhaengig vom kosmetischen Prefix
+- Clan-Tag im Chat separat AN/AUS schalten
+- Kombinationen duerfen keine leeren `|`-Trenner erzeugen
+- direkte Commands `/prefix prefix an|aus`, `/prefix rang an|aus`, `/prefix clan an|aus` pruefen
+- `/prefix an|aus` schaltet nur den kosmetischen Prefix
 - im Tab steht kein Clan-Tag; Rang + vollstaendiger Spielername muessen sichtbar bleiben
 - auch lange Spieler-/Rangnamen duerfen den Spielernamen im Tab niemals abschneiden
 - Spieler ohne Clan haben keinen leeren/kaputten Platzhalter
 
-## 9. Inventory-Sync-Bug provozieren
+## 9. Spawn / Warp Sound & Inventory-Sync testen
 
-Item droppen und SOFORT hintereinander Menues oeffnen:
+Spawn:
+
+```text
+/spawn
+```
+
+Pruefen:
+- Start des 3-Sekunden-Teleports hat Sound
+- erfolgreicher Teleport hat Teleport- + Success-Sound
+- Bewegung/Schaden/Combat-Abbruch hat Error-Sound
+- bereits laufender Teleport hat Warning-Sound
+
+Danach Item droppen und SOFORT hintereinander Menues oeffnen:
 
 ```text
 /commands
@@ -149,7 +172,61 @@ Auf Event-/Mainmap:
 - Buildmode AUS -> normaler Map-Schutz
 - keine Plot-Schutzmeldung ausserhalb von `SkyPlots`
 
-## 11. Duel / LMS Multiplayer-Gate
+## 11. Freitags-Community-Event Runtime-Gate
+
+Einmalig an der gewuenschten Mitte der Drop-Area:
+
+```text
+/setwarp Event
+```
+
+Ohne diesen Warp darf `/freitag` nicht starten.
+
+Kompletten Ablauf testen:
+
+```text
+/freitag
+/freitag status
+```
+
+Pruefen:
+- serverweite Intro-Announcement
+- starke, aber nicht dauerhaft nervige Sounds
+- Feuerwerk an der Event-Area
+- automatische Ziehung unter Online-Spielern
+- Auto-Reward ist Coins, SkyKings Sterne oder eine echte server-issued Crate
+- Crate-Fallback verursacht keinen Fehler, falls Crates nicht bereit waeren
+
+Danach als Staff einen Item-Stack inkl. gewuenschter Menge in die Hand nehmen:
+
+```text
+/verlosen
+```
+
+Pruefen:
+- exakter Item-Typ, Meta/Enchantments und Stackmenge werden als Gewinn verwendet
+- 3-2-1-Countdown mit Sound
+- genau ein Gewinner bekommt den Gewinn
+- mehrere `/verlosen`-Runden nacheinander funktionieren
+- waehrend einer laufenden Ziehung kann nicht parallel eine zweite gestartet werden
+
+Manuelle Phase beenden:
+
+```text
+/verlosen fertig
+```
+
+Pruefen:
+- klare Drop-Event-Announcement mit `/warp Event`
+- 15-Sekunden-Countdown
+- Drop-Event startet nur am gespeicherten Event-Warp
+- ca. 42 hochwertige Drops kommen verteilt von oben
+- dabei echte Crates mit gueltiger Issued-Serial, PvP-Schwerter, God Apples, Gear, Pearls, Blocks, XP/Potions
+- keine Fake-/ungelisteten Crates
+- `/freitag stop` bricht einen laufenden Ablauf/Tasks sauber ab
+- Server `stop` waehrend des Freitags-Events darf keine Tasks nach Restart wiederbeleben
+
+## 12. Duel / LMS Multiplayer-Gate
 
 Duel-Arena setzen:
 
@@ -193,7 +270,7 @@ Danach LMS testen:
 - Event-Kills bleiben aus normalen PvP-Stats/Streaks/Bounties heraus
 - keine Command-/Drop-/Pickup-Umgehung
 
-## 12. Clan Wars Multiplayer-Gate
+## 13. Clan Wars Multiplayer-Gate
 
 Mindestens zwei echte Clans mit jeweils 2+ Online-Mitgliedern erstellen. Beide Clan-Owner muessen online sein.
 
@@ -232,7 +309,7 @@ Pruefen:
 
 Tournament und Juggernaut gehoeren bewusst nicht mehr zum Feature-Set und werden nicht getestet/eingerichtet.
 
-## 13. Spawner-/Mob-Stacking testen
+## 14. Spawner-/Mob-Stacking testen
 
 Auf eigener Island und eigenem Plot:
 - mehrere Spawner stacken
@@ -243,7 +320,7 @@ Auf eigener Island und eigenem Plot:
 - grosse Farm auf TPS/Entity-Anzahl beobachten
 - Chunk unload/reload und Serverrestart testen
 
-## 14. Crate/Voucher Security-Gate
+## 15. Crate/Voucher Security-Gate
 
 Pruefen:
 - schneller Doppelklick / mehrfacher Rechtsklick
@@ -252,9 +329,9 @@ Pruefen:
 - Voucher kopieren und zweimal versuchen
 - Restart direkt nach Einloesung bzw. Claim-Reservierung
 - Reward darf pro Serial/Batch nur einmal kommen
-- bereits eingelöste kopierte Serial bleibt auch nach Restart wertlos
+- bereits eingeloeste kopierte Serial bleibt auch nach Restart wertlos
 
-## 15. PlayerShop / Trade Transaction-Gate
+## 16. PlayerShop / Trade Transaction-Gate
 
 PlayerShop:
 - zweiter Spieler kauft waehrend Owner Stock entnimmt
@@ -272,7 +349,7 @@ Trade:
 - Quit/Inventory-Close waehrend Trade
 - keine doppelte Auszahlung / keine verlorenen Escrow-Items
 
-## 16. Jackpot / Map Mastery Runtime-Gate
+## 17. Jackpot / Map Mastery Runtime-Gate
 
 Jackpot:
 
@@ -302,7 +379,7 @@ Pruefen:
 - Hot-Zone-Kills, King-Captures, End-Kills und Secrets bleiben sichtbar
 - Restart: Zeit, Visits und Activities bleiben erhalten
 
-## 17. Discord-Gate (nur wenn eingerichtet)
+## 18. Discord-Gate (nur wenn eingerichtet)
 
 Wenn `SKYKINGS_DISCORD_BOT_TOKEN` und Channel-IDs gesetzt sind:
 
@@ -317,7 +394,7 @@ Pruefen:
 - 10er/25er/50er/100er legitime Killstreak wird gemeldet
 - Anti-Farm-Kills erzeugen keinen Discord-Meilenstein
 
-## 18. Phase-10 Backup-/Restart-Gate
+## 19. Phase-10 Backup-/Restart-Gate
 
 Vor groesseren Daten-Tests:
 
@@ -334,14 +411,14 @@ Danach mindestens einmal:
 - Persistenz pruefen
 - Backup -> Daten veraendern -> Guarded Restore -> Datenstand vergleichen
 
-## 19. Finale Balance / Soft-Launch-Gate
+## 20. Finale Balance / Soft-Launch-Gate
 
 Erst wenn die technischen Gates sauber sind:
 - Economy und Shoppreise
 - Kit-Cooldowns
 - Battle-Pass-XP und Rewards
 - Crate-Wahrscheinlichkeiten
-- Event-Rewards
+- Event-/Freitags-Rewards
 - Mob-/Spawner-Limits
 - reale Spielerzahl / TPS
 
@@ -349,4 +426,4 @@ Der Resource-Pack-Layer fuer die Custom UI kommt danach als Polish und ist kein 
 
 ## Wenn im Chat steht: "ich bin am PC"
 
-Dann diese Datei als feste Reihenfolge verwenden und den Nutzer Schritt fuer Schritt durch den Test fuehren. Erst Plot-/Runtime-/Persistenztests abschliessen, bevor weitere riskante Systeme lokal aktiviert werden.
+Dann diese Datei als feste Reihenfolge verwenden und den Nutzer Schritt fuer Schritt durch den Test fuehren. Der Nutzer gilt aktuell als am PC, bis er ausdruecklich schreibt, dass er nicht mehr am PC ist.
