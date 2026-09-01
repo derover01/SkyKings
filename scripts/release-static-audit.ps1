@@ -38,6 +38,10 @@ $combatPlugin = Get-Content 'plugins/SkyKings-Combat/src/main/resources/plugin.y
 if ($combatPlugin -match '(?m)^\s{2}tournament\s*:') { $errors.Add('/tournament ist wieder in Combat plugin.yml registriert.') }
 if ($combatPlugin -match '(?m)^\s{2}juggernaut\s*:') { $errors.Add('/juggernaut ist wieder in Combat plugin.yml registriert.') }
 
+$commandsGui = Get-Content 'plugins/SkyKings-Core/src/main/java/net/skykings/core/command/CommandsGui.java' -Raw
+if ($commandsGui -match '(?i)/tournament|turnier') { $errors.Add('Tournament/Turnier darf nicht mehr in der Spieler-Commands-UI auftauchen.') }
+if ($commandsGui -match '(?i)/juggernaut|juggernaut') { $errors.Add('Juggernaut darf nicht mehr in der Spieler-Commands-UI auftauchen.') }
+
 # CI must execute tests. Accidentally reintroducing skipTests makes release gates meaningless.
 $workflow = Get-Content '.github/workflows/build.yml' -Raw
 if ($workflow -match '-DskipTests') { $errors.Add('CI darf Maven-Tests nicht mit -DskipTests ueberspringen.') }
