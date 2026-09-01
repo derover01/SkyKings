@@ -76,6 +76,7 @@ public final class PlayerShopService {
         long price = shop.getPriceCoins();
         if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
 
+        // Stock wird persistent reserviert, bevor Coins oder Items die Seite wechseln.
         shop.setStock(oldStock - amount);
         if (!store.saveChecked()) {
             shop.setStock(oldStock);
@@ -98,10 +99,18 @@ public final class PlayerShopService {
         long fee = Math.max(1L, price * FEE_PERCENT / 100L);
         long sellerRevenue = Math.max(0L, price - fee);
         long oldRevenue = shop.getPendingRevenue();
-        shop.setPendingRevenue(oldRevenue + sellerRevenue);
+        shop.setPendingRevenue(safeAdd(oldRevenue, sellerRevenue));
         if (!store.saveChecked()) {
-            logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP_SAVE_WARNING", price,
-                    "shop=" + shopId + ", owner=" + shop.getOwner() + ", pendingRevenuePersistFailed=true"));
+            // Der Kauf ist zu diesem Zeitpunkt bereits abgeschlossen. Die atomare Store-Save-Methode
+            // garantiert bei false, dass der alte Dateistand bestehen blieb. Deshalb den In-Memory-
+            // Wert auf genau diesen sicheren Stand zuruecksetzen und nur den NEUEN Verkaeuferanteil
+            // direkt auszahlen. So kann ein spaeterer Save denselben Betrag nicht erneut als Pending
+            // Revenue persistieren.
+            shop.setPendingRevenue(oldRevenue);
+            economy.deposit(shop.getOwner(), sellerRevenue, "PLAYER_SHOP_RECOVERY",
+                    "Direktauszahlung nach Revenue-Save-Fehler " + shopId);
+            logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP_SAVE_RECOVERY", sellerRevenue,
+                    "shop=" + shopId + ", owner=" + shop.getOwner() + ", pendingRevenuePersistFailed=true, directSellerPayout=true"));
         }
 
         logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP", price,
@@ -202,5 +211,10 @@ public final class PlayerShopService {
             if (current != null) temp.setItem(i, current.clone());
         }
         return temp.addItem(item.clone()).isEmpty();
+    }
+
+    private long safeAdd(long a, long b) {
+        if (b > 0L && a > Long.MAX_VALUE - b) return Long.MAX_VALUE;
+        return a + b;
     }
 }
