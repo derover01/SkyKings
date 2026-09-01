@@ -110,7 +110,10 @@ public final class PlayerDisplayListener implements Listener {
     public void onChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
         String prefix = displayService.prefixFor(player);
-        event.setFormat(prefix + ChatColor.DARK_GRAY + " | " + ChatColor.WHITE + "%1$s"
+        String clan = displayService.clanTagFor(player);
+        event.setFormat(prefix + ChatColor.DARK_GRAY + " | "
+                + (clan.isEmpty() ? "" : clan + " ")
+                + ChatColor.WHITE + "%1$s"
                 + ChatColor.DARK_GRAY + " » " + ChatColor.GRAY + "%2$s");
     }
 }
