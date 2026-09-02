@@ -4,21 +4,22 @@ import net.skykings.core.model.PlayerProfile;
 
 import java.util.UUID;
 
-/**
- * Verwaltet den Lifecycle von {@link PlayerProfile}-Instanzen.
- *
- * <p>Phase-1A-Grenze: RankService/EconomyService/CooldownService arbeiten nur auf bereits
- * geladenen (= online) Profilen (siehe {@link #getCached(UUID)}). Offline-Bearbeitung
- * (z. B. ein spaeterer Admin-Befehl "/eco give OfflinePlayer") ist ein bewusst offener
- * Punkt fuer eine spaetere Phase, sobald es dafuer echte Aufrufer gibt.
- */
+/** Verwaltet den Lifecycle von PlayerProfile-Instanzen. */
 public interface PlayerProfileService {
 
     /** Laedt das Profil aus der Datenbank oder legt bei erstem Login ein neues an. */
     PlayerProfile loadOrCreate(UUID uuid, String currentName);
 
-    /** Liefert das gecachte Profil eines online geladenen Spielers, sonst {@code null}. */
+    /** Liefert das aktuell gecachte Profil, sonst null. */
     PlayerProfile getCached(UUID uuid);
+
+    /**
+     * Liefert ein bereits vorhandenes Profil aus Cache oder Persistenz, ohne einen neuen
+     * Datensatz anzulegen. Einfache Test-Doubles bleiben standardmaessig cache-only.
+     */
+    default PlayerProfile loadExisting(UUID uuid) {
+        return getCached(uuid);
+    }
 
     /** Aktualisiert Namen + lastSeen (PlayerJoin) und speichert. */
     void updatePresence(UUID uuid, String currentName);
