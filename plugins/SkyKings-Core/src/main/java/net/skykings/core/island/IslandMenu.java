@@ -81,16 +81,58 @@ public final class IslandMenu {
                     UiTheme.MUTED + "Schutz: " + UiTheme.TEXT + "129 x 129",
                     UiTheme.MUTED + "X: " + UiTheme.TEXT + data.getMinX() + " bis " + data.getMaxX(),
                     UiTheme.MUTED + "Z: " + UiTheme.TEXT + data.getMinZ() + " bis " + data.getMaxZ()));
-            gui.setItem(30, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Schnellbefehle",
+            gui.setItem(29, UiItems.item(Material.PAPER, UiTheme.PRIMARY + "Schnellbefehle",
                     UiTheme.TEXT + "/is visit <Spieler>",
                     UiTheme.TEXT + "/is trust <Spieler>",
                     UiTheme.TEXT + "/is top"));
-            gui.setItem(32, UiItems.item(Material.DIAMOND, UiTheme.LEGENDARY + "Island Top 10",
+            gui.setItem(31, UiItems.item(Material.DIAMOND, UiTheme.LEGENDARY + "Island Top 10",
                     UiTheme.MUTED + "Vergleiche Island-Level.", "", UiItems.action("Oeffnen")), (p,e,s) -> openTop(p));
+            gui.setItem(33, UiItems.item(Material.LAVA_BUCKET, UiTheme.DANGER + "Insel loeschen",
+                    UiTheme.DANGER + "UNWIDERRUFLICH",
+                    UiTheme.MUTED + "Alle Bloecke, Kisten, Entities, Homes",
+                    UiTheme.MUTED + "und Trusts dieser Insel gehen verloren.", "",
+                    UiItems.action("Klicken fuer Warnung")), (p,e,s) -> openDeleteConfirm(p));
         }
 
         guiManager.open(gui);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.35F);
+    }
+
+    public void openDeleteConfirm(Player player) {
+        if (!islands.hasIsland(player.getUniqueId())) {
+            player.sendMessage(UiTheme.DANGER + "Du besitzt keine Insel.");
+            open(player);
+            return;
+        }
+        GuiSession gui = GuiSession.create(player, UiTheme.title("INSEL LOESCHEN?"), 27);
+        gui.setItem(4, UiItems.item(Material.TNT, UiTheme.DANGER + "ACHTUNG: ALLES WIRD GELOESCHT",
+                UiTheme.DANGER + "Diese Aktion ist endgueltig.", "",
+                UiTheme.MUTED + "• Alle gebauten Bloecke und Kisten",
+                UiTheme.MUTED + "• Alle Entities auf der Insel",
+                UiTheme.MUTED + "• Home und Welcome-Punkt",
+                UiTheme.MUTED + "• Trusted-Spieler und Island-Level",
+                "",
+                UiTheme.WARNING + "Danach kannst du eine neue Insel erstellen."));
+        gui.setItem(11, UiItems.item(Material.EMERALD_BLOCK, UiTheme.SUCCESS + "ABBRECHEN",
+                UiTheme.MUTED + "Deine Insel bleibt unveraendert.", "", UiItems.action("Zurueck")),
+                (p,e,s) -> open(p));
+        gui.setItem(15, UiItems.item(Material.REDSTONE_BLOCK, UiTheme.DANGER + "ENDGUELTIG LOESCHEN",
+                UiTheme.DANGER + "Alles auf deiner Insel wird entfernt.", "",
+                UiTheme.WARNING + "Keine Wiederherstellung moeglich.",
+                UiItems.action("Klicken zum Bestaetigen")), (p,e,s) -> {
+            p.closeInventory();
+            if (islands.delete(p.getUniqueId())) {
+                p.sendMessage(UiTheme.DANGER + "Deine alte Insel wurde vollstaendig geloescht.");
+                p.sendMessage(UiTheme.SUCCESS + "Du kannst jetzt mit /is create eine neue Insel erstellen.");
+                p.playSound(p.getLocation(), Sound.ANVIL_LAND, 0.7F, 0.8F);
+                open(p);
+            } else {
+                p.sendMessage(UiTheme.DANGER + "Die Insel konnte nicht sicher geloescht werden.");
+                p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+            }
+        });
+        guiManager.open(gui);
+        player.playSound(player.getLocation(), Sound.ANVIL_USE, 0.7F, 0.85F);
     }
 
     public void openTop(Player player) {
