@@ -52,15 +52,10 @@ public final class PlayerShopService {
     public synchronized Result purchase(Player buyer, UUID shopId, int offerIndex) {
         PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
         if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
-        // Wenn der Spieler gerade das echte Villager-Handelsfenster offen hat, darf nur exakt
-        // der Zustand gekauft werden, den dieses Fenster beim Oeffnen gesehen hat. Aendert der
-        // Besitzer zwischenzeitlich Item, Menge oder Preis, bricht der Kauf vor jeder Mutation ab.
         if (!PlayerShopTradeSnapshotRegistry.matchesIfPresent(buyer.getUniqueId(), shopId, offerIndex, offer)) return Result.INVALID_SHOP;
         if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
         long price = offer.getPriceCoins();
         long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
-        // Serverzustand zuerst pruefen: bei einem unmoeglichen Revenue-Settlement weder Bukkit-Inventar
-        // anfassen noch den Käufer-/Economy-Pfad starten.
         if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
         ItemStack top = offer.topStack(), middle = offer.middleStack();
         if (!canFit(buyer, top, middle)) return Result.INVENTORY_FULL;
@@ -72,7 +67,7 @@ public final class PlayerShopService {
         if (!economy.withdraw(buyer.getUniqueId(), price, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot " + (offerIndex + 1))) {
             restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.NOT_ENOUGH_MONEY;
         }
-        if ((top != null && !buyer.getInventory().addItem(top).isEmpty()) || (middle != null && !buyer.getInventory().addItem(middle).isEmpty())) {
+        if (!deliverAtomically(buyer, top, middle)) {
             economy.deposit(buyer.getUniqueId(), price, "PLAYER_SHOP_ROLLBACK", "Rollback Shop " + shopId);
             restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.FAILED;
         }
@@ -147,6 +142,31 @@ public final class PlayerShopService {
     }
 
     private void restore(PlayerShopOffer offer, Material material, short data, int top, int middle, long price) { offer.setMaterial(material); offer.setData(data); offer.setAmountTop(top); offer.setAmountMiddle(middle); offer.setPriceCoins(price); }
+
+    /**
+     * Zustellung beider Trade-Stacks als eine Einheit. Der Preflight sollte bereits garantieren,
+     * dass alles passt. Falls Bukkit trotzdem Restitems meldet, wird das Storage-Inventar exakt
+     * auf den Zustand vor der Zustellung zurueckgesetzt, bevor Economy/Offer-Rollback erfolgt.
+     */
+    private boolean deliverAtomically(Player player, ItemStack... items) {
+        ItemStack[] before = new ItemStack[36];
+        for (int i = 0; i < before.length; i++) {
+            ItemStack current = player.getInventory().getItem(i);
+            before[i] = current == null ? null : current.clone();
+        }
+        for (ItemStack item : items) {
+            if (item == null) continue;
+            if (!player.getInventory().addItem(item.clone()).isEmpty()) {
+                for (int i = 0; i < before.length; i++) {
+                    player.getInventory().setItem(i, before[i] == null ? null : before[i].clone());
+                }
+                player.updateInventory();
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean canFit(Player player, ItemStack... items) {
         Inventory temp = Bukkit.createInventory(null, 36); for (int i = 0; i < 36; i++) { ItemStack current = player.getInventory().getItem(i); if (current != null) temp.setItem(i, current.clone()); }
         for (ItemStack item : items) if (item != null && !temp.addItem(item.clone()).isEmpty()) return false; return true;
