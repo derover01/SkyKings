@@ -54,7 +54,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         String[] commands = {
                 "is", "plot", "warp", "craterewards", "battlepass", "premiumpass", "quests", "kit", "prefix",
                 "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop",
-                "verlosen", "freitag", "casinonpc"
+                "verlosen", "freitag", "casinonpc", "addcoins", "setcoins"
         };
         for (String commandName : commands) command(sender, commandName);
 
@@ -85,7 +85,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                     + ChatColor.GRAY + " Discord Status Channel");
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
-        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach /is delete+create, Crate, Voucher, Giveaway, Casino und Multiplayer-Flows manuell pruefen.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Island-Starter, Crate, Voucher, PlayerShop, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
         return true;
     }
 
