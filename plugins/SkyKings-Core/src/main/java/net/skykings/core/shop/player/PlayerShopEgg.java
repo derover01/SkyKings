@@ -7,11 +7,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
-/** Einzigartiges Villager-Spawn-Ei zum Platzieren eines PlayerShops. */
+/** Stackbares Villager-Spawn-Ei zum Platzieren eines PlayerShops. */
 public final class PlayerShopEgg {
     private static final String MARKER = ChatColor.BLACK + "skykings:playershop-egg:";
+    private static final String STACK_MARKER = MARKER + "v2";
 
     public ItemStack create() {
         ItemStack item = new ItemStack(Material.MONSTER_EGG, 1, (short) 120);
@@ -25,7 +25,9 @@ public final class PlayerShopEgg {
         lore.add(ChatColor.AQUA + "• Einmalig verbrauchbar");
         lore.add("");
         lore.add(ChatColor.DARK_GRAY + "SkyKings Handelslizenz");
-        lore.add(MARKER + UUID.randomUUID().toString());
+        // Keine per-Item UUID: identische Haendler-Eier muessen normal stacken koennen.
+        // Alte UUID-Marker bleiben durch startsWith(MARKER) weiterhin voll kompatibel.
+        lore.add(STACK_MARKER);
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
