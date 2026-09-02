@@ -9,6 +9,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -69,6 +72,27 @@ public final class IslandStarterProtection {
         }
     }
 
+    /**
+     * Administrative Recovery fuer Test-/Supportfaelle. Entfernt genau einen Claim dauerhaft.
+     * Bei einem Schreibfehler wird der In-Memory-Stand zurueckgerollt und der Reset gilt als fehlgeschlagen.
+     */
+    public static boolean resetClaim(UUID playerId) {
+        if (playerId == null) return false;
+        synchronized (LOCK) {
+            ensureLoaded();
+            if (!claimed.remove(playerId)) return false;
+            try {
+                rewriteClaims();
+                return true;
+            } catch (IOException ex) {
+                claimed.add(playerId);
+                plugin().getLogger().log(Level.SEVERE,
+                        "Island-Starterclaim konnte nicht sicher zurueckgesetzt werden: " + playerId, ex);
+                throw new IllegalStateException("Starterclaim-Reset konnte nicht sicher persistiert werden", ex);
+            }
+        }
+    }
+
     public static boolean hasClaimed(UUID playerId) {
         if (playerId == null) return false;
         synchronized (LOCK) {
@@ -87,12 +111,35 @@ public final class IslandStarterProtection {
         }
     }
 
+    private static void rewriteClaims() throws IOException {
+        File file = file();
+        File parent = file.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IOException("Datenordner konnte nicht erstellt werden: " + parent);
+        }
+        File temp = new File(parent, file.getName() + ".tmp");
+        try (FileWriter writer = new FileWriter(temp, false)) {
+            for (UUID uuid : claimed) {
+                writer.write(uuid.toString());
+                writer.write(System.lineSeparator());
+            }
+            writer.flush();
+        }
+        try {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException ex) {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            if (temp.exists()) temp.delete();
+        }
+    }
+
     private static void ensureLoaded() {
         if (loaded) return;
         File file = file();
         if (file.exists()) {
             try {
-                for (String line : java.nio.file.Files.readAllLines(file.toPath())) {
+                for (String line : Files.readAllLines(file.toPath())) {
                     try { claimed.add(UUID.fromString(line.trim())); }
                     catch (IllegalArgumentException ignored) { }
                 }
