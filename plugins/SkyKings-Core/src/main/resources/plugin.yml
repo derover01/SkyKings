@@ -10,6 +10,10 @@ commands:
     description: Öffnet die zentrale SkyKings-Befehlsübersicht.
     usage: /commands
     aliases: [befehle, cmds]
+  pack:
+    description: Fordert den aktuellen SkyKings Resource Pack erneut an.
+    usage: /pack
+    aliases: [resourcepack, texturepack]
   kit:
     description: Zeigt verfügbare Rank-Kits oder gibt ein Kit aus.
     usage: /kit [name]
@@ -95,7 +99,7 @@ commands:
     aliases: [clans, c]
   playershop:
     description: Händler-Ei-basierte Villager-PlayerShops auf Island, Plot oder aktivem Mietstand.
-    usage: /playershop <kaufen|set|stock|withdraw|claim|info|remove>
+    usage: /playershop <kaufen|claim|remove>
     aliases: [pshop]
   spawnerstack:
     description: Zeigt die Größe des angesehenen Spawner-Stacks.
