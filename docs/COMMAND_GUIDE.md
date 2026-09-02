@@ -1,6 +1,6 @@
 # SkyKings Command & Setup Guide
 
-Stand: 2026-09-01
+Stand: 2026-09-02
 
 Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und Server-Setup. Neue Commands muessen hier dokumentiert werden; der statische Release-Audit prueft das automatisch.
 
@@ -64,6 +64,7 @@ Casino-Regel: Das Casino verwendet ausschliesslich Ingame-Waehrungen. Die GUIs z
 - `/is untrust <Spieler>` - Trust entfernen.
 - `/is visit <Spieler>` - Island besuchen.
 - `/is info` - Island-Info.
+- `/is resetstarter <Spieler>` - Admin-Recovery: gespeicherten Starterclaim eines Spielers ohne bestehende Insel sicher zuruecksetzen. Der naechste `/is create` gibt danach wieder genau einmal Starterloot aus.
 
 - `/plot` - Plot Hub. Alias: `/p`.
 - `/p auto` - freien Plot claimen.
@@ -144,6 +145,8 @@ Rang- und Rechte-Gutscheine oeffnen vor der Einloesung ein Annehmen/Ablehnen-Men
 
 - `/rang <Spieler> <Rang>` - Rang setzen.
 - `/rechte <Spieler> <Recht>` - freigegebenes Voucher-Recht vergeben.
+- `/addcoins <Spieler> <Anzahl>` - einem bekannten Spieler Coins hinzufuegen; funktioniert auch fuer bereits persistierte Offline-Spieler.
+- `/setcoins <Spieler> <Anzahl>` - Coin-Kontostand eines bekannten Spielers setzen; `0` ist erlaubt, negative Werte nicht.
 - `/announcement <Nachricht>` - SkyKings-Ankuendigung.
 - `/clearchat` - Chat leeren.
 - `/clear` - angekuendigter Boden-Clear. Aliases: `/groundclear`, `/bodenclear`.
@@ -237,7 +240,6 @@ In der Naehe des gewuenschten Villagers:
 /shopnpc bind merchant
 /shopnpc bind jackpot
 ```
-
 - `/shopnpc info` - Bindung des naechsten Villagers pruefen.
 - `/shopnpc unbind` - Bindung entfernen.
 
