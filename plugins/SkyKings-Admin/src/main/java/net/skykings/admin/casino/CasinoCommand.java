@@ -1,6 +1,7 @@
 package net.skykings.admin.casino;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.economy.BalanceSettlementGuard;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.sound.SoundFeedback;
@@ -173,12 +174,18 @@ public final class CasinoCommand implements CommandExecutor {
             SoundFeedback.warning(player);
             return;
         }
-        if (bet <= 0L || !withdraw(player,currency,bet)) {
+        if (bet <= 0L) {
+            player.sendMessage(UiTheme.DANGER + "Ungueltiger Casino-Einsatz.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        long currentBalance = balance(player, currency);
+        if (currentBalance < bet) {
             player.sendMessage(UiTheme.DANGER + "Nicht genug " + (currency == Currency.COINS ? "Coins" : "SkyKings Sterne") + ".");
             SoundFeedback.error(player);
             return;
         }
-        lastPlay.put(player.getUniqueId(), now);
 
         double multiplier;
         String resultText;
@@ -213,6 +220,20 @@ public final class CasinoCommand implements CommandExecutor {
         }
 
         long payout = Math.max(0L, Math.round(bet * multiplier));
+        if (!BalanceSettlementGuard.canSettle(currentBalance, bet, payout)) {
+            player.sendMessage(UiTheme.DANGER + "Dein Kontostand ist zu hoch, um einen moeglichen Gewinn sicher auszuzahlen.");
+            player.sendMessage(UiTheme.MUTED + "Gib zuerst etwas von dieser Waehrung aus und versuche es erneut.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        if (!withdraw(player, currency, bet)) {
+            player.sendMessage(UiTheme.DANGER + "Nicht genug " + (currency == Currency.COINS ? "Coins" : "SkyKings Sterne") + ".");
+            SoundFeedback.error(player);
+            return;
+        }
+        lastPlay.put(player.getUniqueId(), now);
+
         if (payout > 0L) deposit(player,currency,payout,game);
         long net = payout - bet;
         player.closeInventory();
