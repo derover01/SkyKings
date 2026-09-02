@@ -2,7 +2,7 @@
 
 Stand: 2026-09-03
 
-Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Der technische Delivery-/Build-Layer ist implementiert; der erste echte Core-Icon-Satz liegt jetzt als zentraler Atlas vor und wird beim Build in Legacy-1.8-Itemtexturen zerlegt.
+Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Der technische Delivery-/Build-Layer und das erste echte Core-Iconset sind implementiert. Der Build erzeugt aus einer kompakten binären RGBA-Quelle reproduzierbar 19 Legacy-1.8-Itemtexturen plus `pack.png`.
 
 ## Status
 
@@ -10,11 +10,14 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - Build-ZIP: IMPLEMENTIERT
 - CI-Artifact: IMPLEMENTIERT
 - Server-Delivery + `/pack`: IMPLEMENTIERT
+- Join-Auslieferung + Resend-Cooldown: IMPLEMENTIERT
 - `/skcheck` Pack-Diagnose: IMPLEMENTIERT
-- Core-Iconset (19 UI-Icons + Logo): IMPLEMENTIERT / RUNTIME-TEST
-- weitere Rank-/Rarity-/Effect-Art: POLISH / OFFEN
+- Core-Iconset (19 UI-Icons + Logo): IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- GUI-Decorator fuer zentrale SkyKings-Menues: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- PlayerShop-Villager-Coin-Token auf Coin-Icon: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- weitere Rank-/Rarity-/Effect-Art: OPTIONALER POLISH
 - Client-Runtime-Test: OFFEN
-- stabile HTTPS-Auslieferung: OFFEN
+- stabile Produktions-HTTPS-Auslieferung: OFFEN
 
 ## 1.8.9-Regeln
 
@@ -22,8 +25,9 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - kein modernes CustomModelData
 - keine modernen JSON-Font-/Glyph-Provider
 - Icon-Texturen nur auf bewusst reservierten Vanilla-Materialien
-- Schwerter, Bow, Rod, Armor, Ender Pearls, Golden Apples und wichtige PvP-Bloecke nicht global ueberschreiben
-- jedes Icon braucht weiterhin einen eindeutigen Itemnamen/Lore-Fallback
+- Schwerter, Bow, Rod, Armor, Ender Pearls, Golden Apples und wichtige PvP-Bloecke werden nicht global ueberschrieben
+- jedes Icon besitzt weiterhin einen eindeutigen Itemnamen/Lore-Fallback
+- der Pack bleibt optional; keine Business-Logik entscheidet anhand einer Textur
 
 ## Verbindliches Asset-Manifest
 
@@ -50,25 +54,38 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 | Event | Event | `MAGMA_CREAM` | `magma_cream.png` | testen |
 | Branding | SkyKings Logo | Atlas tile 20 | `pack.png` | testen |
 
-Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.rgba.gz.b64`. Sie enthaelt gzip-komprimierte rohe RGBA-Pixel als Base64-Text. `scripts/tools/ResourcePackAtlasBuilder.java` rekonstruiert daraus das 160x128-Atlasbild und schreibt die finalen PNGs selbst. So ist der Build unabhaengig von PNG-Decoder-Unterschieden zwischen Java-Versionen.
+Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.rgba.gz`. Sie enthaelt gzip-komprimierte rohe RGBA-Pixel. `scripts/tools/ResourcePackAtlasBuilder.java` rekonstruiert daraus das 160×128-Atlasbild und schreibt die finalen PNGs mit Java 8 selbst. Das verhindert Abhaengigkeiten von Designer-PNG-Decodern und macht denselben Build auf Windows und GitHub Actions reproduzierbar.
+
+`ResourcePackIcon` ist die autoritative Java-Zuordnung der 19 reservierten Materialien. Ein Unit-Test erzwingt exakt 19 eindeutige Slots und blockiert geschuetzte PvP-Kernitems. `ResourcePackGuiDecorator` ersetzt nur dekorative GUI-Materialien und behaelt Namen/Lore. Reward-, PvP- und Kaufitems bleiben unveraendert.
+
+Der virtuelle Coin-Input im echten PlayerShop-Villager-Handel verwendet ebenfalls `GOLD_NUGGET`/Coin-Textur. `NETHER_STAR` bleibt damit eindeutig der SkyKings-Stern.
 
 ## Runtime-Gate
 
 Vor groesserem Launch:
 
-- [ ] Pack-ZIP laedt auf frischem 1.8.9-Client
-- [ ] alle 19 reservierten Icons zeigen die erwartete SkyKings-Grafik
+- [ ] Pack-ZIP laedt auf frischem Minecraft-1.8.9-Client
+- [ ] `pack.png` wird korrekt angezeigt
+- [ ] Home / Back / Next korrekt
+- [ ] Locked / Ready / Completed korrekt
+- [ ] Premium korrekt
+- [ ] Coins und SkyKings Stern eindeutig verschieden
+- [ ] Battle Pass / Quests / Kits korrekt
+- [ ] Crates / Jackpot / Shop / Trade korrekt
+- [ ] Clan / Duel / Event korrekt
 - [ ] keine Missing-Texture-Flaechen
 - [ ] GUI Scale Small/Normal getestet
-- [ ] Battle Pass, Quests, Kits, Crates und Commands Hub mit Pack lesbar
+- [ ] Battle Pass, Quests, Kits, Crates, Commands Hub, Jackpot, Trade und PlayerShop mit Pack lesbar
 - [ ] dieselben Systeme ohne Pack voll bedienbar
-- [ ] PlayerShop/Trade funktionieren mit und ohne Pack
-- [ ] normales PvP-Pack bleibt fuer Waffen/Ruestung nutzbar
+- [ ] PlayerShop-Villager zeigt im Input das Coin-Icon, niemals den Stern
+- [ ] Merchant-Coin-Token kann weiterhin nicht entnommen/verschoben werden
+- [ ] normales PvP-Pack bleibt fuer Waffen/Ruestung/Bow/Rod/Pearls/Gapples nutzbar
 - [ ] finale ZIP unter stabiler HTTPS-URL erreichbar
 - [ ] `resource-pack.enabled: true` + URL setzen
 - [ ] `/skcheck` zeigt Pack `[OK]`
 - [ ] `/pack` manuell testen
 - [ ] Join-Auslieferung nach Relog/Restart testen
+- [ ] Ablehnen/deaktivierter Pack: Server bleibt komplett spielbar
 
 ## Build
 
@@ -81,3 +98,5 @@ Output:
 ```text
 build/resource-pack/SkyKings-ResourcePack-1.8.9.zip
 ```
+
+Der Build validiert `pack.mcmeta`, erzeugt alle 19 Pflichttexturen + `pack.png` und bricht ab, sobald eines der erwarteten ZIP-Assets fehlt oder leer ist.
