@@ -16,6 +16,7 @@ import net.skykings.admin.command.WarpCommand;
 import net.skykings.admin.discord.DiscordBridge;
 import net.skykings.admin.discord.DiscordEventRelay;
 import net.skykings.admin.event.FridayEventService;
+import net.skykings.admin.event.StandaloneRaffleCommand;
 import net.skykings.admin.warp.WarpService;
 import net.skykings.admin.warp.WarpTeleportService;
 import net.skykings.combat.tag.CombatTagService;
@@ -112,7 +113,7 @@ public class SkyKingsAdmin extends JavaPlugin {
 
         this.fridayEventService = new FridayEventService(this, core, warpService);
         fridayCommand.setExecutor(fridayEventService);
-        raffleCommand.setExecutor(fridayEventService);
+        raffleCommand.setExecutor(new StandaloneRaffleCommand(this, fridayEventService));
 
         CasinoCommand casino = new CasinoCommand(core);
         casinoCommand.setExecutor(casino);
@@ -127,7 +128,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, Void-Crown-Casino/NPC-Stationen, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, globalen Verlosungen, Void-Crown-Casino/NPC-Stationen, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
