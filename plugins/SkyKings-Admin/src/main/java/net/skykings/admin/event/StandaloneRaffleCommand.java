@@ -1,5 +1,8 @@
 package net.skykings.admin.event;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.logging.AuditEvent;
+import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -65,11 +68,11 @@ public final class StandaloneRaffleCommand implements CommandExecutor {
             return true;
         }
 
-        start(hand.clone());
+        start(hand.clone(), admin);
         return true;
     }
 
-    private synchronized void start(final ItemStack prize) {
+    private synchronized void start(final ItemStack prize, final Player admin) {
         running = true;
         final String prizeName = describe(prize);
         Bukkit.broadcastMessage(" ");
@@ -93,11 +96,11 @@ public final class StandaloneRaffleCommand implements CommandExecutor {
         }
 
         Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override public void run() { finish(prize, prizeName); }
+            @Override public void run() { finish(prize, prizeName, admin); }
         }, 85L);
     }
 
-    private synchronized void finish(ItemStack prize, String prizeName) {
+    private synchronized void finish(ItemStack prize, String prizeName, Player admin) {
         if (!running) return;
         List<Player> players = new ArrayList<Player>();
         for (Player player : Bukkit.getOnlinePlayers()) if (player.isOnline()) players.add(player);
@@ -110,8 +113,18 @@ public final class StandaloneRaffleCommand implements CommandExecutor {
                     + ChatColor.YELLOW + " gewinnt " + ChatColor.WHITE + prizeName + ChatColor.YELLOW + "!");
             playAll(Sound.LEVEL_UP, 0.9F, 1.45F);
             winner.playSound(winner.getLocation(), Sound.FIREWORK_LAUNCH, 0.8F, 1.2F);
+            audit(admin, winner, prize);
         }
         running = false;
+    }
+
+    private void audit(Player admin, Player winner, ItemStack prize) {
+        SkyKingsCoreAPI core = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        if (core == null || winner == null) return;
+        String actorName = admin == null ? "unknown" : admin.getName();
+        core.getLoggingService().log(new AuditEvent(AuditEventType.GIVEAWAY_WIN,
+                winner.getUniqueId(), winner.getName(), admin == null ? null : admin.getUniqueId(),
+                "mode=standalone, admin=" + actorName + ", prize=" + auditDescription(prize)));
     }
 
     private void giveOrDrop(Player player, ItemStack stack) {
@@ -126,6 +139,11 @@ public final class StandaloneRaffleCommand implements CommandExecutor {
                 ? meta.getDisplayName()
                 : stack.getType().name().toLowerCase().replace('_', ' ');
         return stack.getAmount() + "x " + name;
+    }
+
+    private String auditDescription(ItemStack stack) {
+        if (stack == null) return "unknown";
+        return stack.getAmount() + "x " + stack.getType().name();
     }
 
     private void playAll(Sound sound, float volume, float pitch) {
