@@ -41,6 +41,7 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
 
         if ("create".equals(sub) || "erstellen".equals(sub)) {
             if (islands.hasIsland(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Du besitzt bereits eine Insel."); return true; }
+            boolean starterAlreadyClaimed = IslandStarterProtection.hasClaimed(player.getUniqueId());
             try {
                 if (!IslandStarterProtection.create(islands, player)) { player.sendMessage(ChatColor.RED + "Deine Insel konnte nicht erstellt werden."); return true; }
             } catch (IllegalStateException ex) {
@@ -48,7 +49,7 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
             player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS ISLANDS " + ChatColor.GREEN + "Deine Insel wurde erstellt!");
-            if (IslandStarterProtection.hasClaimed(player.getUniqueId())) {
+            if (starterAlreadyClaimed) {
                 player.sendMessage(ChatColor.GRAY + "Starterressourcen werden pro Spieler nur einmal ausgegeben.");
             }
             return true;
