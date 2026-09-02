@@ -249,10 +249,16 @@ public final class PlayerShopController implements Listener, CommandExecutor {
     }
 
     private void claimRevenue(Player player, PlayerShop shop) {
-        long amount = service.claimRevenue(player, shop.getId());
-        player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + format(amount) + " Coins Shop-Einnahmen abgeholt."
-                : ChatColor.YELLOW + "Keine Einnahmen zum Abholen.");
-        player.playSound(player.getLocation(), amount > 0 ? Sound.LEVEL_UP : Sound.NOTE_BASS, 0.6F, amount > 0 ? 1.5F : 0.8F);
+        try {
+            long amount = service.claimRevenue(player, shop.getId());
+            player.sendMessage(amount > 0 ? ChatColor.GREEN + "Du hast " + format(amount) + " Coins Shop-Einnahmen abgeholt."
+                    : ChatColor.YELLOW + "Keine Einnahmen zum Abholen.");
+            player.playSound(player.getLocation(), amount > 0 ? Sound.LEVEL_UP : Sound.NOTE_BASS, 0.6F, amount > 0 ? 1.5F : 0.8F);
+        } catch (PlayerShopService.RevenueClaimOverflowException ex) {
+            player.sendMessage(ChatColor.RED + "Dein Coin-Kontostand ist zu hoch, um diese Shop-Einnahmen sicher auszuzahlen.");
+            player.sendMessage(ChatColor.GRAY + "Die Einnahmen bleiben im Shop gespeichert. Gib zuerst Coins aus und versuche es erneut.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 0.9F);
+        }
     }
 
     private void removeOwnedShop(Player player, PlayerShop shop) {
