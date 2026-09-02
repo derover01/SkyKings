@@ -58,7 +58,9 @@ $required = @(
     'scripts\build-resource-pack.ps1',
     'resource-pack\pack.mcmeta',
     'resource-pack\README.md',
+    'docs\RESOURCE_PACK.md',
     'docs\NEXT_PC_CHECKLIST.md',
+    'docs\NEXT_RUNTIME_CHECKLIST.md',
     'docs\ROADMAP_STATUS.md'
 )
 foreach ($relative in $required) {
