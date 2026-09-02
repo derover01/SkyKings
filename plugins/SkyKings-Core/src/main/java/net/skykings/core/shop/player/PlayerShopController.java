@@ -36,6 +36,7 @@ import java.util.UUID;
 public final class PlayerShopController implements Listener, CommandExecutor {
     private static final long EGG_PRICE = 2_500_000L;
     private static final String OWNER_TITLE = ChatColor.DARK_GRAY + "SkyKings | Mein Shop";
+    private static final String CONFIG_TITLE = ChatColor.DARK_GRAY + "SkyKings | Angebot";
     private final PlayerShopService service;
     private final PlayerShopStore store;
     private final PlayerShopEgg shopEgg = new PlayerShopEgg();
@@ -72,8 +73,6 @@ public final class PlayerShopController implements Listener, CommandExecutor {
                 player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
                 return true;
             }
-            // canFit() ist nur ein Preflight. Falls sich das Inventar trotzdem zwischenzeitlich
-            // geaendert hat, darf der Spieler weder Coins verlieren noch ein Item gedroppt bekommen.
             if (!player.getInventory().addItem(egg).isEmpty()) {
                 core.getEconomyService().deposit(player.getUniqueId(), EGG_PRICE, "PLAYER_SHOP_EGG_ROLLBACK",
                         "Haendler-Ei konnte nach Abbuchung nicht zugestellt werden");
@@ -102,7 +101,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             try {
                 int amount = Integer.parseInt(args[1]); long price = Long.parseLong(args[2]);
                 if (!service.configure(player, shop.getId(), amount, price)) throw new IllegalArgumentException();
-                player.sendMessage(ChatColor.GREEN + "Angebot: " + amount + " Item(s) fuer " + price + " Coins.");
+                player.sendMessage(ChatColor.GREEN + "Angebot: " + amount + " Item(s) fuer " + format(price) + " Coins.");
                 player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.6F, 1.3F);
             } catch (IllegalArgumentException ex) { player.sendMessage(ChatColor.RED + "Nutze /playershop set <1-64> <Coins>."); }
             return true;
@@ -169,8 +168,6 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         villager.setCustomNameVisible(true);
         shop.setVillagerUuid(villager.getUniqueId());
         if (!store.saveChecked()) {
-            // Der initiale Shop-Datensatz wurde bereits persistiert. Wenn die Villager-Verknuepfung
-            // nicht sicher gespeichert werden kann, weder Ei verbrauchen noch einen halben Shop stehen lassen.
             shop.setVillagerUuid(null);
             villager.remove();
             store.deleteChecked(shop.getId());
@@ -179,7 +176,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             return;
         }
         consumeHand(player);
-        player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Rechtsklick auf den Haendler fuer die Verwaltung.");
+        player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Sneak + Rechtsklick stellt Menge und Preis ein.");
         player.playSound(location, Sound.LEVEL_UP, 0.8F, 1.35F);
     }
 
@@ -192,7 +189,8 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist deaktiviert."); return;
         }
         if (player.getUniqueId().equals(shop.getOwner())) {
-            openOwnerMenu(player, shop);
+            if (player.isSneaking()) openConfigMenu(player, shop);
+            else openOwnerMenu(player, shop);
             return;
         }
         PlayerShopService.Result result = service.purchase(player, shop.getId());
@@ -207,7 +205,9 @@ public final class PlayerShopController implements Listener, CommandExecutor {
 
     @EventHandler
     public void onOwnerMenuClick(InventoryClickEvent event) {
-        if (event.getView() == null || !OWNER_TITLE.equals(event.getView().getTitle())) return;
+        if (event.getView() == null) return;
+        String title = event.getView().getTitle();
+        if (!OWNER_TITLE.equals(title) && !CONFIG_TITLE.equals(title)) return;
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
@@ -217,11 +217,15 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.closeInventory();
             return;
         }
+
+        if (CONFIG_TITLE.equals(title)) {
+            handleConfigClick(player, shop, event.getRawSlot());
+            return;
+        }
+
         int slot = event.getRawSlot();
         if (slot == 11) {
-            player.closeInventory();
-            player.sendMessage(ChatColor.GOLD + "Angebot setzen: " + ChatColor.YELLOW + "/playershop set <Menge> <Coins>" + ChatColor.GRAY + " und dabei das Verkaufsitem in der Hand halten.");
-            player.playSound(player.getLocation(), Sound.CLICK, 0.5F, 1.15F);
+            openConfigMenu(player, shop);
         } else if (slot == 13) {
             player.closeInventory();
             player.sendMessage(ChatColor.GOLD + "Lager: " + ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " bzw. /playershop withdraw <Menge>.");
@@ -237,7 +241,9 @@ public final class PlayerShopController implements Listener, CommandExecutor {
 
     @EventHandler
     public void onOwnerMenuDrag(InventoryDragEvent event) {
-        if (event.getView() != null && OWNER_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+        if (event.getView() == null) return;
+        String title = event.getView().getTitle();
+        if (OWNER_TITLE.equals(title) || CONFIG_TITLE.equals(title)) event.setCancelled(true);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -256,7 +262,8 @@ public final class PlayerShopController implements Listener, CommandExecutor {
                 ChatColor.GRAY + "Menge: " + ChatColor.WHITE + shop.getAmountPerSale(),
                 ChatColor.GRAY + "Preis: " + ChatColor.YELLOW + format(shop.getPriceCoins()) + " Coins",
                 "",
-                ChatColor.YELLOW + "Klicken fuer Set-Anleitung"));
+                ChatColor.YELLOW + "Klicken zum Einstellen",
+                ChatColor.DARK_GRAY + "Tipp: Sneak + Rechtsklick auf Villager"));
         inv.setItem(13, item(Material.CHEST, (short) 0,
                 ChatColor.AQUA + "Lager",
                 ChatColor.GRAY + "Aktueller Stock: " + ChatColor.WHITE + shop.getStock(),
@@ -275,6 +282,95 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         openOwnerShops.put(player.getUniqueId(), shop.getId());
         player.openInventory(inv);
         player.playSound(player.getLocation(), Sound.VILLAGER_YES, 0.55F, 1.25F);
+    }
+
+    private void openConfigMenu(Player player, PlayerShop shop) {
+        Inventory inv = Bukkit.createInventory(null, 45, CONFIG_TITLE);
+        ItemStack filler = item(Material.STAINED_GLASS_PANE, (short) 15, " ");
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, filler);
+
+        inv.setItem(4, item(Material.EMERALD, (short) 0,
+                ChatColor.GOLD.toString() + ChatColor.BOLD + "ANGEBOT EINSTELLEN",
+                ChatColor.GRAY + "Verkaufsmenge und Coin-Preis",
+                ChatColor.DARK_GRAY + "werden sofort gespeichert."));
+
+        inv.setItem(10, adjustItem(Material.REDSTONE, ChatColor.RED + "-16 Menge", "Aktuell: " + shop.getAmountPerSale()));
+        inv.setItem(11, adjustItem(Material.REDSTONE, ChatColor.RED + "-1 Menge", "Aktuell: " + shop.getAmountPerSale()));
+        inv.setItem(13, item(shop.getMaterial() == null ? Material.BARRIER : shop.getMaterial(), shop.getData(),
+                ChatColor.AQUA + "Verkaufsmenge: " + ChatColor.WHITE + shop.getAmountPerSale(),
+                ChatColor.GRAY + "Erlaubt: 1 bis 64"));
+        inv.setItem(15, adjustItem(Material.EMERALD, ChatColor.GREEN + "+1 Menge", "Aktuell: " + shop.getAmountPerSale()));
+        inv.setItem(16, adjustItem(Material.EMERALD, ChatColor.GREEN + "+16 Menge", "Aktuell: " + shop.getAmountPerSale()));
+
+        inv.setItem(27, adjustItem(Material.REDSTONE, ChatColor.RED + "-1.000.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+        inv.setItem(28, adjustItem(Material.REDSTONE, ChatColor.RED + "-100.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+        inv.setItem(29, adjustItem(Material.REDSTONE, ChatColor.RED + "-10.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+        inv.setItem(31, item(Material.GOLD_INGOT, (short) 0,
+                ChatColor.GOLD + "Preis: " + ChatColor.YELLOW + format(shop.getPriceCoins()) + " Coins",
+                ChatColor.GRAY + "Mindestens 1 Coin",
+                "",
+                ChatColor.DARK_GRAY + "Exakter Wert weiterhin via",
+                ChatColor.YELLOW + "/playershop set <Menge> <Coins>"));
+        inv.setItem(33, adjustItem(Material.EMERALD, ChatColor.GREEN + "+10.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+        inv.setItem(34, adjustItem(Material.EMERALD, ChatColor.GREEN + "+100.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+        inv.setItem(35, adjustItem(Material.EMERALD, ChatColor.GREEN + "+1.000.000 Coins", "Preis: " + format(shop.getPriceCoins())));
+
+        inv.setItem(40, item(Material.ARROW, (short) 0, ChatColor.YELLOW + "Zurueck", ChatColor.GRAY + "Zum Shop-Menue"));
+        openOwnerShops.put(player.getUniqueId(), shop.getId());
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.CLICK, 0.6F, 1.25F);
+    }
+
+    private ItemStack adjustItem(Material material, String name, String current) {
+        return item(material, (short) 0, name, ChatColor.GRAY + current, ChatColor.YELLOW + "Klicken");
+    }
+
+    private void handleConfigClick(Player player, PlayerShop shop, int slot) {
+        if (slot == 40) {
+            openOwnerMenu(player, shop);
+            return;
+        }
+
+        int amount = shop.getAmountPerSale();
+        long price = shop.getPriceCoins();
+        int newAmount = amount;
+        long newPrice = price;
+
+        switch (slot) {
+            case 10: newAmount = Math.max(1, amount - 16); break;
+            case 11: newAmount = Math.max(1, amount - 1); break;
+            case 15: newAmount = Math.min(64, amount + 1); break;
+            case 16: newAmount = Math.min(64, amount + 16); break;
+            case 27: newPrice = subtractFloor(price, 1_000_000L); break;
+            case 28: newPrice = subtractFloor(price, 100_000L); break;
+            case 29: newPrice = subtractFloor(price, 10_000L); break;
+            case 33: newPrice = addCeiling(price, 10_000L); break;
+            case 34: newPrice = addCeiling(price, 100_000L); break;
+            case 35: newPrice = addCeiling(price, 1_000_000L); break;
+            default: return;
+        }
+
+        if (newAmount == amount && newPrice == price) {
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.4F, 0.9F);
+            return;
+        }
+        if (!service.configure(player, shop.getId(), newAmount, newPrice)) {
+            player.sendMessage(ChatColor.RED + "Die Shop-Einstellung konnte nicht sicher gespeichert werden.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
+            return;
+        }
+        player.playSound(player.getLocation(), Sound.CLICK, 0.45F, 1.4F);
+        openConfigMenu(player, shop);
+    }
+
+    private long subtractFloor(long value, long delta) {
+        if (value <= 1L) return 1L;
+        return value <= delta ? 1L : value - delta;
+    }
+
+    private long addCeiling(long value, long delta) {
+        if (value > Long.MAX_VALUE - delta) return Long.MAX_VALUE;
+        return value + delta;
     }
 
     private void claimRevenue(Player player, PlayerShop shop) {
@@ -305,8 +401,6 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             return;
         }
 
-        // Erst die persistente Shop-Definition entfernen. Wenn das fehlschlaegt, muss der Villager
-        // stehen bleiben und es darf auch kein zusaetzliches Haendler-Ei ausgegeben werden.
         if (!store.deleteChecked(shop.getId())) {
             player.sendMessage(ChatColor.RED + "Der PlayerShop konnte nicht sicher entfernt werden. Es wurde nichts veraendert.");
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
@@ -345,11 +439,8 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         if (hand == null || hand.getType() == Material.AIR) {
             player.setItemInHand(egg);
         } else {
-            // canFit() wurde unmittelbar vor der persistenten Loeschung auf dem Main-Thread geprueft.
-            // Dadurch kann die normale Inventarzustellung hier nicht legitim ueberlaufen.
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(egg);
             if (!leftovers.isEmpty()) {
-                // Unerwarteter Bukkit-/Plugin-Sonderfall: niemals das bereits zurueckgegebene Ei vernichten.
                 for (ItemStack leftover : leftovers.values()) {
                     player.getWorld().dropItemNaturally(player.getLocation(), leftover);
                 }
@@ -401,8 +492,9 @@ public final class PlayerShopController implements Listener, CommandExecutor {
     private void usage(Player player) {
         player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOPS");
         player.sendMessage(ChatColor.YELLOW + "/playershop kaufen" + ChatColor.GRAY + " - Haendler-Ei fuer " + format(EGG_PRICE) + " Coins");
+        player.sendMessage(ChatColor.YELLOW + "Sneak + Rechtsklick Villager" + ChatColor.GRAY + " - Menge & Preis einstellen");
         player.sendMessage(ChatColor.YELLOW + "/playershop menu" + ChatColor.GRAY + " - Verwaltung des naechsten eigenen Shops");
-        player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>");
+        player.sendMessage(ChatColor.YELLOW + "/playershop set <Menge> <Coins>" + ChatColor.GRAY + " - exakten Wert setzen");
         player.sendMessage(ChatColor.YELLOW + "/playershop stock <Menge>" + ChatColor.GRAY + " - Item in Hand");
         player.sendMessage(ChatColor.YELLOW + "/playershop withdraw <Menge>");
         player.sendMessage(ChatColor.YELLOW + "/playershop claim | remove");
