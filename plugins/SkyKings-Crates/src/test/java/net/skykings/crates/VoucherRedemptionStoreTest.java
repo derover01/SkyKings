@@ -37,10 +37,26 @@ public class VoucherRedemptionStoreTest {
         for (int i = 0; i < 32; i++) attempts.add(store.redeem(serial));
 
         int success = 0;
-        for (CompletableFuture<Boolean> attempt : attempts) {
-            if (attempt.get(5, TimeUnit.SECONDS)) success++;
-        }
+        for (CompletableFuture<Boolean> attempt : attempts) if (attempt.get(5, TimeUnit.SECONDS)) success++;
         assertEquals(1, success);
+    }
+
+    @Test
+    public void stackSerialAllowsExactlyIssuedClaimCount() throws Exception {
+        File dir = Files.createTempDirectory("skykings-voucher-stack").toFile();
+        File file = new File(dir, "redeemed-vouchers.txt");
+        VoucherRedemptionStore store = create(file);
+        store.initialize().get(5, TimeUnit.SECONDS);
+
+        UUID serial = UUID.randomUUID();
+        List<CompletableFuture<Boolean>> attempts = new ArrayList<CompletableFuture<Boolean>>();
+        for (int i = 0; i < 12; i++) attempts.add(store.redeem(serial, 5));
+
+        int success = 0;
+        for (CompletableFuture<Boolean> attempt : attempts) if (attempt.get(5, TimeUnit.SECONDS)) success++;
+        assertEquals(5, success);
+        assertEquals(5, store.getRedeemedClaims(serial));
+        assertFalse(store.redeem(serial, 5).get(5, TimeUnit.SECONDS));
     }
 
     @Test
@@ -58,6 +74,26 @@ public class VoucherRedemptionStoreTest {
         VoucherRedemptionStore restarted = create(file);
         restarted.initialize().get(5, TimeUnit.SECONDS);
         assertFalse(restarted.redeem(serial).get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void stackClaimCountSurvivesRestart() throws Exception {
+        File dir = Files.createTempDirectory("skykings-voucher-stack-restart").toFile();
+        File file = new File(dir, "redeemed-vouchers.txt");
+        UUID serial = UUID.randomUUID();
+
+        VoucherRedemptionStore first = create(file);
+        first.initialize().get(5, TimeUnit.SECONDS);
+        assertTrue(first.redeem(serial, 3).get(5, TimeUnit.SECONDS));
+        assertTrue(first.redeem(serial, 3).get(5, TimeUnit.SECONDS));
+        first.shutdown();
+        stores.remove(first);
+
+        VoucherRedemptionStore restarted = create(file);
+        restarted.initialize().get(5, TimeUnit.SECONDS);
+        assertEquals(2, restarted.getRedeemedClaims(serial));
+        assertTrue(restarted.redeem(serial, 3).get(5, TimeUnit.SECONDS));
+        assertFalse(restarted.redeem(serial, 3).get(5, TimeUnit.SECONDS));
     }
 
     @Test
