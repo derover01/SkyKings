@@ -1,6 +1,7 @@
 # === Build-Output ===
 target/
 *.class
+build/
 
 # === IDE ===
 .idea/
