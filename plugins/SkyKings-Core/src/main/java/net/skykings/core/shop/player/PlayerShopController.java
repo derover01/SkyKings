@@ -66,7 +66,7 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             SkyKingsCoreAPI core = core();
             if (core == null) { player.sendMessage(ChatColor.RED + "Economy ist noch nicht bereit."); return true; }
             ItemStack egg = shopEgg.create();
-            if (player.getInventory().firstEmpty() < 0) { player.sendMessage(ChatColor.RED + "Du brauchst einen freien Inventarplatz."); return true; }
+            if (!canFit(player, egg)) { player.sendMessage(ChatColor.RED + "Du brauchst genug Inventarplatz fuer das Haendler-Ei."); return true; }
             if (!core.getEconomyService().withdraw(player.getUniqueId(), EGG_PRICE, player.getName(), "PlayerShop Haendler-Ei")) {
                 player.sendMessage(ChatColor.RED + "Dir fehlen Coins. Preis: " + ChatColor.YELLOW + format(EGG_PRICE) + " Coins");
                 player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
@@ -281,6 +281,15 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             stack.setItemMeta(meta);
         }
         return stack;
+    }
+
+    private boolean canFit(Player player, ItemStack item) {
+        Inventory temp = Bukkit.createInventory(null, 36);
+        for (int i = 0; i < 36; i++) {
+            ItemStack current = player.getInventory().getItem(i);
+            if (current != null) temp.setItem(i, current.clone());
+        }
+        return temp.addItem(item.clone()).isEmpty();
     }
 
     private void consumeHand(Player player) {
