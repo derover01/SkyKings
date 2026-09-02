@@ -21,16 +21,13 @@ public final class TrashCommand implements CommandExecutor {
         }
 
         final Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("clearinv")) {
+        if (label.equalsIgnoreCase("clearinv") || label.equalsIgnoreCase("clearinventory")) {
             player.closeInventory();
             player.setItemOnCursor(null);
             player.getInventory().clear();
             player.getInventory().setArmorContents(new ItemStack[4]);
-            player.getInventory().setHeldItemSlot(Math.max(0, Math.min(8, player.getInventory().getHeldItemSlot())));
             player.updateInventory();
 
-            // 1.8 kann nach einem Command noch einen alten Client-Slot zurueckschreiben.
-            // Deshalb serverseitigen Clear einen Tick spaeter nochmals erzwingen und synchronisieren.
             Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("SkyKings-Core"), new Runnable() {
                 @Override
                 public void run() {
