@@ -16,6 +16,15 @@ public interface EconomyService {
 
     boolean has(UUID uuid, long amount);
 
+    /**
+     * Prüft, ob eine serverseitige Einzahlung sicher moeglich ist. Implementierungen mit
+     * persistierten Offline-Profilen sollten diese ebenfalls beruecksichtigen. Der Default
+     * bleibt fuer einfache Test-/Bridge-Implementierungen rueckwaertskompatibel.
+     */
+    default boolean canDeposit(UUID uuid, long amount) {
+        return uuid != null && amount > 0L;
+    }
+
     void setBalance(UUID uuid, long amount, String actor, String reason);
 
     void deposit(UUID uuid, long amount, String actor, String reason);
