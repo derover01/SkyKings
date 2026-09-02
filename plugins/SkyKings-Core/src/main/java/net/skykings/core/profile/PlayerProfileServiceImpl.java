@@ -46,9 +46,10 @@ public final class PlayerProfileServiceImpl implements PlayerProfileService {
             profile = new PlayerProfile(uuid, currentName, Rank.SPIELER, 0L, 0L, now, now);
             created = true;
         }
-        cache.put(uuid, profile);
+        PlayerProfile raced = cache.putIfAbsent(uuid, profile);
+        if (raced != null) profile = raced;
 
-        if (created) {
+        if (created && raced == null) {
             dataStore.saveProfile(profile);
             loggingService.logProfileCreated(uuid, currentName);
         }
@@ -58,6 +59,19 @@ public final class PlayerProfileServiceImpl implements PlayerProfileService {
     @Override
     public PlayerProfile getCached(UUID uuid) {
         return cache.get(uuid);
+    }
+
+    @Override
+    public PlayerProfile loadExisting(UUID uuid) {
+        PlayerProfile existing = cache.get(uuid);
+        if (existing != null) return existing;
+
+        Optional<PlayerProfile> loaded = dataStore.loadProfile(uuid);
+        if (!loaded.isPresent()) return null;
+
+        PlayerProfile profile = loaded.get();
+        PlayerProfile raced = cache.putIfAbsent(uuid, profile);
+        return raced == null ? profile : raced;
     }
 
     @Override
