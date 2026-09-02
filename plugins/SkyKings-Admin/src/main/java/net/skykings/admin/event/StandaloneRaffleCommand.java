@@ -123,8 +123,8 @@ public final class StandaloneRaffleCommand implements CommandExecutor {
         if (core == null || winner == null) return;
         String actorName = admin == null ? "unknown" : admin.getName();
         core.getLoggingService().log(new AuditEvent(AuditEventType.GIVEAWAY_WIN,
-                winner.getUniqueId(), winner.getName(), admin == null ? null : admin.getUniqueId(),
-                "mode=standalone, admin=" + actorName + ", prize=" + auditDescription(prize)));
+                winner.getUniqueId(), actorName, null,
+                "mode=standalone, prize=" + auditDescription(prize)));
     }
 
     private void giveOrDrop(Player player, ItemStack stack) {
