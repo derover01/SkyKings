@@ -64,6 +64,9 @@ Neue v2-Gutscheine: gleicher Typ + gleiches Ziel = identische Meta und damit sta
 - [ ] Dasselbe über das `/is` GUI testen, nicht nur per Command.
 - [ ] Bestandsinsel aus älterem Stand löschen → Spieler wird vor dem Löschen als bereits versorgt persistiert.
 - [ ] `plugins/SkyKings-Core/island-starter-claims.txt` bleibt über Neustarts erhalten.
+- [ ] Admin-Recovery: Insel vollständig löschen → `/is resetstarter <Spieler>` → `/is create` gibt wieder genau **einmal** Starterloot aus.
+- [ ] `/is resetstarter <Spieler>` wird verweigert, solange der Zielspieler noch eine Insel besitzt.
+- [ ] Nach dem Recovery-Create erneut delete/create ohne weiteren Reset → Startertruhe bleibt wieder leer.
 
 ## 5. Giveaway / Verlosung
 
@@ -123,6 +126,9 @@ Mit Käufer + Verkäufer testen.
 - [ ] Sehr hohes bereits angesammeltes Pending Revenue: weiterer Kauf darf vor Abbuchung fail-closed abbrechen statt Revenue zu ueberlaufen.
 - [ ] Stock withdraw/add und Restart: persistenter Bestand korrekt.
 - [ ] Fremder Spieler kann Shop nicht verwalten.
+- [ ] Shop mit leerem Stock + abgeholten Einnahmen entfernen → Villager verschwindet und genau **ein** Haendler-Ei wird zurückgegeben; bei freier Hand direkt in die Hand.
+- [ ] Kein Platz fuer das zurückzugebende Haendler-Ei → Remove wird komplett abgebrochen; Shop und Villager bleiben erhalten.
+- [ ] Zurückgegebenes Haendler-Ei ist erneut platzierbar und stackt mit aktuellen Haendler-Eiern.
 
 ## 10. Commands / Navigation
 
@@ -131,6 +137,10 @@ Mit Käufer + Verkäufer testen.
 - [ ] Jackpot-Karte öffnet `/jackpot`.
 - [ ] PlayerShop-Hinweise zeigen die korrekten Commands.
 - [ ] Navigation Back/Home bleibt funktionsfähig.
+- [ ] Admin mit `skykings.admin.coins`: `/addcoins <Spieler> <Anzahl>` erhöht exakt um die angegebene positive Menge.
+- [ ] Admin mit `skykings.admin.coins`: `/setcoins <Spieler> <Anzahl>` setzt exakt auf den Wert; `0` funktioniert, negative Werte werden abgelehnt.
+- [ ] `/addcoins` und `/setcoins` funktionieren auch bei einem bekannten Offline-Spieler und erzeugen Audit-Einträge.
+- [ ] Spieler ohne `skykings.admin.coins` kann beide Coin-Commands nicht verwenden.
 
 ## 11. Multiplayer / Race Conditions
 
