@@ -46,6 +46,11 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(ChatColor.GRAY + "Baum, Void und Startertruhe sind im klassischen SkyBlock-Stil aufgebaut.");
             return true;
         }
+        if ("delete".equals(sub) || "remove".equals(sub) || "loeschen".equals(sub) || "löschen".equals(sub)) {
+            if (!islands.hasIsland(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Du besitzt keine Insel."); return true; }
+            menu.openDeleteConfirm(player);
+            return true;
+        }
         if ("home".equals(sub)) { islands.teleportHome(player, player.getUniqueId()); return true; }
         if ("top".equals(sub) || "top10".equals(sub)) { menu.openTop(player); return true; }
         if ("level".equals(sub)) {
@@ -91,11 +96,12 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.AQUA + "/is level" + ChatColor.GRAY + " - dein Island-Level");
         player.sendMessage(ChatColor.AQUA + "/is trust <Spieler>" + ChatColor.GRAY + " - Baurechte geben");
         player.sendMessage(ChatColor.AQUA + "/is visit <Spieler>" + ChatColor.GRAY + " - [Welcome]-Insel besuchen");
+        player.sendMessage(ChatColor.RED + "/is delete" + ChatColor.GRAY + " - eigene Insel unwiderruflich loeschen");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return filter(Arrays.asList("menu", "create", "home", "sethome", "info", "level", "top", "trust", "untrust", "visit"), args[0]);
+        if (args.length == 1) return filter(Arrays.asList("menu", "create", "home", "sethome", "info", "level", "top", "trust", "untrust", "visit", "delete"), args[0]);
         if (args.length == 2 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0]) || "visit".equalsIgnoreCase(args[0]))) {
             List<String> names = new ArrayList<String>(); for (Player player : Bukkit.getOnlinePlayers()) names.add(player.getName()); return filter(names, args[1]);
         }
