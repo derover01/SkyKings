@@ -21,6 +21,9 @@ Für jede normale, handelbare Belohnung denselben Gegenstand **separat** 2–5 M
 - [ ] Kein sichtbarer Serial-/UUID-/Debug-Text in Name oder Lore.
 - [ ] Friday Blade / Armor / Bow aus getrennten Drops besitzen identische Meta, sofern Material/Enchants identisch sind.
 - [ ] Normale Vanilla-Rewards bleiben vanilla-stackbar.
+- [ ] Zwei separat gekaufte PlayerShop-Haendler-Eier stacken zusammen.
+- [ ] Voll belegtes Inventar + vorhandener nicht voller Haendler-Ei-Stack: `/playershop kaufen` darf das neue Ei in diesen Stack legen.
+- [ ] Altes Haendler-Ei mit Legacy-UUID-Marker bleibt weiterhin als gueltiges Shop-Ei verwendbar.
 
 ## 2. Crates
 
@@ -53,8 +56,10 @@ Neue v2-Gutscheine: gleicher Typ + gleiches Ziel = identische Meta und damit sta
 ## 4. Island Starterloot Anti-Farm
 
 - [ ] Spieler ohne bisherige Insel: `/is create` → Startertruhe enthält einmalig Starterressourcen.
+- [ ] Beim ersten Create erscheint **nicht** faelschlich der Hinweis, dass Starterressourcen bereits verbraucht wurden.
 - [ ] `/is delete` vollständig bestätigen.
 - [ ] `/is create` erneut → Insel wird erstellt, Startertruhe enthält **keine** neuen Starterressourcen.
+- [ ] Beim zweiten Create erscheint der Hinweis, dass Starterressourcen nur einmal ausgegeben werden.
 - [ ] Server neu starten und erneut delete/create → weiterhin kein Starterloot.
 - [ ] Dasselbe über das `/is` GUI testen, nicht nur per Command.
 - [ ] Bestandsinsel aus älterem Stand löschen → Spieler wird vor dem Löschen als bereits versorgt persistiert.
@@ -66,7 +71,7 @@ Neue v2-Gutscheine: gleicher Typ + gleiches Ziel = identische Meta und damit sta
 - [ ] Gewinner erhält exakt den vorgesehenen Stack.
 - [ ] Gewinner-/Jackpot-Sound ist hörbar.
 - [ ] Inventar voll: Gewinn wird sicher gedroppt statt verloren.
-- [ ] Jeder Gewinner erzeugt `GIVEAWAY_WIN` im zentralen Audit-Log.
+- [ ] Jeder Gewinner erzeugt `GIVEAWAY_WIN` im zentralen Audit-Log; Actor ist der auslösende Admin, nicht eine UUID im Amount-Feld.
 - [ ] Keine zweite Verlosung kann parallel gestartet werden.
 
 ## 6. Freitags-Event
@@ -110,10 +115,12 @@ Mit Käufer + Verkäufer testen.
 
 - [ ] Shop erstellen/konfigurieren, Stock einzahlen.
 - [ ] Kauf mit ausreichend Coins + Platz: Stock − Menge, Käufer Coins − Preis, Käufer Item + Menge, Seller Pending Revenue korrekt.
-- [ ] 5-%-Fee korrekt.
+- [ ] 5-%-Fee korrekt, auch bei Preisen, die nicht glatt durch 100 teilbar sind.
 - [ ] Nicht genug Coins: weder Stock noch Items verändern.
 - [ ] Inventar voll: weder Coins noch Stock gehen verloren.
 - [ ] Einnahmen claimen: Pending Revenue wird exakt einmal ausgezahlt.
+- [ ] Test mit extrem hohem Coin-Kontostand: Wenn Claim den `long`-Kontostand ueberlaufen wuerde, wird die Auszahlung blockiert und Pending Revenue bleibt unveraendert gespeichert.
+- [ ] Sehr hohes bereits angesammeltes Pending Revenue: weiterer Kauf darf vor Abbuchung fail-closed abbrechen statt Revenue zu ueberlaufen.
 - [ ] Stock withdraw/add und Restart: persistenter Bestand korrekt.
 - [ ] Fremder Spieler kann Shop nicht verwalten.
 
