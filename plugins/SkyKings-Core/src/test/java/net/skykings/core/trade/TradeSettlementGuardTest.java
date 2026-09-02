@@ -22,7 +22,7 @@ public class TradeSettlementGuardTest {
     @Test
     public void settlementAllowsIncomingCoinsWhenOutgoingCreatesEnoughHeadroom() {
         assertTrue(TradeSettlementGuard.canSettle(
-                Long.MAX_VALUE - 50L, 100L,
+                Long.MAX_VALUE - 50L, 300L,
                 1_000L, 200L));
     }
 
