@@ -129,11 +129,7 @@ public final class CrateInteractionListener implements Listener {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
             return;
         }
-        if (requiresSpace(finalReward) && !hasSpace(player, finalReward)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den Gewinn.");
-            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
-            return;
-        }
+        if (!preflightReward(player, finalReward)) return;
 
         final GuiSession gui = GuiSession.create(player,
                 ChatColor.DARK_GRAY + "SkyKings | " + ChatColor.LIGHT_PURPLE + "Crate Roulette", 27);
@@ -272,7 +268,8 @@ public final class CrateInteractionListener implements Listener {
         openAllNext(player, crate, claims, 0);
     }
 
-    private void openAllNext(Player player, CrateRegistry.CrateDefinition crate, List<Claim> claims, int index) {
+    private void openAllNext(final Player player, final CrateRegistry.CrateDefinition crate,
+                             final List<Claim> claims, final int index) {
         if (!player.isOnline()) return;
         if (index >= claims.size()) {
             player.sendMessage(ChatColor.GREEN + "Open-All abgeschlossen.");
@@ -280,22 +277,27 @@ public final class CrateInteractionListener implements Listener {
             return;
         }
         Claim claim = claims.get(index);
-        openClaim(player, crate, claim.serial, claim.maxClaims,
-                () -> openAllNext(player, crate, claims, index + 1), null);
+        openClaim(player, crate, claim.serial, claim.maxClaims, new Runnable() {
+            @Override public void run() {
+                // Maximal ein Claim pro Tick: auch der synchrone Legacy-Persistenzpfad darf Open-All
+                // nicht zu einem grossen Burst aus Datei-Writes und Reward-Vergaben machen.
+                Bukkit.getScheduler().runTask(plugin, new Runnable() {
+                    @Override public void run() { openAllNext(player, crate, claims, index + 1); }
+                });
+            }
+        }, null);
     }
 
     private void openClaim(Player player, CrateRegistry.CrateDefinition crate, UUID serial, int maxClaims,
                            Runnable onFinished, CrateRegistry.RewardDefinition selectedReward) {
+        if (!player.isOnline()) return;
         final CrateRegistry.RewardDefinition reward = selectedReward != null ? selectedReward : registry.draw(crate);
         if (reward == null) {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
             finish(onFinished);
             return;
         }
-        if (requiresSpace(reward) && !hasSpace(player, reward)) {
-            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den naechsten Reward.");
-            return;
-        }
+        if (!preflightReward(player, reward)) return;
 
         if (serial == null) {
             if (!removeOne(player, null, crate.getId())) {
@@ -313,24 +315,45 @@ public final class CrateInteractionListener implements Listener {
             return;
         }
 
-        redemptionStore.redeem(serial, maxClaims).thenAccept(firstRedemption ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (!player.isOnline()) return;
-                    if (!firstRedemption) {
-                        removeOne(player, serial, crate.getId());
-                        player.sendMessage(ChatColor.RED + "Eine bereits vollstaendig eingeloeste alte Crate-Batch wurde bereinigt.");
-                        finish(onFinished);
-                        return;
-                    }
-                    if (!grant(player, reward)) {
-                        removeOne(player, serial, crate.getId());
-                        player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Der alte Serial-Claim wurde sicher gesperrt.");
-                        finish(onFinished);
-                        return;
-                    }
-                    removeOne(player, serial, crate.getId());
-                    completeOpen(player, crate, reward, onFinished);
-                }));
+        // Bei alten Serial-Crates Claim und Reward im selben Bukkit-Tick behandeln. Vor dem Claim
+        // wird erneut geprueft, dass der Spieler dieses konkrete Alt-Item noch besitzt.
+        if (!hasOne(player, serial, crate.getId())) {
+            player.sendMessage(ChatColor.RED + "Du besitzt diese alte Crate nicht mehr.");
+            finish(onFinished);
+            return;
+        }
+        boolean firstRedemption = redemptionStore.redeemSync(serial, maxClaims);
+        if (!firstRedemption) {
+            removeOne(player, serial, crate.getId());
+            player.sendMessage(ChatColor.RED + "Eine bereits vollstaendig eingeloeste alte Crate-Batch wurde bereinigt.");
+            finish(onFinished);
+            return;
+        }
+        if (!grant(player, reward)) {
+            removeOne(player, serial, crate.getId());
+            player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Der alte Serial-Claim wurde sicher gesperrt.");
+            finish(onFinished);
+            return;
+        }
+        removeOne(player, serial, crate.getId());
+        completeOpen(player, crate, reward, onFinished);
+    }
+
+    private boolean preflightReward(Player player, CrateRegistry.RewardDefinition reward) {
+        if (reward.getType() == CrateRegistry.RewardType.COINS) {
+            if (!core.getEconomyService().canDeposit(player.getUniqueId(), reward.getAmount())) {
+                player.sendMessage(ChatColor.RED + "Dein Coin-Kontostand ist zu hoch fuer diesen Crate-Reward.");
+                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+                return false;
+            }
+            return true;
+        }
+        if (requiresSpace(reward) && !hasSpace(player, reward)) {
+            player.sendMessage(ChatColor.RED + "Nicht genug Inventarplatz fuer den naechsten Reward.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+            return false;
+        }
+        return true;
     }
 
     private void completeOpen(Player player, CrateRegistry.CrateDefinition crate,
@@ -348,6 +371,17 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private void finish(Runnable onFinished) { if (onFinished != null) onFinished.run(); }
+
+    private boolean hasOne(Player player, UUID serial, String crateId) {
+        if (player == null || crateId == null) return false;
+        for (ItemStack item : player.getInventory().getContents()) {
+            CrateItemCodec.DecodedCrate decoded = codec.decode(item);
+            if (decoded == null || !crateId.equalsIgnoreCase(decoded.getCrateId())) continue;
+            boolean match = serial == null ? decoded.getSerial() == null : serial.equals(decoded.getSerial());
+            if (match && item.getAmount() > 0) return true;
+        }
+        return false;
+    }
 
     private boolean removeOne(Player player, UUID serial, String crateId) {
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
