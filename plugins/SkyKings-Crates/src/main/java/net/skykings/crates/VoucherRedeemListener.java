@@ -59,6 +59,7 @@ public final class VoucherRedeemListener implements Listener {
         if (!canRedeem(player, voucher)) return;
 
         if (voucher.getType() == VoucherItemCodec.VoucherType.RANK
+                || voucher.getType() == VoucherItemCodec.VoucherType.RANKUP
                 || voucher.getType() == VoucherItemCodec.VoucherType.PERMISSION) {
             openDecisionGui(player, voucher);
             return;
@@ -68,13 +69,19 @@ public final class VoucherRedeemListener implements Listener {
 
     private void openDecisionGui(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
         GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "Gutschein bestaetigen", 27);
-        String type = voucher.getType() == VoucherItemCodec.VoucherType.RANK ? "Rang-Gutschein" : "Rechte-Gutschein";
-        Material icon = voucher.getType() == VoucherItemCodec.VoucherType.RANK ? Material.DIAMOND : Material.PAPER;
+        boolean rankVoucher = voucher.getType() == VoucherItemCodec.VoucherType.RANK
+                || voucher.getType() == VoucherItemCodec.VoucherType.RANKUP;
+        String type = voucher.getType() == VoucherItemCodec.VoucherType.RANKUP ? "ULTRA RANKUP-GUTSCHEIN"
+                : voucher.getType() == VoucherItemCodec.VoucherType.RANK ? "Rang-Gutschein" : "Rechte-Gutschein";
+        Material icon = rankVoucher ? Material.DIAMOND : Material.PAPER;
+        String target = voucher.getType() == VoucherItemCodec.VoucherType.RANKUP
+                ? nextRankName(player) : voucher.getTarget();
 
         gui.setItem(13, UiItems.item(icon,
                 ChatColor.GOLD.toString() + ChatColor.BOLD + type,
-                ChatColor.GRAY + "Ziel: " + ChatColor.WHITE + voucher.getTarget(),
-                ChatColor.DARK_GRAY + "Serial: " + voucher.getSerial().toString().substring(0, 8)));
+                ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + target,
+                voucher.getType() == VoucherItemCodec.VoucherType.RANKUP
+                        ? ChatColor.LIGHT_PURPLE + "Steigt genau eine Rangstufe auf." : ChatColor.GRAY + "Einmalige Einloesung"));
 
         gui.setItem(11, UiItems.item(Material.EMERALD_BLOCK,
                 ChatColor.GREEN.toString() + ChatColor.BOLD + "ANNEHMEN",
@@ -140,6 +147,13 @@ public final class VoucherRedeemListener implements Listener {
                     return false;
                 }
                 return true;
+            case RANKUP:
+                if (nextRank(core.getRankService().getRank(player.getUniqueId())) == null) {
+                    player.sendMessage(ChatColor.YELLOW + "Du besitzt bereits den hoechsten SkyKings-Rang.");
+                    SoundFeedback.warning(player);
+                    return false;
+                }
+                return true;
             case KIT:
                 Optional<KitDefinition> kit = core.getKitRegistry().get(voucher.getTarget());
                 if (!kit.isPresent()) return invalid(player);
@@ -163,6 +177,15 @@ public final class VoucherRedeemListener implements Listener {
                 Rank rank = parseRank(voucher.getTarget());
                 if (rank == null) return false;
                 core.getRankService().setRank(player.getUniqueId(), rank, "VOUCHER:" + voucher.getSerial());
+                return true;
+            case RANKUP:
+                Rank current = core.getRankService().getRank(player.getUniqueId());
+                Rank next = nextRank(current);
+                if (next == null) return false;
+                core.getRankService().setRank(player.getUniqueId(), next, "RANKUP_VOUCHER:" + voucher.getSerial());
+                Bukkit.broadcastMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "RANKUP! "
+                        + ChatColor.WHITE + player.getName() + ChatColor.YELLOW + " ist durch einen ultra-seltenen Gutschein jetzt "
+                        + ChatColor.GOLD + next.name() + ChatColor.YELLOW + "!");
                 return true;
             case KIT:
                 Optional<KitDefinition> optional = core.getKitRegistry().get(voucher.getTarget());
@@ -207,6 +230,18 @@ public final class VoucherRedeemListener implements Listener {
             default:
                 return false;
         }
+    }
+
+    private Rank nextRank(Rank current) {
+        if (current == null) return Rank.SPIELER;
+        Rank[] values = Rank.values();
+        int next = current.ordinal() + 1;
+        return next >= values.length ? null : values[next];
+    }
+
+    private String nextRankName(Player player) {
+        Rank next = nextRank(core.getRankService().getRank(player.getUniqueId()));
+        return next == null ? "Hoechster Rang erreicht" : next.name();
     }
 
     private boolean hasInventorySpace(Player player, List<ItemStack> items) {
