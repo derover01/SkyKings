@@ -23,6 +23,16 @@ public final class PlayerShopService {
         SUCCESS, NOT_ALLOWED, INVALID_SHOP, OUT_OF_STOCK, NOT_ENOUGH_MONEY, INVENTORY_FULL, FAILED
     }
 
+    /**
+     * Claim bleibt unangetastet, wenn die Auszahlung den Coin-Kontostand ueberlaufen lassen wuerde.
+     * Der Controller kann diesen seltenen Fall dadurch klar vom leeren Einnahmenkonto unterscheiden.
+     */
+    public static final class RevenueClaimOverflowException extends RuntimeException {
+        public RevenueClaimOverflowException() {
+            super("Coin balance would overflow while claiming PlayerShop revenue");
+        }
+    }
+
     private static final int FEE_PERCENT = 5;
 
     private final PlayerShopStore store;
@@ -71,9 +81,15 @@ public final class PlayerShopService {
         final int oldStock = shop.getStock();
         if (oldStock < amount) return Result.OUT_OF_STOCK;
 
+        long price = shop.getPriceCoins();
+        long fee = feeFor(price);
+        long sellerRevenue = price - fee;
+        long oldRevenue = shop.getPendingRevenue();
+        // Pending-Revenue niemals saturieren oder still abschneiden: vor dem Kauf fail-closed.
+        if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
+
         ItemStack reward = new ItemStack(shop.getMaterial(), amount, shop.getData());
         if (!canFit(buyer, reward)) return Result.INVENTORY_FULL;
-        long price = shop.getPriceCoins();
         if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
 
         // Stock wird persistent reserviert, bevor Coins oder Items die Seite wechseln.
@@ -96,10 +112,7 @@ public final class PlayerShopService {
             return Result.FAILED;
         }
 
-        long fee = Math.max(1L, price * FEE_PERCENT / 100L);
-        long sellerRevenue = Math.max(0L, price - fee);
-        long oldRevenue = shop.getPendingRevenue();
-        shop.setPendingRevenue(safeAdd(oldRevenue, sellerRevenue));
+        shop.setPendingRevenue(oldRevenue + sellerRevenue);
         if (!store.saveChecked()) {
             // Der Kauf ist zu diesem Zeitpunkt bereits abgeschlossen. Die atomare Store-Save-Methode
             // garantiert bei false, dass der alte Dateistand bestehen blieb. Deshalb den In-Memory-
@@ -125,6 +138,16 @@ public final class PlayerShopService {
         if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
         long amount = shop.getPendingRevenue();
         if (amount <= 0L) return 0L;
+
+        // Wichtig: Overflow pruefen, BEVOR pendingRevenue persistent auf 0 reserviert wird.
+        // EconomyService.deposit() wuerde in diesem Fall ebenfalls vor der Profilmutation abbrechen,
+        // aber zu diesem Zeitpunkt waere der Shop-Claim sonst bereits dauerhaft als verbraucht markiert.
+        try {
+            Math.addExact(economy.getBalance(owner.getUniqueId()), amount);
+        } catch (ArithmeticException ex) {
+            throw new RevenueClaimOverflowException();
+        }
+
         shop.setPendingRevenue(0L);
         if (!store.saveChecked()) {
             shop.setPendingRevenue(amount);
@@ -213,8 +236,11 @@ public final class PlayerShopService {
         return temp.addItem(item.clone()).isEmpty();
     }
 
-    private long safeAdd(long a, long b) {
-        if (b > 0L && a > Long.MAX_VALUE - b) return Long.MAX_VALUE;
-        return a + b;
+    private long feeFor(long price) {
+        // Vermeidet den Overflow von "price * FEE_PERCENT" bei sehr grossen long-Werten.
+        long wholeHundreds = price / 100L;
+        long remainder = price % 100L;
+        long fee = wholeHundreds * FEE_PERCENT + (remainder * FEE_PERCENT / 100L);
+        return Math.max(1L, fee);
     }
 }
