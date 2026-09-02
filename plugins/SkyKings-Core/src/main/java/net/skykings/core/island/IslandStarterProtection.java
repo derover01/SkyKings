@@ -117,7 +117,9 @@ public final class IslandStarterProtection {
         if (parent != null && !parent.exists() && !parent.mkdirs()) {
             throw new IOException("Datenordner konnte nicht erstellt werden: " + parent);
         }
-        File temp = new File(parent, file.getName() + ".tmp");
+        File temp = parent == null
+                ? new File(file.getPath() + ".tmp")
+                : new File(parent, file.getName() + ".tmp");
         try (FileWriter writer = new FileWriter(temp, false)) {
             for (UUID uuid : claimed) {
                 writer.write(uuid.toString());
