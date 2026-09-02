@@ -270,7 +270,8 @@ public final class PlayerShopController implements Listener, CommandExecutor {
         inv.setItem(22, item(Material.REDSTONE_BLOCK, (short) 0,
                 ChatColor.RED + "Shop entfernen",
                 ChatColor.GRAY + "Nur moeglich wenn Stock und",
-                ChatColor.GRAY + "Einnahmen leer sind."));
+                ChatColor.GRAY + "Einnahmen leer sind.",
+                ChatColor.GRAY + "Das Haendler-Ei bekommst du zurueck."));
         openOwnerShops.put(player.getUniqueId(), shop.getId());
         player.openInventory(inv);
         player.playSound(player.getLocation(), Sound.VILLAGER_YES, 0.55F, 1.25F);
@@ -295,17 +296,28 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
             return;
         }
+
+        ItemStack returnedEgg = shopEgg.create();
+        if (!canFit(player, returnedEgg)) {
+            player.sendMessage(ChatColor.RED + "Du brauchst Inventarplatz fuer dein zurueckgegebenes Haendler-Ei.");
+            player.sendMessage(ChatColor.GRAY + "Der Shop wurde nicht entfernt.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
+            return;
+        }
+
         // Erst die persistente Shop-Definition entfernen. Wenn das fehlschlaegt, muss der Villager
-        // stehen bleiben, damit kein gueltiger Shop-Datensatz ohne zugehoerige Entity entsteht.
+        // stehen bleiben und es darf auch kein zusaetzliches Haendler-Ei ausgegeben werden.
         if (!store.deleteChecked(shop.getId())) {
             player.sendMessage(ChatColor.RED + "Der PlayerShop konnte nicht sicher entfernt werden. Es wurde nichts veraendert.");
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
             return;
         }
+
         removeVillager(shop.getVillagerUuid());
         openOwnerShops.remove(player.getUniqueId());
-        player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt.");
-        player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 0.7F);
+        giveReturnedEgg(player, returnedEgg);
+        player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt. " + ChatColor.GREEN + "Dein Haendler-Ei wurde zurueckgegeben.");
+        player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.25F);
     }
 
     private ItemStack item(Material material, short durability, String name, String... lore) {
@@ -326,6 +338,24 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             if (current != null) temp.setItem(i, current.clone());
         }
         return temp.addItem(item.clone()).isEmpty();
+    }
+
+    private void giveReturnedEgg(Player player, ItemStack egg) {
+        ItemStack hand = player.getItemInHand();
+        if (hand == null || hand.getType() == Material.AIR) {
+            player.setItemInHand(egg);
+        } else {
+            // canFit() wurde unmittelbar vor der persistenten Loeschung auf dem Main-Thread geprueft.
+            // Dadurch kann die normale Inventarzustellung hier nicht legitim ueberlaufen.
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(egg);
+            if (!leftovers.isEmpty()) {
+                // Unerwarteter Bukkit-/Plugin-Sonderfall: niemals das bereits zurueckgegebene Ei vernichten.
+                for (ItemStack leftover : leftovers.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                }
+            }
+        }
+        player.updateInventory();
     }
 
     private void consumeHand(Player player) {
