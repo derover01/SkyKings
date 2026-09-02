@@ -134,7 +134,7 @@ public final class CommandsGui {
         GuiSession gui = page(player, "Social");
         action(gui, 11, Material.NAME_TAG, "/clan", "Clan verwalten", "clan");
         info(gui, 13, Material.RED_ROSE, "/peace <Spieler>", "Peace anfragen");
-        action(gui, 15, Material.SKULL_ITEM, "/collection", "Besiegte Spieler", "collection");
+        action(gui, 15, Material.SKULL_ITEM, "/collection", "Head Collection", "collection");
         action(gui, 29, Material.BOOK, "/stats", "Eigenes Profil", "stats");
         action(gui, 33, Material.NETHER_STAR, "/legacyhall", "Hall of Fame", "legacyhall");
         nav(gui);
@@ -199,6 +199,13 @@ public final class CommandsGui {
         info(gui, 12, Material.PAPER, "/rechte <Spieler> <Recht>", "Recht vergeben");
         info(gui, 14, Material.CHEST, "/crate give ...", "Crates ausgeben");
         action(gui, 16, Material.EMERALD, "/gutscheine", "Gutscheine erstellen", "gutscheine");
+        if (player.hasPermission("skykings.admin.coins")) {
+            info(gui, 20, Material.GOLD_INGOT, "/addcoins <Spieler> <Anzahl>", "Coins sicher hinzufügen");
+            info(gui, 22, Material.GOLD_BLOCK, "/setcoins <Spieler> <Anzahl>", "Kontostand setzen");
+        }
+        if (player.hasPermission("skykings.admin.island.starterreset")) {
+            info(gui, 24, Material.SAPLING, "/is resetstarter <Spieler>", "Island-Starterclaim recovern");
+        }
         action(gui, 28, Material.REDSTONE_TORCH_ON, "/mapsetup", "Map Setup Hub", "mapsetup");
         info(gui, 30, Material.COMPASS, "/maptp <Ziel>", "Map-Schnellreise");
         action(gui, 32, Material.REDSTONE_BLOCK, "/skcheck", "Runtime prüfen", "skcheck");
