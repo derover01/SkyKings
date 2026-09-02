@@ -8,6 +8,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -61,6 +62,14 @@ final class PlayerShopMerchantSafetyListener implements Listener {
         // Unser Preis-Token ist rein virtuell und muss vorher entfernt werden.
         top.setItem(0, new ItemStack(Material.AIR));
         if (top.getSize() > 1) top.setItem(1, new ItemStack(Material.AIR));
+        PlayerShopTradeSnapshotRegistry.close(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        // Defense-in-depth: auch wenn eine Runtime beim Disconnect kein normales
+        // InventoryCloseEvent liefert, darf kein alter Trade-Snapshot aktiv bleiben.
+        PlayerShopTradeSnapshotRegistry.close(event.getPlayer().getUniqueId());
     }
 
     private boolean isSkyKingsMerchant(Inventory top) {
