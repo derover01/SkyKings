@@ -1,5 +1,6 @@
 package net.skykings.core.retention;
 
+import net.skykings.core.economy.BalanceSettlementGuard;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
@@ -29,7 +30,7 @@ public final class JackpotService {
     private static final long RETRY_MILLIS = 5L * 60L * 1000L;
     private static final long MIN_ENTRY = 10_000L;
     private static final long MAX_ENTRY = 1_000_000L;
-    private static final double FEE_RATE = 0.05D;
+    private static final long FEE_DIVISOR = 20L; // 5%
     private static final long[] QUICK_ENTRIES = {10_000L, 50_000L, 100_000L, 250_000L, 500_000L};
     private static volatile JackpotService liveInstance;
 
@@ -125,17 +126,25 @@ public final class JackpotService {
         }
 
         UUID uuid = player.getUniqueId();
+        String base = "round.entries." + uuid;
+        String previousName = data.getString(base + ".name", null);
+        long previousAmount = data.getLong(base + ".amount", 0L);
+        long previousPot = getPot();
+        if (!BalanceSettlementGuard.canAdd(previousAmount, amount)
+                || !BalanceSettlementGuard.canAdd(previousPot, amount)) {
+            player.sendMessage(UiTheme.DANGER + "Der Jackpot kann diesen Einsatz nicht mehr sicher aufnehmen.");
+            plugin.getLogger().warning("Jackpot-Einsatz vor Abbuchung wegen long-Grenze blockiert: " + uuid + " / " + amount);
+            return false;
+        }
+
         if (!economy.withdraw(uuid, amount, "JACKPOT", "Jackpot entry")) {
             player.sendMessage(UiTheme.DANGER + "Dafuer hast du nicht genug Coins.");
             SoundFeedback.error(player);
             return false;
         }
 
-        String base = "round.entries." + uuid;
-        String previousName = data.getString(base + ".name", null);
-        long previousAmount = data.getLong(base + ".amount", 0L);
         data.set(base + ".name", player.getName());
-        data.set(base + ".amount", safeAdd(previousAmount, amount));
+        data.set(base + ".amount", previousAmount + amount);
         if (!saveNow()) {
             if (previousName == null) data.set(base + ".name", null);
             else data.set(base + ".name", previousName);
@@ -206,16 +215,16 @@ public final class JackpotService {
             OfflinePlayer offline = Bukkit.getOfflinePlayer(winner);
             name = offline.getName() == null ? winner.toString().substring(0, 8) : offline.getName();
         }
-        long payout = Math.max(1L, (long) Math.floor(pot * (1D - FEE_RATE)));
+
+        // Exakt dieselbe Rundungsrichtung wie floor(pot * 0.95), aber ohne double-Praezisionsverlust.
+        long fee = pot / FEE_DIVISOR;
+        if (pot % FEE_DIVISOR != 0L) fee++;
+        long payout = pot - fee;
 
         long oldNextDraw = data.getLong("round.next-draw", 0L);
-        data.set("round.settlement.status", "PENDING");
-        data.set("round.settlement.winner", winner.toString());
-        data.set("round.settlement.winner-name", name);
-        data.set("round.settlement.pot", pot);
-        data.set("round.settlement.payout", payout);
-        data.set("round.settlement.created-at", System.currentTimeMillis());
-        data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
+        long settlementCreatedAt = System.currentTimeMillis();
+        long nextDraw = settlementCreatedAt + ROUND_MILLIS;
+        markPendingSettlement(winner, name, pot, payout, settlementCreatedAt, nextDraw);
         if (!saveNow()) {
             data.set("round.settlement", null);
             data.set("round.next-draw", oldNextDraw);
@@ -239,8 +248,12 @@ public final class JackpotService {
         data.set("round.entries", null);
         data.set("round.settlement", null);
         if (!saveNow()) {
+            // Die Auszahlung IST bereits erfolgt. Auf Disk liegt weiterhin der zuvor erfolgreich
+            // reservierte PENDING-Stand. Diesen Zustand auch im RAM wiederherstellen, damit bis
+            // Restart/Review keine neue Runde Einsaetze annehmen kann.
+            markPendingSettlement(winner, name, pot, payout, settlementCreatedAt, nextDraw);
             plugin.getLogger().severe("Jackpot wurde ausgezahlt, aber Abschluss konnte nicht gespeichert werden. "
-                    + "Beim Restart wird der PENDING-Stand fail-closed behandelt.");
+                    + "Runtime bleibt fail-closed auf PENDING; beim Restart wird REVIEW_REQUIRED gesetzt.");
         }
 
         Bukkit.broadcastMessage(ChatColor.DARK_GRAY + "[" + ChatColor.GOLD + "JACKPOT" + ChatColor.DARK_GRAY + "] "
@@ -254,19 +267,45 @@ public final class JackpotService {
     private void recoverIncompleteSettlement() {
         if (!"PENDING".equalsIgnoreCase(data.getString("round.settlement.status", ""))) return;
         String winner = data.getString("round.settlement.winner", "unknown");
+        String winnerName = data.getString("round.settlement.winner-name", "unknown");
+        long pot = data.getLong("round.settlement.pot", 0L);
         long payout = data.getLong("round.settlement.payout", 0L);
+        long createdAt = data.getLong("round.settlement.created-at", System.currentTimeMillis());
         plugin.getLogger().severe("Unvollstaendiges Jackpot-Settlement erkannt: " + winner + " / " + payout
                 + ". Keine automatische Neuauszahlung; REVIEW_REQUIRED wurde gespeichert.");
         data.set("recovery.status", "REVIEW_REQUIRED");
         data.set("recovery.winner", winner);
-        data.set("recovery.winner-name", data.getString("round.settlement.winner-name", "unknown"));
-        data.set("recovery.pot", data.getLong("round.settlement.pot", 0L));
+        data.set("recovery.winner-name", winnerName);
+        data.set("recovery.pot", pot);
         data.set("recovery.payout", payout);
         data.set("recovery.detected-at", System.currentTimeMillis());
         data.set("round.entries", null);
         data.set("round.settlement", null);
-        data.set("round.next-draw", System.currentTimeMillis() + ROUND_MILLIS);
-        saveNow();
+        long nextDraw = System.currentTimeMillis() + ROUND_MILLIS;
+        data.set("round.next-draw", nextDraw);
+        if (!saveNow()) {
+            try {
+                markPendingSettlement(UUID.fromString(winner), winnerName, pot, payout, createdAt, nextDraw);
+            } catch (IllegalArgumentException ex) {
+                data.set("round.settlement.status", "PENDING");
+                data.set("round.settlement.winner", winner);
+                data.set("round.settlement.winner-name", winnerName);
+                data.set("round.settlement.pot", pot);
+                data.set("round.settlement.payout", payout);
+                data.set("round.settlement.created-at", createdAt);
+            }
+            plugin.getLogger().severe("Jackpot-Recovery konnte nicht gespeichert werden; Runtime bleibt PENDING und blockiert neue Einsaetze.");
+        }
+    }
+
+    private void markPendingSettlement(UUID winner, String name, long pot, long payout, long createdAt, long nextDraw) {
+        data.set("round.settlement.status", "PENDING");
+        data.set("round.settlement.winner", winner.toString());
+        data.set("round.settlement.winner-name", name);
+        data.set("round.settlement.pot", pot);
+        data.set("round.settlement.payout", payout);
+        data.set("round.settlement.created-at", createdAt);
+        data.set("round.next-draw", nextDraw);
     }
 
     private boolean isSettlementOpen() {
