@@ -9,14 +9,17 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * Kompatibilitaets-Entry-Point fuer die bestehende Core-Registrierung.
- * Die eigentliche Runtime-Logik liegt im neuen 3x9 PlayerShopTradeController.
+ * Die eigentliche Runtime-Logik liegt im PlayerShopTradeController; der separate
+ * Merchant-Safety-Listener schuetzt das echte 1.8-Villagerfenster vor Vanilla-Moves.
  */
 public final class PlayerShopController implements Listener, CommandExecutor {
     private final PlayerShopTradeController delegate;
 
     public PlayerShopController(PlayerShopService service) {
         this.delegate = new PlayerShopTradeController(service);
-        Bukkit.getPluginManager().registerEvents(delegate, JavaPlugin.getProvidingPlugin(PlayerShopController.class));
+        JavaPlugin plugin = JavaPlugin.getProvidingPlugin(PlayerShopController.class);
+        Bukkit.getPluginManager().registerEvents(delegate, plugin);
+        Bukkit.getPluginManager().registerEvents(new PlayerShopMerchantSafetyListener(), plugin);
     }
 
     @Override
