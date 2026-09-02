@@ -31,6 +31,26 @@ import static org.mockito.Mockito.when;
 public class PlayerShopServiceTest {
 
     @Test
+    public void ownerCannotPurchaseOwnOffer() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player owner = mock(Player.class);
+        UUID ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
+        PlayerShop shop = shop(shopId, ownerId, 0, 16, 0, 1_000L, 0L);
+        when(store.get(shopId)).thenReturn(shop);
+        when(owner.getUniqueId()).thenReturn(ownerId);
+
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        assertEquals(PlayerShopService.Result.NOT_ALLOWED, service.purchase(owner, shopId, 0));
+
+        assertEquals(16, shop.getOffer(0).getTotalAmount());
+        verify(store, never()).saveChecked();
+        verifyNoInteractions(economy);
+        verify(owner, never()).getInventory();
+    }
+
+    @Test
     public void purchaseSelectedOfferDeliversBothRowsAndAccruesRevenue() {
         PlayerShopStore store = mock(PlayerShopStore.class);
         EconomyService economy = mock(EconomyService.class);
