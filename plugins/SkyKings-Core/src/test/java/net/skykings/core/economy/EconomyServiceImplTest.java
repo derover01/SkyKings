@@ -190,4 +190,40 @@ public class EconomyServiceImplTest {
 
         assertEquals(Long.MAX_VALUE, economyService.getBalance(boundaryUuid));
     }
+
+    @Test
+    public void canDepositAcceptsExactBoundaryAndRejectsOverflow() {
+        UUID richUuid = UUID.randomUUID();
+        profileService.put(new PlayerProfile(richUuid, "Rich", Rank.SPIELER, Long.MAX_VALUE - 100L, 0L, 0L, 0L));
+
+        assertTrue(economyService.canDeposit(richUuid, 100L));
+        assertFalse(economyService.canDeposit(richUuid, 101L));
+    }
+
+    @Test
+    public void canDepositLoadsExistingOfflineProfile() {
+        final UUID offlineUuid = UUID.randomUUID();
+        final PlayerProfile persisted = new PlayerProfile(offlineUuid, "Offline", Rank.SPIELER, 500L, 0L, 0L, 0L);
+        FakePlayerProfileService persistedService = new FakePlayerProfileService() {
+            @Override
+            public PlayerProfile loadExisting(UUID target) {
+                if (!offlineUuid.equals(target)) return null;
+                put(persisted);
+                return persisted;
+            }
+        };
+        EconomyServiceImpl service = new EconomyServiceImpl(persistedService,
+                new LoggingServiceImpl(Collections.singletonList(new RecordingAuditSink()), Logger.getLogger("offline-preflight-test")));
+
+        assertTrue(service.canDeposit(offlineUuid, 1_000L));
+    }
+
+    @Test
+    public void canDepositRejectsUnknownAndInvalidAmounts() {
+        UUID unknown = UUID.randomUUID();
+        assertFalse(economyService.canDeposit(unknown, 1L));
+        assertFalse(economyService.canDeposit(uuid, 0L));
+        assertFalse(economyService.canDeposit(uuid, -1L));
+        assertFalse(economyService.canDeposit(null, 1L));
+    }
 }
