@@ -14,237 +14,135 @@ import org.bukkit.inventory.ItemStack;
 
 import java.util.UUID;
 
-/**
- * Sichere Transaktionen fuer spielereigene Shops.
- * Einnahmen landen zuerst als persistentes Guthaben im Shop und koennen vom Besitzer abgeholt werden.
- */
+/** Sichere Transaktionen fuer Villager-PlayerShops mit bis zu neun Trade-Spalten. */
 public final class PlayerShopService {
-    public enum Result {
-        SUCCESS, NOT_ALLOWED, INVALID_SHOP, OUT_OF_STOCK, NOT_ENOUGH_MONEY, INVENTORY_FULL, FAILED
-    }
-
-    /**
-     * Claim bleibt unangetastet, wenn die Auszahlung den Coin-Kontostand ueberlaufen lassen wuerde.
-     * Der Controller kann diesen seltenen Fall dadurch klar vom leeren Einnahmenkonto unterscheiden.
-     */
-    public static final class RevenueClaimOverflowException extends RuntimeException {
-        public RevenueClaimOverflowException() {
-            super("Coin balance would overflow while claiming PlayerShop revenue");
-        }
-    }
-
+    public enum Result { SUCCESS, NOT_ALLOWED, INVALID_SHOP, OUT_OF_STOCK, NOT_ENOUGH_MONEY, INVENTORY_FULL, FAILED }
+    public static final class RevenueClaimOverflowException extends RuntimeException { public RevenueClaimOverflowException() { super("Coin balance would overflow while claiming PlayerShop revenue"); } }
     private static final int FEE_PERCENT = 5;
-
     private final PlayerShopStore store;
     private final EconomyService economy;
     private final LoggingService logging;
     private ShopPlacementPolicy placementPolicy;
 
     public PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging) {
-        this.store = store;
-        this.economy = economy;
-        this.logging = logging;
+        this.store = store; this.economy = economy; this.logging = logging;
         this.placementPolicy = new ShopPlacementPolicy() {
             @Override public boolean canCreateShop(Player player, Location location) { return false; }
-            @Override public boolean canManageShop(Player player, PlayerShop shop) {
-                return player != null && shop != null && player.getUniqueId().equals(shop.getOwner());
-            }
+            @Override public boolean canManageShop(Player player, PlayerShop shop) { return player != null && shop != null && player.getUniqueId().equals(shop.getOwner()); }
             @Override public boolean canSellFromShop(PlayerShop shop) { return shop != null; }
         };
         ShopRentBootstrap.installLater(this);
     }
 
-    public void setPlacementPolicy(ShopPlacementPolicy placementPolicy) {
-        if (placementPolicy != null) this.placementPolicy = placementPolicy;
-    }
-
+    public void setPlacementPolicy(ShopPlacementPolicy placementPolicy) { if (placementPolicy != null) this.placementPolicy = placementPolicy; }
     public ShopPlacementPolicy getPlacementPolicy() { return placementPolicy; }
+    public PlayerShopStore getStore() { return store; }
 
     public synchronized PlayerShop create(Player owner, Location location) {
         if (owner == null || location == null || !placementPolicy.canCreateShop(owner, location)) return null;
-        PlayerShop shop = store.create(owner.getUniqueId());
-        if (shop == null) return null;
-        shop.setWorld(location.getWorld() == null ? null : location.getWorld().getName());
-        shop.setX(location.getX()); shop.setY(location.getY()); shop.setZ(location.getZ());
-        if (!store.saveChecked()) {
-            store.delete(shop.getId());
-            return null;
-        }
+        PlayerShop shop = store.create(owner.getUniqueId()); if (shop == null) return null;
+        shop.setWorld(location.getWorld() == null ? null : location.getWorld().getName()); shop.setX(location.getX()); shop.setY(location.getY()); shop.setZ(location.getZ());
+        if (!store.saveChecked()) { store.delete(shop.getId()); return null; }
         return shop;
     }
 
-    public synchronized Result purchase(Player buyer, UUID shopId) {
-        PlayerShop shop = store.get(shopId);
-        if (buyer == null || shop == null || !shop.isConfigured()) return Result.INVALID_SHOP;
-        if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
-        final int amount = shop.getAmountPerSale();
-        final int oldStock = shop.getStock();
-        if (oldStock < amount) return Result.OUT_OF_STOCK;
+    /** Legacy-Pfad: Angebot 1. */
+    public synchronized Result purchase(Player buyer, UUID shopId) { return purchase(buyer, shopId, 0); }
 
-        long price = shop.getPriceCoins();
-        long fee = feeFor(price);
-        long sellerRevenue = price - fee;
-        long oldRevenue = shop.getPendingRevenue();
-        // Pending-Revenue niemals saturieren oder still abschneiden: vor dem Kauf fail-closed.
+    public synchronized Result purchase(Player buyer, UUID shopId, int offerIndex) {
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
+        if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
+        if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
+        ItemStack top = offer.topStack(), middle = offer.middleStack();
+        if (!canFit(buyer, top, middle)) return Result.INVENTORY_FULL;
+        long price = offer.getPriceCoins(); if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
+        long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
         if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
 
-        ItemStack reward = new ItemStack(shop.getMaterial(), amount, shop.getData());
-        if (!canFit(buyer, reward)) return Result.INVENTORY_FULL;
-        if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
-
-        // Stock wird persistent reserviert, bevor Coins oder Items die Seite wechseln.
-        shop.setStock(oldStock - amount);
-        if (!store.saveChecked()) {
-            shop.setStock(oldStock);
-            return Result.FAILED;
+        Material material = offer.getMaterial(); short data = offer.getData(); int topAmount = offer.getAmountTop(), middleAmount = offer.getAmountMiddle(); long oldPrice = offer.getPriceCoins();
+        offer.clear();
+        if (!store.saveChecked()) { restore(offer, material, data, topAmount, middleAmount, oldPrice); return Result.FAILED; }
+        if (!economy.withdraw(buyer.getUniqueId(), price, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot " + (offerIndex + 1))) {
+            restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.NOT_ENOUGH_MONEY;
         }
-
-        if (!economy.withdraw(buyer.getUniqueId(), price, "PLAYER_SHOP", "Kauf Shop " + shopId)) {
-            shop.setStock(oldStock);
-            store.saveChecked();
-            return Result.NOT_ENOUGH_MONEY;
-        }
-
-        if (!buyer.getInventory().addItem(reward).isEmpty()) {
+        if ((top != null && !buyer.getInventory().addItem(top).isEmpty()) || (middle != null && !buyer.getInventory().addItem(middle).isEmpty())) {
             economy.deposit(buyer.getUniqueId(), price, "PLAYER_SHOP_ROLLBACK", "Rollback Shop " + shopId);
-            shop.setStock(oldStock);
-            store.saveChecked();
-            return Result.FAILED;
+            restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.FAILED;
         }
-
         shop.setPendingRevenue(oldRevenue + sellerRevenue);
         if (!store.saveChecked()) {
-            // Der Kauf ist zu diesem Zeitpunkt bereits abgeschlossen. Die atomare Store-Save-Methode
-            // garantiert bei false, dass der alte Dateistand bestehen blieb. Deshalb den In-Memory-
-            // Wert auf genau diesen sicheren Stand zuruecksetzen und nur den NEUEN Verkaeuferanteil
-            // direkt auszahlen. So kann ein spaeterer Save denselben Betrag nicht erneut als Pending
-            // Revenue persistieren.
             shop.setPendingRevenue(oldRevenue);
-            economy.deposit(shop.getOwner(), sellerRevenue, "PLAYER_SHOP_RECOVERY",
-                    "Direktauszahlung nach Revenue-Save-Fehler " + shopId);
-            logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP_SAVE_RECOVERY", sellerRevenue,
-                    "shop=" + shopId + ", owner=" + shop.getOwner() + ", pendingRevenuePersistFailed=true, directSellerPayout=true"));
+            economy.deposit(shop.getOwner(), sellerRevenue, "PLAYER_SHOP_RECOVERY", "Revenue-Save-Recovery " + shopId);
         }
-
         logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP", price,
-                "shop=" + shopId + ", owner=" + shop.getOwner() + ", fee=" + fee + ", item=" + shop.getMaterial()
-                        + ", amount=" + amount));
-        buyer.updateInventory();
-        return Result.SUCCESS;
+                "shop=" + shopId + ", offer=" + offerIndex + ", owner=" + shop.getOwner() + ", fee=" + fee + ", item=" + material + ", amount=" + (topAmount + middleAmount)));
+        buyer.updateInventory(); return Result.SUCCESS;
+    }
+
+    public synchronized boolean putOfferStack(Player owner, UUID shopId, int offerIndex, boolean middleRow, ItemStack stack) {
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
+        if (owner == null || shop == null || offer == null || stack == null || stack.getType() == Material.AIR || !placementPolicy.canManageShop(owner, shop)) return false;
+        if (stack.hasItemMeta() && stack.getItemMeta() != null && (stack.getItemMeta().hasDisplayName() || stack.getItemMeta().hasLore())) return false;
+        if (!stack.getEnchantments().isEmpty()) return false;
+        if (offer.getMaterial() != null && (offer.getMaterial() != stack.getType() || offer.getData() != stack.getDurability())) return false;
+        Material oldMaterial = offer.getMaterial(); short oldData = offer.getData(); int oldTop = offer.getAmountTop(), oldMiddle = offer.getAmountMiddle();
+        offer.setMaterial(stack.getType()); offer.setData(stack.getDurability());
+        if (middleRow) offer.setAmountMiddle(stack.getAmount()); else offer.setAmountTop(stack.getAmount());
+        if (!store.saveChecked()) { offer.setMaterial(oldMaterial); offer.setData(oldData); offer.setAmountTop(oldTop); offer.setAmountMiddle(oldMiddle); return false; }
+        return true;
+    }
+
+    public synchronized ItemStack takeOfferStack(Player owner, UUID shopId, int offerIndex, boolean middleRow) {
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
+        if (owner == null || shop == null || offer == null || !placementPolicy.canManageShop(owner, shop)) return null;
+        int amount = middleRow ? offer.getAmountMiddle() : offer.getAmountTop(); if (offer.getMaterial() == null || amount <= 0) return null;
+        ItemStack result = new ItemStack(offer.getMaterial(), amount, offer.getData());
+        if (!canFit(owner, result)) return null;
+        int old = amount; if (middleRow) offer.setAmountMiddle(0); else offer.setAmountTop(0);
+        if (offer.getTotalAmount() <= 0) offer.clear();
+        if (!store.saveChecked()) {
+            if (offer.getMaterial() == null) { offer.setMaterial(result.getType()); offer.setData(result.getDurability()); }
+            if (middleRow) offer.setAmountMiddle(old); else offer.setAmountTop(old); return null;
+        }
+        return result;
+    }
+
+    public synchronized boolean setOfferPrice(Player owner, UUID shopId, int offerIndex, long price) {
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
+        if (owner == null || shop == null || offer == null || price < 1L || offer.getTotalAmount() <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
+        long old = offer.getPriceCoins(); offer.setPriceCoins(price); if (store.saveChecked()) return true; offer.setPriceCoins(old); return false;
     }
 
     public synchronized long claimRevenue(Player owner, UUID shopId) {
-        PlayerShop shop = store.get(shopId);
-        if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
-        long amount = shop.getPendingRevenue();
-        if (amount <= 0L) return 0L;
-
-        // Wichtig: Overflow pruefen, BEVOR pendingRevenue persistent auf 0 reserviert wird.
-        // EconomyService.deposit() wuerde in diesem Fall ebenfalls vor der Profilmutation abbrechen,
-        // aber zu diesem Zeitpunkt waere der Shop-Claim sonst bereits dauerhaft als verbraucht markiert.
-        try {
-            Math.addExact(economy.getBalance(owner.getUniqueId()), amount);
-        } catch (ArithmeticException ex) {
-            throw new RevenueClaimOverflowException();
-        }
-
-        shop.setPendingRevenue(0L);
-        if (!store.saveChecked()) {
-            shop.setPendingRevenue(amount);
-            return 0L;
-        }
-        economy.deposit(owner.getUniqueId(), amount, "PLAYER_SHOP", "Shop-Einnahmen " + shopId);
-        return amount;
+        PlayerShop shop = store.get(shopId); if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
+        long amount = shop.getPendingRevenue(); if (amount <= 0L) return 0L;
+        try { Math.addExact(economy.getBalance(owner.getUniqueId()), amount); } catch (ArithmeticException ex) { throw new RevenueClaimOverflowException(); }
+        shop.setPendingRevenue(0L); if (!store.saveChecked()) { shop.setPendingRevenue(amount); return 0L; }
+        economy.deposit(owner.getUniqueId(), amount, "PLAYER_SHOP", "Shop-Einnahmen " + shopId); return amount;
     }
 
+    /* Legacy-Commands arbeiten weiter mit Angebot 1. */
+    public synchronized boolean configure(Player owner, UUID shopId, int amount, long price) {
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(0);
+        if (owner == null || offer == null || amount < 1 || amount > 128 || price < 1 || !placementPolicy.canManageShop(owner, shop)) return false;
+        int oldTop = offer.getAmountTop(), oldMid = offer.getAmountMiddle(); long oldPrice = offer.getPriceCoins();
+        offer.setAmountTop(Math.min(64, amount)); offer.setAmountMiddle(Math.max(0, amount - 64)); offer.setPriceCoins(price);
+        if (store.saveChecked()) return true; offer.setAmountTop(oldTop); offer.setAmountMiddle(oldMid); offer.setPriceCoins(oldPrice); return false;
+    }
     public synchronized boolean addStock(Player owner, UUID shopId, int amount) {
-        PlayerShop shop = store.get(shopId);
-        if (owner == null || shop == null || amount <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
-        int oldStock = shop.getStock();
-        // Auch bei theoretisch sehr grossem Langzeitbestand niemals int-Wraparound zulassen.
-        // Ein negativer Bestand koennte sonst nach genug Einzahlungen persistiert werden.
-        if (oldStock < 0 || oldStock > Integer.MAX_VALUE - amount) return false;
-
-        ItemStack hand = owner.getItemInHand();
-        if (hand == null || hand.getType() == Material.AIR || hand.getAmount() < amount) return false;
-        if (shop.getMaterial() == null) {
-            shop.setMaterial(hand.getType());
-            shop.setData(hand.getDurability());
-        }
-        if (shop.getMaterial() != hand.getType() || shop.getData() != hand.getDurability()) return false;
-        if (hand.hasItemMeta() && hand.getItemMeta() != null && (hand.getItemMeta().hasDisplayName() || hand.getItemMeta().hasLore())) return false;
-        if (!hand.getEnchantments().isEmpty()) return false;
-
-        ItemStack originalHand = hand.clone();
-        int remaining = hand.getAmount() - amount;
-        if (remaining <= 0) owner.setItemInHand(new ItemStack(Material.AIR));
-        else { hand.setAmount(remaining); owner.setItemInHand(hand); }
-        shop.setStock(oldStock + amount);
-        if (!store.saveChecked()) {
-            shop.setStock(oldStock);
-            owner.setItemInHand(originalHand);
-            owner.updateInventory();
-            return false;
-        }
-        owner.updateInventory();
-        return true;
+        if (amount < 1 || amount > 64) return false; ItemStack hand = owner == null ? null : owner.getItemInHand(); if (hand == null || hand.getAmount() < amount) return false;
+        ItemStack deposit = hand.clone(); deposit.setAmount(amount); if (!putOfferStack(owner, shopId, 0, false, deposit)) return false;
+        hand.setAmount(hand.getAmount() - amount); if (hand.getAmount() <= 0) owner.setItemInHand(new ItemStack(Material.AIR)); owner.updateInventory(); return true;
     }
-
     public synchronized boolean withdrawStock(Player owner, UUID shopId, int amount) {
-        PlayerShop shop = store.get(shopId);
-        if (owner == null || shop == null || amount <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
-        if (shop.getMaterial() == null || shop.getStock() < amount) return false;
-        ItemStack returned = new ItemStack(shop.getMaterial(), amount, shop.getData());
-        if (!canFit(owner, returned)) return false;
-
-        int oldStock = shop.getStock();
-        shop.setStock(oldStock - amount);
-        if (!store.saveChecked()) {
-            shop.setStock(oldStock);
-            return false;
-        }
-
-        if (!owner.getInventory().addItem(returned).isEmpty()) {
-            shop.setStock(oldStock);
-            store.saveChecked();
-            return false;
-        }
-        owner.updateInventory();
-        return true;
+        PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(0); if (offer == null || amount != offer.getAmountTop()) return false;
+        ItemStack result = takeOfferStack(owner, shopId, 0, false); if (result == null) return false; owner.getInventory().addItem(result); owner.updateInventory(); return true;
     }
 
-    public synchronized boolean configure(Player owner, UUID shopId, int amountPerSale, long priceCoins) {
-        PlayerShop shop = store.get(shopId);
-        if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return false;
-        if (amountPerSale < 1 || amountPerSale > 64 || priceCoins < 1) return false;
-        int oldAmount = shop.getAmountPerSale();
-        long oldPrice = shop.getPriceCoins();
-        shop.setAmountPerSale(amountPerSale);
-        shop.setPriceCoins(priceCoins);
-        if (!store.saveChecked()) {
-            shop.setAmountPerSale(oldAmount);
-            shop.setPriceCoins(oldPrice);
-            return false;
-        }
-        return true;
+    private void restore(PlayerShopOffer offer, Material material, short data, int top, int middle, long price) { offer.setMaterial(material); offer.setData(data); offer.setAmountTop(top); offer.setAmountMiddle(middle); offer.setPriceCoins(price); }
+    private boolean canFit(Player player, ItemStack... items) {
+        Inventory temp = Bukkit.createInventory(null, 36); for (int i = 0; i < 36; i++) { ItemStack current = player.getInventory().getItem(i); if (current != null) temp.setItem(i, current.clone()); }
+        for (ItemStack item : items) if (item != null && !temp.addItem(item.clone()).isEmpty()) return false; return true;
     }
-
-    public PlayerShopStore getStore() { return store; }
-
-    private boolean canFit(Player player, ItemStack item) {
-        Inventory temp = Bukkit.createInventory(null, 36);
-        for (int i = 0; i < 36; i++) {
-            ItemStack current = player.getInventory().getItem(i);
-            if (current != null) temp.setItem(i, current.clone());
-        }
-        return temp.addItem(item.clone()).isEmpty();
-    }
-
-    private long feeFor(long price) {
-        // Vermeidet den Overflow von "price * FEE_PERCENT" bei sehr grossen long-Werten.
-        long wholeHundreds = price / 100L;
-        long remainder = price % 100L;
-        long fee = wholeHundreds * FEE_PERCENT + (remainder * FEE_PERCENT / 100L);
-        return Math.max(1L, fee);
-    }
+    private long feeFor(long price) { long whole = price / 100L, rem = price % 100L; return Math.max(1L, whole * FEE_PERCENT + (rem * FEE_PERCENT / 100L)); }
 }
