@@ -24,11 +24,23 @@ public final class IslandStarterProtection {
 
     public static boolean create(IslandService islands, Player player) {
         if (islands == null || player == null) return false;
-        boolean alreadyClaimed = hasClaimed(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        boolean alreadyClaimed = hasClaimed(playerId);
         if (!islands.create(player)) return false;
 
-        if (alreadyClaimed) clearStarterChest(islands.get(player.getUniqueId()));
-        else markClaimed(player.getUniqueId());
+        IslandService.IslandData created = islands.get(playerId);
+        if (alreadyClaimed) {
+            clearStarterChest(created);
+            return true;
+        }
+
+        try {
+            markClaimed(playerId);
+        } catch (IllegalStateException ex) {
+            // Fail closed: Die Insel darf bestehen bleiben, aber kein unregistriertes Starterloot.
+            clearStarterChest(created);
+            throw ex;
+        }
         return true;
     }
 
