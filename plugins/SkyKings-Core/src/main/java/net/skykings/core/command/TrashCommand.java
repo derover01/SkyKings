@@ -13,19 +13,35 @@ import org.bukkit.inventory.ItemStack;
 public final class TrashCommand implements CommandExecutor {
 
     @Override
+    @SuppressWarnings("deprecation")
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage("Dieser Befehl ist nur ingame verfuegbar.");
             return true;
         }
 
-        Player player = (Player) sender;
-        if (label.equalsIgnoreCase("clearinv") || label.equalsIgnoreCase("clearinventory")) {
+        final Player player = (Player) sender;
+        if (command.getName().equalsIgnoreCase("clearinv")) {
             player.closeInventory();
+            player.setItemOnCursor(null);
             player.getInventory().clear();
             player.getInventory().setArmorContents(new ItemStack[4]);
-            player.setItemOnCursor(null);
+            player.getInventory().setHeldItemSlot(Math.max(0, Math.min(8, player.getInventory().getHeldItemSlot())));
             player.updateInventory();
+
+            // 1.8 kann nach einem Command noch einen alten Client-Slot zurueckschreiben.
+            // Deshalb serverseitigen Clear einen Tick spaeter nochmals erzwingen und synchronisieren.
+            Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("SkyKings-Core"), new Runnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+                    player.setItemOnCursor(null);
+                    player.getInventory().clear();
+                    player.getInventory().setArmorContents(new ItemStack[4]);
+                    player.updateInventory();
+                }
+            });
+
             player.sendMessage(ChatColor.GREEN + "Dein Inventar wurde vollstaendig geleert.");
             return true;
         }
