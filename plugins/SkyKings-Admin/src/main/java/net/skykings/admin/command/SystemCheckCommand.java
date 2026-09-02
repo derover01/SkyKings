@@ -39,6 +39,10 @@ public final class SystemCheckCommand implements CommandExecutor {
         SkyKingsCoreAPI coreApi = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
         check(sender, coreApi != null, "Core API");
         check(sender, coreApi != null && coreApi.getClanService() != null, "Clan Service");
+        check(sender, coreApi != null && coreApi.getEconomyService() != null, "Economy Service");
+        check(sender, coreApi != null && coreApi.getNetherstarService() != null, "Netherstar Service");
+        check(sender, coreApi != null && coreApi.getRankService() != null, "Rank Service");
+        check(sender, coreApi != null && coreApi.getVoucherPermissionService() != null, "Voucher Permission Service");
         check(sender, Bukkit.getServicesManager().load(IslandAccessService.class) != null, "Island Access API");
         check(sender, Bukkit.getServicesManager().load(PlotAccessService.class) != null, "Plot Access API");
         check(sender, CombatTagServiceImpl.liveInstance() != null, "CombatTag Live Service");
@@ -47,17 +51,12 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, discord != null, "Discord Bridge");
 
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
-        command(sender, "plot");
-        command(sender, "warp");
-        command(sender, "battlepass");
-        command(sender, "premiumpass");
-        command(sender, "quests");
-        command(sender, "kit");
-        command(sender, "duel");
-        command(sender, "lms");
-        command(sender, "clanwar");
-        command(sender, "eventarena");
-        command(sender, "skymap");
+        String[] commands = {
+                "is", "plot", "warp", "craterewards", "battlepass", "premiumpass", "quests", "kit", "prefix",
+                "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop",
+                "verlosen", "freitag", "casinonpc"
+        };
+        for (String commandName : commands) command(sender, commandName);
 
         sender.sendMessage(ChatColor.AQUA + "Offizielle Maps");
         check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
@@ -68,8 +67,12 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
         eventReturnRecovery(sender);
         jackpotRecovery(sender);
+        fileCheck(sender, "SkyKings-Core", "island-starter-claims.txt", "Island Starter-Claim Store", true);
+        fileCheck(sender, "SkyKings-Crates", "issued-items.txt", "Issued Item Registry", true);
+        fileCheck(sender, "SkyKings-Crates", "redeemed-vouchers.txt", "Voucher Redemption Store", true);
 
-        int eventPlayers = EventParticipationService.global().snapshot().size();
+        EventParticipationService participation = EventParticipationService.global();
+        int eventPlayers = participation == null ? 0 : participation.snapshot().size();
         sender.sendMessage(ChatColor.GRAY + "Aktive Event-Spieler: " + ChatColor.WHITE + eventPlayers);
         if (discord == null || !discord.isEnabled()) {
             sender.sendMessage(ChatColor.YELLOW + "[OPTIONAL]" + ChatColor.GRAY + " Discord deaktiviert/nicht konfiguriert");
@@ -82,6 +85,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                     + ChatColor.GRAY + " Discord Status Channel");
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
+        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach /is delete+create, Crate, Voucher, Giveaway, Casino und Multiplayer-Flows manuell pruefen.");
         return true;
     }
 
@@ -92,8 +96,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
         int pending = EventReturnRecoveryService.pendingCount();
         if (pending > 0) {
-            sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Event-Rueckkehrpositionen warten: "
-                    + ChatColor.WHITE + pending);
+            sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Event-Rueckkehrpositionen warten: " + ChatColor.WHITE + pending);
         } else {
             sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Event Return Queue leer");
         }
@@ -124,6 +127,15 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, true, "Jackpot Recovery Status");
     }
 
+    private void fileCheck(CommandSender sender, String pluginName, String fileName, String label, boolean optionalBeforeFirstUse) {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin(pluginName);
+        if (plugin == null) { check(sender, false, label); return; }
+        File file = new File(plugin.getDataFolder(), fileName);
+        if (file.exists()) sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " " + label);
+        else if (optionalBeforeFirstUse) sender.sendMessage(ChatColor.YELLOW + "[NEU]" + ChatColor.GRAY + " " + label + " wird beim ersten Einsatz angelegt");
+        else check(sender, false, label);
+    }
+
     private void plugin(CommandSender sender, String name) {
         Plugin plugin = Bukkit.getPluginManager().getPlugin(name);
         check(sender, plugin != null && plugin.isEnabled(), name);
@@ -134,11 +146,6 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, command != null && command.getPlugin().isEnabled(), "/" + name);
     }
 
-    private void check(CommandSender sender, boolean ok, String name) {
-        sender.sendMessage(status(ok) + " " + name);
-    }
-
-    private String status(boolean ok) {
-        return ok ? ChatColor.GREEN + "[OK]" + ChatColor.GRAY : ChatColor.RED + "[FEHLT]" + ChatColor.GRAY;
-    }
+    private void check(CommandSender sender, boolean ok, String name) { sender.sendMessage(status(ok) + " " + name); }
+    private String status(boolean ok) { return ok ? ChatColor.GREEN + "[OK]" + ChatColor.GRAY : ChatColor.RED + "[FEHLT]" + ChatColor.GRAY; }
 }
