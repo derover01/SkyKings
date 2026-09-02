@@ -19,12 +19,15 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.Arrays;
@@ -32,17 +35,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** PlayerShop mit Besitzer-Dashboard und 3x9 Trade-Editor. */
+/** PlayerShop mit Besitzer-Dashboard, 3x9 Editor und echtem 1.8-Villager-Handelsfenster. */
 public final class PlayerShopTradeController implements Listener, CommandExecutor {
     private static final long EGG_PRICE = 2_500_000L;
-    private static final String TRADE_TITLE = ChatColor.DARK_GRAY + "SkyKings | PlayerShop";
     private static final String OWNER_TITLE = ChatColor.DARK_GRAY + "SkyKings | Mein Shop";
     private static final String SETUP_TITLE = ChatColor.DARK_GRAY + "SkyKings | Angebote";
 
     private final PlayerShopService service;
     private final PlayerShopStore store;
     private final PlayerShopEgg shopEgg = new PlayerShopEgg();
+    private final LegacyVillagerTradeBridge merchantBridge = new LegacyVillagerTradeBridge();
     private final Map<UUID, UUID> openShops = new HashMap<UUID, UUID>();
+    private final Map<UUID, UUID> merchantShops = new HashMap<UUID, UUID>();
+    private final Map<UUID, UUID> merchantVillagers = new HashMap<UUID, UUID>();
 
     public PlayerShopTradeController(PlayerShopService service) {
         this.service = service;
@@ -151,16 +156,20 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
     @EventHandler
     public void onInteract(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof Villager)) return;
-        PlayerShop shop = store.getByVillager(event.getRightClicked().getUniqueId());
+        Villager villager = (Villager) event.getRightClicked();
+        PlayerShop shop = store.getByVillager(villager.getUniqueId());
         if (shop == null) return;
         event.setCancelled(true);
         Player player = event.getPlayer();
-        if (!isNearStoredLocation(shop, event.getRightClicked().getLocation())) {
+        if (!isNearStoredLocation(shop, villager.getLocation())) {
             player.sendMessage(ChatColor.RED + "Dieser PlayerShop wurde verschoben und ist deaktiviert.");
             return;
         }
-        if (player.getUniqueId().equals(shop.getOwner()) && player.isSneaking()) openOwnerMenu(player, shop);
-        else openTrade(player, shop);
+        if (player.getUniqueId().equals(shop.getOwner()) && player.isSneaking()) {
+            openOwnerMenu(player, shop);
+            return;
+        }
+        openTrade(player, villager, shop);
     }
 
     private void openOwnerMenu(Player player, PlayerShop shop) {
@@ -183,24 +192,32 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.55F, 1.15F);
     }
 
-    private void openTrade(Player player, PlayerShop shop) {
-        Inventory inv = Bukkit.createInventory(null, 27, TRADE_TITLE);
-        for (int i = 0; i < PlayerShop.MAX_OFFERS; i++) {
-            PlayerShopOffer offer = shop.getOffer(i);
-            ItemStack top = offer.topStack();
-            ItemStack middle = offer.middleStack();
-            if (top != null) inv.setItem(i, top); else inv.setItem(i, emptyPane(i + 1));
-            if (middle != null) inv.setItem(9 + i, middle); else inv.setItem(9 + i, emptyPane(i + 1));
-            inv.setItem(18 + i, priceItem(offer, i, false));
+    private void openTrade(final Player player, final Villager villager, final PlayerShop shop) {
+        if (!shop.isConfigured()) {
+            player.sendMessage(ChatColor.YELLOW + "Dieser PlayerShop hat aktuell keine Angebote.");
+            return;
         }
-        openShops.put(player.getUniqueId(), shop.getId());
-        player.openInventory(inv);
-        player.playSound(player.getLocation(), Sound.VILLAGER_YES, 0.55F, 1.2F);
+        if (!merchantBridge.configureAndOpen(player, villager, shop)) {
+            player.sendMessage(ChatColor.RED + "Das Villager-Handelsfenster konnte auf dieser 1.8-Runtime nicht geoeffnet werden.");
+            return;
+        }
+        merchantShops.put(player.getUniqueId(), shop.getId());
+        merchantVillagers.put(player.getUniqueId(), villager.getUniqueId());
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+        if (plugin == null) return;
+        Bukkit.getScheduler().runTask(plugin, new Runnable() {
+            @Override public void run() {
+                if (!player.isOnline() || !merchantShops.containsKey(player.getUniqueId())) return;
+                Inventory top = player.getOpenInventory().getTopInventory();
+                if (top == null || top.getType() != InventoryType.MERCHANT || top.getSize() < 3) return;
+                top.setItem(0, merchantBridge.virtualCoinToken());
+                top.setItem(1, new ItemStack(Material.AIR));
+                player.updateInventory();
+            }
+        });
     }
 
-    /**
-     * Echter 3x9 Editor: Reihe 1/2 sind echte Item-Slots (AIR wenn leer), Reihe 3 sind Preis-Controls.
-     */
+    /** Besitzer-Editor: zwei echte Itemreihen + eine Preisreihe. */
     private void openSetup(Player player, PlayerShop shop) {
         Inventory inv = Bukkit.createInventory(null, 27, SETUP_TITLE);
         for (int i = 0; i < PlayerShop.MAX_OFFERS; i++) {
@@ -209,7 +226,7 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
             ItemStack middle = offer.middleStack();
             if (top != null) inv.setItem(i, top);
             if (middle != null) inv.setItem(9 + i, middle);
-            inv.setItem(18 + i, priceItem(offer, i, true));
+            inv.setItem(18 + i, priceItem(offer, i));
         }
         openShops.put(player.getUniqueId(), shop.getId());
         player.openInventory(inv);
@@ -220,10 +237,16 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (event.getView() == null || !(event.getWhoClicked() instanceof Player)) return;
-        String title = event.getView().getTitle();
-        if (!TRADE_TITLE.equals(title) && !OWNER_TITLE.equals(title) && !SETUP_TITLE.equals(title)) return;
-
         Player player = (Player) event.getWhoClicked();
+
+        if (event.getInventory() != null && event.getInventory().getType() == InventoryType.MERCHANT && merchantShops.containsKey(player.getUniqueId())) {
+            handleMerchantClick(player, event);
+            return;
+        }
+
+        String title = event.getView().getTitle();
+        if (!OWNER_TITLE.equals(title) && !SETUP_TITLE.equals(title)) return;
+
         UUID shopId = openShops.get(player.getUniqueId());
         PlayerShop shop = shopId == null ? null : store.get(shopId);
         if (shop == null) {
@@ -240,37 +263,13 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
             }
             int raw = event.getRawSlot();
             if (raw == 11) openSetup(player, shop);
-            else if (raw == 13) { claimRevenue(player, shop); openOwnerMenu(player, shop); }
-            else if (raw == 15) removeOwnedShop(player, shop);
+            else if (raw == 13) {
+                claimRevenue(player, shop);
+                openOwnerMenu(player, shop);
+            } else if (raw == 15) removeOwnedShop(player, shop);
             return;
         }
 
-        if (TRADE_TITLE.equals(title)) {
-            event.setCancelled(true);
-            int raw = event.getRawSlot();
-            if (raw < 18 || raw >= 27) return;
-            int column = raw % 9;
-            if (player.getUniqueId().equals(shop.getOwner())) {
-                player.sendMessage(ChatColor.YELLOW + "Deinen eigenen Shop bearbeitest du mit Shift + Rechtsklick.");
-                return;
-            }
-            PlayerShopOffer offer = shop.getOffer(column);
-            long price = offer == null ? 0L : offer.getPriceCoins();
-            int amount = offer == null ? 0 : offer.getTotalAmount();
-            Material material = offer == null ? null : offer.getMaterial();
-            PlayerShopService.Result result = service.purchase(player, shop.getId(), column);
-            if (result == PlayerShopService.Result.SUCCESS) {
-                player.sendMessage(ChatColor.GREEN + "Gekauft: " + amount + "x " + material.name() + " fuer " + format(price) + " Coins.");
-                player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.25F);
-            } else {
-                player.sendMessage(ChatColor.RED + "Kauf nicht moeglich: " + readable(result));
-                player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.8F);
-            }
-            openTrade(player, shop);
-            return;
-        }
-
-        // SETUP
         event.setCancelled(true);
         if (!player.getUniqueId().equals(shop.getOwner())) {
             player.closeInventory();
@@ -278,17 +277,66 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         }
         int raw = event.getRawSlot();
         if (raw >= 0 && raw < 18) {
-            int column = raw % 9;
-            handleOfferSlot(player, shop, column, raw >= 9, event);
+            handleOfferSlot(player, shop, raw % 9, raw >= 9, event);
             return;
         }
         if (raw >= 18 && raw < 27) {
             handlePrice(player, shop, raw % 9, event);
             return;
         }
-
-        // Shift-Klick aus dem eigenen Inventar -> naechster freier/kompatibler Angebots-Slot.
         if (raw >= 27 && event.isShiftClick()) shiftDeposit(player, shop, event);
+    }
+
+    private void handleMerchantClick(final Player player, InventoryClickEvent event) {
+        UUID shopId = merchantShops.get(player.getUniqueId());
+        final PlayerShop shop = shopId == null ? null : store.get(shopId);
+        if (shop == null) {
+            event.setCancelled(true);
+            clearMerchantSession(player, event.getInventory());
+            player.closeInventory();
+            return;
+        }
+
+        int raw = event.getRawSlot();
+        if (raw >= 0 && raw < event.getInventory().getSize()) {
+            event.setCancelled(true);
+            if (raw != 2) return;
+
+            ItemStack preview = event.getCurrentItem();
+            int offerIndex = merchantBridge.offerIndex(preview);
+            if (offerIndex < 0 || offerIndex >= PlayerShop.MAX_OFFERS) {
+                player.sendMessage(ChatColor.RED + "Dieses Angebot konnte nicht eindeutig erkannt werden.");
+                return;
+            }
+            PlayerShopOffer offer = shop.getOffer(offerIndex);
+            long price = offer == null ? 0L : offer.getPriceCoins();
+            int amount = offer == null ? 0 : offer.getTotalAmount();
+            Material material = offer == null ? null : offer.getMaterial();
+            PlayerShopService.Result result = service.purchase(player, shop.getId(), offerIndex);
+            if (result == PlayerShopService.Result.SUCCESS) {
+                player.sendMessage(ChatColor.GREEN + "Gekauft: " + amount + "x " + (material == null ? "Item" : material.name()) + " fuer " + format(price) + " Coins.");
+                player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.25F);
+            } else {
+                player.sendMessage(ChatColor.RED + "Kauf nicht moeglich: " + readable(result));
+                player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.8F);
+            }
+
+            final UUID villagerId = merchantVillagers.get(player.getUniqueId());
+            clearMerchantSession(player, event.getInventory());
+            player.closeInventory();
+            Plugin plugin = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+            if (plugin == null) return;
+            Bukkit.getScheduler().runTask(plugin, new Runnable() {
+                @Override public void run() {
+                    if (!player.isOnline()) return;
+                    Villager villager = findVillager(villagerId);
+                    PlayerShop latest = store.get(shop.getId());
+                    if (villager != null && latest != null && latest.isConfigured()) openTrade(player, villager, latest);
+                }
+            });
+            return;
+        }
+        if (event.isShiftClick()) event.setCancelled(true);
     }
 
     private void handleOfferSlot(Player player, PlayerShop shop, int column, boolean middle, InventoryClickEvent event) {
@@ -298,7 +346,6 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         ItemStack cursor = event.getCursor();
         boolean hasCursor = cursor != null && cursor.getType() != Material.AIR && cursor.getAmount() > 0;
 
-        // Slot belegt + leerer Cursor = wie Kiste herausnehmen, direkt auf Cursor.
         if (stored > 0 && !hasCursor) {
             ItemStack returned = service.takeOfferStack(player, shop.getId(), column, middle);
             if (returned == null) {
@@ -310,7 +357,6 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
             openSetupNextTick(player, shop);
             return;
         }
-
         if (stored > 0) {
             player.sendMessage(ChatColor.YELLOW + "Nimm den vorhandenen Stack erst heraus, bevor du ihn ersetzt.");
             return;
@@ -332,7 +378,6 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() == Material.AIR || clicked.getAmount() <= 0) return;
         ItemStack deposit = clicked.clone();
-
         for (int column = 0; column < PlayerShop.MAX_OFFERS; column++) {
             PlayerShopOffer offer = shop.getOffer(column);
             if (offer == null) continue;
@@ -365,7 +410,6 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         long current = Math.max(1L, offer.getPriceCoins());
         long next = current;
         ClickType click = event.getClick();
-
         if (click == ClickType.MIDDLE) next = safeAdd(current, 100L);
         else if (click == ClickType.DROP || click == ClickType.CONTROL_DROP) next = 1L;
         else if (event.isShiftClick() && event.isLeftClick()) next = safeAdd(current, 10L);
@@ -385,10 +429,20 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
         if (event.getView() == null) return;
-        String title = event.getView().getTitle();
-        if (!TRADE_TITLE.equals(title) && !OWNER_TITLE.equals(title) && !SETUP_TITLE.equals(title)) return;
-        // Multi-Slot-Drag wird bewusst blockiert; normales Aufnehmen/Ablegen und Shift-Klick funktionieren.
-        event.setCancelled(true);
+        if (event.getInventory() != null && event.getInventory().getType() == InventoryType.MERCHANT && merchantShops.containsKey(event.getWhoClicked().getUniqueId())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (OWNER_TITLE.equals(event.getView().getTitle()) || SETUP_TITLE.equals(event.getView().getTitle())) event.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onClose(InventoryCloseEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        if (merchantShops.containsKey(playerId) && event.getInventory() != null && event.getInventory().getType() == InventoryType.MERCHANT) {
+            clearMerchantSession(playerId, event.getInventory());
+        }
+        openShops.remove(playerId);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -396,14 +450,8 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         if (event.getEntity() instanceof Villager && store.getByVillager(event.getEntity().getUniqueId()) != null) event.setCancelled(true);
     }
 
-    private ItemStack priceItem(PlayerShopOffer offer, int index, boolean setup) {
+    private ItemStack priceItem(PlayerShopOffer offer, int index) {
         boolean active = offer != null && offer.getTotalAmount() > 0;
-        if (!setup) {
-            return item(Material.NETHER_STAR, (short) 0,
-                    active ? ChatColor.GOLD + format(Math.max(1L, offer.getPriceCoins())) + " Coins" : ChatColor.DARK_GRAY + "Angebot " + (index + 1) + " leer",
-                    active ? ChatColor.GRAY + "Menge gesamt: " + ChatColor.WHITE + offer.getTotalAmount() : ChatColor.GRAY + "Kein Angebot",
-                    active ? ChatColor.GREEN + "Klicken zum Kaufen" : ChatColor.DARK_GRAY + "Nicht verfuegbar");
-        }
         return item(Material.NETHER_STAR, (short) 0,
                 active ? ChatColor.AQUA + "Preis: " + ChatColor.WHITE + format(Math.max(1L, offer.getPriceCoins())) : ChatColor.DARK_GRAY + "Angebot " + (index + 1),
                 active ? ChatColor.GRAY + "Gesamtmenge: " + ChatColor.WHITE + offer.getTotalAmount() : ChatColor.GRAY + "Erst Items oben/mittig einlegen",
@@ -413,10 +461,6 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
                 ChatColor.RED + "Shift + Rechts: -10",
                 ChatColor.AQUA + "Mittelklick: +100",
                 ChatColor.YELLOW + "Q: auf 1 zuruecksetzen");
-    }
-
-    private ItemStack emptyPane(int index) {
-        return item(Material.STAINED_GLASS_PANE, (short) 15, ChatColor.DARK_GRAY + "Angebot " + index + " leer");
     }
 
     private void claimRevenue(Player player, PlayerShop shop) {
@@ -484,16 +528,32 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         return dx * dx + dy * dy + dz * dz <= 4.0D;
     }
 
-    private void removeVillager(UUID uuid) {
-        if (uuid == null) return;
+    private Villager findVillager(UUID uuid) {
+        if (uuid == null) return null;
         for (World world : Bukkit.getWorlds()) {
             for (Entity entity : world.getEntities()) {
-                if (uuid.equals(entity.getUniqueId())) {
-                    entity.remove();
-                    return;
-                }
+                if (uuid.equals(entity.getUniqueId()) && entity instanceof Villager) return (Villager) entity;
             }
         }
+        return null;
+    }
+
+    private void removeVillager(UUID uuid) {
+        Villager villager = findVillager(uuid);
+        if (villager != null) villager.remove();
+    }
+
+    private void clearMerchantSession(Player player, Inventory inventory) {
+        clearMerchantSession(player.getUniqueId(), inventory);
+    }
+
+    private void clearMerchantSession(UUID playerId, Inventory inventory) {
+        if (inventory != null && inventory.getType() == InventoryType.MERCHANT) {
+            if (inventory.getSize() > 0) inventory.setItem(0, new ItemStack(Material.AIR));
+            if (inventory.getSize() > 1) inventory.setItem(1, new ItemStack(Material.AIR));
+        }
+        merchantShops.remove(playerId);
+        merchantVillagers.remove(playerId);
     }
 
     private void consumeHand(Player player) {
@@ -537,7 +597,9 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
     }
 
     private void openSetupNextTick(final Player player, final PlayerShop shop) {
-        Bukkit.getScheduler().runTask(Bukkit.getPluginManager().getPlugin("SkyKings-Core"), new Runnable() {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+        if (plugin == null) return;
+        Bukkit.getScheduler().runTask(plugin, new Runnable() {
             @Override public void run() {
                 if (player.isOnline() && store.get(shop.getId()) != null) openSetup(player, shop);
             }
@@ -570,7 +632,7 @@ public final class PlayerShopTradeController implements Listener, CommandExecuto
         player.sendMessage(ChatColor.GOLD.toString() + ChatColor.BOLD + "SKYKINGS PLAYERSHOP");
         player.sendMessage(ChatColor.YELLOW + "/playershop kaufen" + ChatColor.GRAY + " - Haendler-Ei kaufen");
         player.sendMessage(ChatColor.YELLOW + "Shift + Rechtsklick" + ChatColor.GRAY + " - Besitzer-Menue");
-        player.sendMessage(ChatColor.YELLOW + "Rechtsklick" + ChatColor.GRAY + " - Handelsfenster");
+        player.sendMessage(ChatColor.YELLOW + "Rechtsklick" + ChatColor.GRAY + " - echtes Villager-Handelsfenster");
         player.sendMessage(ChatColor.YELLOW + "/playershop claim | remove");
     }
 }
