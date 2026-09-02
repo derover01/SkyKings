@@ -16,12 +16,14 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 public class PlayerShopServiceTest {
@@ -78,11 +80,60 @@ public class PlayerShopServiceTest {
         when(store.get(shopId)).thenReturn(shop);
         when(store.saveChecked()).thenReturn(false);
         when(owner.getUniqueId()).thenReturn(ownerId);
+        when(economy.getBalance(ownerId)).thenReturn(100L);
 
         PlayerShopService service = new PlayerShopService(store, economy, logging);
         assertEquals(0L, service.claimRevenue(owner, shopId));
         assertEquals(12_345L, shop.getPendingRevenue());
         verify(economy, never()).deposit(eq(ownerId), any(Long.class), any(String.class), any(String.class));
+    }
+
+    @Test
+    public void revenueClaimKeepsPendingWhenBalanceWouldOverflow() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player owner = mock(Player.class);
+
+        UUID ownerId = UUID.randomUUID();
+        UUID shopId = UUID.randomUUID();
+        PlayerShop shop = configuredShop(shopId, ownerId, 5, 1, 500L, 1_000L);
+
+        when(store.get(shopId)).thenReturn(shop);
+        when(owner.getUniqueId()).thenReturn(ownerId);
+        when(economy.getBalance(ownerId)).thenReturn(Long.MAX_VALUE - 500L);
+
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        try {
+            service.claimRevenue(owner, shopId);
+            fail("Expected RevenueClaimOverflowException");
+        } catch (PlayerShopService.RevenueClaimOverflowException expected) {
+            // expected
+        }
+
+        assertEquals(1_000L, shop.getPendingRevenue());
+        verify(store, never()).saveChecked();
+        verify(economy, never()).deposit(eq(ownerId), any(Long.class), any(String.class), any(String.class));
+    }
+
+    @Test
+    public void purchaseFailsBeforeChargingWhenPendingRevenueWouldOverflow() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player buyer = mock(Player.class);
+
+        UUID ownerId = UUID.randomUUID();
+        UUID shopId = UUID.randomUUID();
+        PlayerShop shop = configuredShop(shopId, ownerId, 10, 1, 1_000L, Long.MAX_VALUE - 500L);
+        when(store.get(shopId)).thenReturn(shop);
+
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId));
+        assertEquals(10, shop.getStock());
+        assertEquals(Long.MAX_VALUE - 500L, shop.getPendingRevenue());
+        verify(store, never()).saveChecked();
+        verifyNoInteractions(economy);
     }
 
     @Test
