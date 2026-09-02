@@ -33,7 +33,7 @@ public final class VoucherAdminGui {
 
     public void open(Player player) {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Gutscheine"), 27);
-        gui.setItem(10, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Ranggutscheine", UiTheme.MUTED + "Free- und Paid-Raenge"), (p,e,s) -> openRanks(p));
+        gui.setItem(10, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Ranggutscheine", UiTheme.MUTED + "Free-, Paid- und Rankup-Buecher"), (p,e,s) -> openRanks(p));
         gui.setItem(11, UiItems.item(Material.PAPER, UiTheme.SUCCESS + "Kitgutscheine", UiTheme.MUTED + "Einmalige Kit-Ausgabe"), (p,e,s) -> openKits(p));
         gui.setItem(12, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Rechtegutscheine", UiTheme.MUTED + "Freigeschaltete Features"), (p,e,s) -> openPermissions(p));
         gui.setItem(14, UiItems.item(Material.NAME_TAG, UiTheme.WARNING + "Prefixgutscheine", UiTheme.MUTED + "Kosmetische Prefixe"), (p,e,s) -> openPrefixes(p));
@@ -49,8 +49,16 @@ public final class VoucherAdminGui {
             final Rank selected = rank;
             gui.setItem(slot++, UiItems.item(Material.BOOK, UiTheme.PRIMARY + display(rank), UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.RANK,
-                            selected.name().toLowerCase(), display(selected)));
+                            selected.name().toLowerCase(), display(selected) + " Rang"));
         }
+        gui.setItem(22, UiItems.item(Material.ENCHANTED_BOOK,
+                UiTheme.LEGENDARY + "ULTRA RANKUP-GUTSCHEIN",
+                UiTheme.WARNING + "Extrem seltener +1 Rang Gutschein",
+                UiTheme.MUTED + "Steigt exakt eine Stufe in der Ranghierarchie auf.",
+                UiTheme.MUTED + "Kann auch einen Paid-Rang freischalten.", "",
+                UiItems.action("Klicken: erzeugen")),
+                (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.RANKUP,
+                        "next", "Ultra Rankup"));
         back(gui);
         guiManager.open(gui);
     }
@@ -74,6 +82,7 @@ public final class VoucherAdminGui {
         GuiSession gui = GuiSession.create(player, UiTheme.title("Rechtegutscheine"), 27);
         int slot = 0;
         for (VoucherPermission permission : core.getVoucherPermissionService().getAll()) {
+            if (slot >= 18) break;
             final VoucherPermission selected = permission;
             gui.setItem(slot++, UiItems.item(Material.BOOK, selected.getDisplayName(), UiItems.action("Klicken: erzeugen")),
                     (p,e,s) -> generate(p, VoucherItemCodec.VoucherType.PERMISSION,
