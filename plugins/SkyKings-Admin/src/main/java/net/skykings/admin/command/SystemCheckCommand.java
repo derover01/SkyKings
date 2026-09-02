@@ -7,6 +7,7 @@ import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
+import net.skykings.core.resourcepack.ResourcePackService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -15,6 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 
@@ -53,7 +55,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         String[] commands = {
                 "is", "plot", "warp", "craterewards", "battlepass", "premiumpass", "quests", "kit", "prefix",
-                "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop",
+                "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop", "pack",
                 "verlosen", "freitag", "casinonpc", "addcoins", "setcoins"
         };
         for (String commandName : commands) command(sender, commandName);
@@ -67,6 +69,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
         eventReturnRecovery(sender);
         jackpotRecovery(sender);
+        resourcePack(sender);
         fileCheck(sender, "SkyKings-Core", "island-starter-claims.txt", "Island Starter-Claim Store", true);
         fileCheck(sender, "SkyKings-Crates", "issued-items.txt", "Issued Item Registry", true);
         fileCheck(sender, "SkyKings-Crates", "redeemed-vouchers.txt", "Voucher Redemption Store", true);
@@ -85,7 +88,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                     + ChatColor.GRAY + " Discord Status Channel");
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
-        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Island-Starter, Crate, Voucher, PlayerShop, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Island-Starter, Crate, Voucher, PlayerShop, Pack, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
         return true;
     }
 
@@ -125,6 +128,26 @@ public final class SystemCheckCommand implements CommandExecutor {
             return;
         }
         check(sender, true, "Jackpot Recovery Status");
+    }
+
+    private void resourcePack(CommandSender sender) {
+        Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+        if (!(core instanceof JavaPlugin)) {
+            check(sender, false, "Resource Pack Delivery");
+            return;
+        }
+        JavaPlugin corePlugin = (JavaPlugin) core;
+        if (!corePlugin.getConfig().getBoolean("resource-pack.enabled", false)) {
+            sender.sendMessage(ChatColor.YELLOW + "[OPTIONAL]" + ChatColor.GRAY + " Resource Pack Delivery deaktiviert");
+            return;
+        }
+        String url = corePlugin.getConfig().getString("resource-pack.url", "");
+        String error = ResourcePackService.validationError(url);
+        if (error == null) {
+            sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Resource Pack Delivery (HTTPS-URL konfiguriert)");
+        } else {
+            sender.sendMessage(ChatColor.RED + "[FEHLT]" + ChatColor.GRAY + " Resource Pack Delivery: " + ChatColor.WHITE + error);
+        }
     }
 
     private void fileCheck(CommandSender sender, String pluginName, String fileName, String label, boolean optionalBeforeFirstUse) {
