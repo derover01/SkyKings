@@ -11,6 +11,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.ServicePriority;
@@ -83,6 +84,52 @@ public final class IslandService implements IslandAccessService {
         return true;
     }
 
+    /**
+     * Loescht eine Insel vollstaendig. Der alte Bereich wird auf Void zurueckgesetzt und die
+     * Ownership sofort entfernt, sodass der Owner direkt danach eine neue Insel erstellen kann.
+     */
+    public synchronized boolean delete(UUID owner) {
+        IslandData island = islands.remove(owner);
+        if (island == null) return false;
+        World world = Bukkit.getWorld(WORLD_NAME);
+        if (world == null) {
+            islands.put(owner, island);
+            return false;
+        }
+
+        Location exit = safeExitLocation();
+        for (Player player : new ArrayList<Player>(Bukkit.getOnlinePlayers())) {
+            if (island.contains(player.getLocation())) player.teleport(exit);
+        }
+
+        for (Entity entity : new ArrayList<Entity>(world.getEntities())) {
+            if (entity instanceof Player) continue;
+            if (island.contains(entity.getLocation())) entity.remove();
+        }
+
+        // Islands liegen 256 Bloecke auseinander; die 129x129-Schutzregionen teilen keine Chunks.
+        // Chunk-Regeneration ist auf 1.8 deutlich sicherer als mehrere Millionen AIR-Blockupdates.
+        int minChunkX = island.getMinX() >> 4;
+        int maxChunkX = island.getMaxX() >> 4;
+        int minChunkZ = island.getMinZ() >> 4;
+        int maxChunkZ = island.getMaxZ() >> 4;
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                world.regenerateChunk(chunkX, chunkZ);
+            }
+        }
+        save();
+        return true;
+    }
+
+    private Location safeExitLocation() {
+        for (World world : Bukkit.getWorlds()) {
+            if (!WORLD_NAME.equals(world.getName())) return world.getSpawnLocation().clone().add(0.5D, 0.1D, 0.5D);
+        }
+        World islandWorld = ensureWorld();
+        return new Location(islandWorld, 0.5D, Y + 20D, SPACING / 2D + 0.5D);
+    }
+
     /** Klassische aSkyBlock-inspirierte Starterinsel: kompakt, Baum, Chest und Void rundherum. */
     private long generateStarterIsland(World world, int cx, int cz) {
         long points = 0L;
@@ -97,7 +144,6 @@ public final class IslandService implements IslandAccessService {
         }
         points += set(world, cx, Y - 5, cz, Material.BEDROCK);
 
-        // Klassischer Eichenbaum links vom Spawn.
         for (int y = 0; y < 4; y++) points += set(world, cx - 2, Y + y, cz, Material.LOG);
         for (int y = 3; y <= 4; y++) {
             int radius = y == 3 ? 2 : 1;
@@ -136,7 +182,6 @@ public final class IslandService implements IslandAccessService {
         return blockPoints(material);
     }
 
-    /** Einfache, nachvollziehbare Blockwerte; Place/Break ist symmetrisch und damit nicht farmbar. */
     public static long blockPoints(Material material) {
         if (material == null || material == Material.AIR) return 0L;
         switch (material) {
