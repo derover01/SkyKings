@@ -57,6 +57,7 @@ import net.skykings.core.kit.KitGui;
 import net.skykings.core.kit.KitRegistry;
 import net.skykings.core.kit.KitRegistryImpl;
 import net.skykings.core.kit.RankKitLoader;
+import net.skykings.core.listener.InventoryDropSyncListener;
 import net.skykings.core.listener.PlayerLifecycleListener;
 import net.skykings.core.logging.AuditSink;
 import net.skykings.core.logging.LoggingService;
@@ -204,6 +205,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         this.economyBridge = createEconomyBridge();
 
         getServer().getPluginManager().registerEvents(new PlayerLifecycleListener(playerProfileService, cooldownService, permissionBridge, getLogger()), this);
+        getServer().getPluginManager().registerEvents(new InventoryDropSyncListener(this), this);
         getServer().getPluginManager().registerEvents(new OwnerAccessListener(rankDisplayConfig, permissionBridge), this);
         getServer().getPluginManager().registerEvents(new PlayerDisplayListener(displayService), this);
         getServer().getPluginManager().registerEvents(new PlayerJoinMessageListener(rankDisplayConfig, rankService), this);
@@ -258,7 +260,9 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("spawnerstack", spawnerStackService)) return;
         if (!registerCommand("dailyrewards", new DailyRewardCommand(dailyRewardService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
-        if (!registerCommand("trash", new TrashCommand())) return;
+        TrashCommand trashCommand = new TrashCommand();
+        if (!registerCommand("trash", trashCommand)) return;
+        if (!registerCommand("clearinv", trashCommand)) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
