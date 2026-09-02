@@ -83,7 +83,7 @@ commands:
     aliases: [marktmiete, mietshop]
   island:
     description: Private SkyKings-Islands mit Trust-, Welcome-, Level- und Schutzsystem.
-    usage: /is [menu|create|home|sethome|level|top|trust|untrust|visit|info]
+    usage: /is [menu|create|home|sethome|level|top|trust|untrust|visit|info|delete|resetstarter]
     aliases: [is]
   plot:
     description: PlotSquared-inspirierte private SkyKings-Plots mit Add/Trust/Deny und Flags.
@@ -134,6 +134,9 @@ permissions:
     default: false
   skykings.admin.island.bypass:
     description: Darf den Besitzschutz in der privaten Island-Welt umgehen.
+    default: false
+  skykings.admin.island.starterreset:
+    description: Darf verlorene oder testweise Island-Starterclaims gezielt zurücksetzen.
     default: false
   skykings.admin.plot.bypass:
     description: Darf den Besitzschutz in der Plot-Welt umgehen.
