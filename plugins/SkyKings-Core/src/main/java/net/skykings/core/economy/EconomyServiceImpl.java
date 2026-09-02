@@ -27,6 +27,17 @@ public final class EconomyServiceImpl implements EconomyService {
     }
 
     @Override
+    public boolean canDeposit(UUID uuid, long amount) {
+        if (uuid == null || amount <= 0L) return false;
+        PlayerProfile profile = profileService.getCached(uuid);
+        if (profile == null) profile = profileService.loadExisting(uuid);
+        if (profile == null) return false;
+        synchronized (profile) {
+            return profile.getCoins() <= Long.MAX_VALUE - amount;
+        }
+    }
+
+    @Override
     public void setBalance(UUID uuid, long amount, String actor, String reason) {
         if (amount < 0) {
             throw new IllegalArgumentException("Kontostand darf nicht negativ sein: " + amount);
