@@ -87,7 +87,7 @@ final class LegacyVillagerTradeBridge {
     }
 
     ItemStack virtualCoinToken() {
-        ItemStack token = new ItemStack(Material.NETHER_STAR, 1);
+        ItemStack token = new ItemStack(Material.GOLD_NUGGET, 1);
         ItemMeta meta = token.getItemMeta();
         if (meta != null) {
             meta.setDisplayName(ChatColor.GOLD + "SkyKings Coins");
