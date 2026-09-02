@@ -52,6 +52,10 @@ public final class PlayerShopService {
     public synchronized Result purchase(Player buyer, UUID shopId, int offerIndex) {
         PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
         if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
+        // Wenn der Spieler gerade das echte Villager-Handelsfenster offen hat, darf nur exakt
+        // der Zustand gekauft werden, den dieses Fenster beim Oeffnen gesehen hat. Aendert der
+        // Besitzer zwischenzeitlich Item, Menge oder Preis, bricht der Kauf vor jeder Mutation ab.
+        if (!PlayerShopTradeSnapshotRegistry.matchesIfPresent(buyer.getUniqueId(), shopId, offerIndex, offer)) return Result.INVALID_SHOP;
         if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
         long price = offer.getPriceCoins();
         long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
