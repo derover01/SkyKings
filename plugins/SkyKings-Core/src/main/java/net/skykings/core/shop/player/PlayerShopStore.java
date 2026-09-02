@@ -51,9 +51,22 @@ public final class PlayerShopStore {
         return shop;
     }
 
+    /** Legacy-Aufrufer ignorieren das Ergebnis; transaktionskritischer Code nutzt deleteChecked(). */
     public synchronized void delete(UUID id) {
+        deleteChecked(id);
+    }
+
+    /**
+     * Entfernt einen Shop nur dann dauerhaft aus dem In-Memory-State, wenn auch die persistente
+     * Datei erfolgreich aktualisiert wurde. Bei einem Save-Fehler wird der Shop vollstaendig
+     * zurueckgelegt, damit Aufrufer z. B. den zugehoerigen Villager nicht voreilig entfernen.
+     */
+    public synchronized boolean deleteChecked(UUID id) {
         PlayerShop removed = shops.remove(id);
-        if (!saveChecked() && removed != null) shops.put(id, removed);
+        if (removed == null) return false;
+        if (saveChecked()) return true;
+        shops.put(id, removed);
+        return false;
     }
 
     /** Legacy-Aufrufer: Fehler werden geloggt; transaktionskritischer Code nutzt saveChecked(). */
