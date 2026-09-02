@@ -10,6 +10,35 @@ Der SkyKings-Resource-Pack ist ein **UI-/Branding-Layer fuer Minecraft 1.8.9**. 
 - keine modernen JSON-Font-/Glyph-Provider
 - keine Abhaengigkeit der Serverlogik vom Pack
 - alle Commands, GUIs und Statusinformationen bleiben ohne Pack voll bedienbar
+- die echten UI-Texturen werden beim Build aus `resource-pack-source/skykings-ui-atlas.png` erzeugt
+
+## Aktueller Core-Icon-Satz
+
+Der erste echte Pack-Satz ist fest reserviert und wird vom Build automatisch auf Legacy-1.8-Dateinamen geschrieben:
+
+| SkyKings Icon | Bukkit Material | Legacy Texture |
+|---|---|---|
+| Home | `MINECART` | `minecart_normal.png` |
+| Back | `POWERED_MINECART` | `minecart_furnace.png` |
+| Next | `HOPPER_MINECART` | `minecart_hopper.png` |
+| Locked | `BARRIER` | `barrier.png` |
+| Ready | `SLIME_BALL` | `slimeball.png` |
+| Completed | `FIREWORK` | `fireworks.png` |
+| Premium | `EYE_OF_ENDER` | `ender_eye.png` |
+| Coins | `GOLD_NUGGET` | `gold_nugget.png` |
+| SkyKings Star | `NETHER_STAR` | `nether_star.png` |
+| Battle Pass | `EMPTY_MAP` | `map_empty.png` |
+| Quests | `BOOK_AND_QUILL` | `book_writable.png` |
+| Kits | `STORAGE_MINECART` | `minecart_chest.png` |
+| Crates | `COMMAND_MINECART` | `minecart_command_block.png` |
+| Jackpot | `DIODE` | `repeater.png` |
+| Shop | `HOPPER` | `hopper.png` |
+| Trade | `NAME_TAG` | `name_tag.png` |
+| Clan | `WRITTEN_BOOK` | `book_written.png` |
+| Duel | `SHEARS` | `shears.png` |
+| Event | `MAGMA_CREAM` | `magma_cream.png` |
+
+Das SkyKings-Logo ist der zwanzigste Atlas-Tile und wird als `pack.png` erzeugt.
 
 ## Design-Richtung
 
@@ -23,25 +52,6 @@ SkyKings soll wie ein eigenes Game-Produkt wirken:
 - klare Pixel-Icons statt visueller Unruhe
 - keine fremden Server-/Pack-Designs 1:1 kopieren
 
-## Was der Pack veraendern darf
-
-Prioritaet A — UI/Branding:
-
-- ausgewaehlte GUI-Texturen, sofern die Aenderung nicht Vanilla-/PvP-Nutzung verschlechtert
-- gezielt reservierte Vanilla-Item-Texturen fuer reine SkyKings-UI-Icons
-- SkyKings-spezifische Branding-Assets
-- dezente Partikel-/Effekt-Texturen nur nach Runtime-Test
-- optional `pack.png`
-
-Prioritaet B — spaeterer Polish:
-
-- Crate-/Voucher-Iconset
-- Battle-Pass-/Quest-Iconset
-- Kit-/Rank-/Season-Iconset
-- Navigation: Home, Back, Next, Locked, Ready, Completed, Premium
-- Economy: Coins, Netherstar, Shop, Jackpot, Trade
-- Events: Duel, LMS, King/KOTH, Clan War, Giveaway
-
 ## Was bewusst NICHT ueberschrieben wird
 
 Damit Spieler weiterhin ihr eigenes PvP-Pack nutzen koennen, bleiben standardmaessig unangetastet:
@@ -54,44 +64,11 @@ Damit Spieler weiterhin ihr eigenes PvP-Pack nutzen koennen, bleiben standardmae
 - Golden Apples
 - normale PvP-Bloecke
 - wichtige Partikel fuer PvP-Lesbarkeit
-- Crosshair/HUD, solange kein eigener Test die Aenderung rechtfertigt
-
-Wenn ein Vanilla-Item als SkyKings-Icon reserviert wird, darf es im normalen Gameplay nicht gleichzeitig eine relevante Funktion haben.
+- Crosshair/HUD
 
 ## 1.8.9-Strategie fuer Custom Icons
 
-Da `CustomModelData` in 1.8.9 nicht zur Verfuegung steht, werden Icons ueber **bewusst reservierte Vanilla-Items bzw. vorhandene Data-Varianten** geplant. Ein Icon-Item darf erst texturiert werden, wenn im Servercode dokumentiert ist, dass diese Material-/Data-Kombination nicht fuer normales Gameplay gebraucht wird.
-
-Das verhindert, dass z. B. ein echtes PvP-Item durch ein GUI-Icon ersetzt wird.
-
-## Geplanter Asset-Baum
-
-```text
-resource-pack/
-  pack.mcmeta
-  pack.png                         # optional
-  assets/
-    minecraft/
-      textures/
-        gui/                       # nur gezielte, getestete Overrides
-        items/                     # 1.8-Pfad, nur reservierte Icon-Items
-        blocks/                    # standardmaessig leer
-        particle/                  # nur bei bewusstem Polish
-```
-
-Die Verzeichnisse werden erst mit echten Assets committed. Keine Dummy-PNGs in Release-ZIPs.
-
-## Asset-Manifest
-
-Vor jedem neuen Icon-Override muss die Zuordnung in `docs/RESOURCE_PACK.md` eingetragen werden:
-
-- Feature
-- Bedeutung
-- Material
-- Data/Durability falls relevant
-- Vanilla-Nutzung auf SkyKings
-- Pack-Datei
-- Fallback ohne Pack
+Da `CustomModelData` in 1.8.9 nicht zur Verfuegung steht, werden Icons ueber **bewusst reservierte Vanilla-Items** umgesetzt. Die zentrale Server-Zuordnung liegt in `ResourcePackIcon.java`; die Build-Zuordnung liegt in `ResourcePackAtlasBuilder.java`. Beide muessen synchron bleiben.
 
 ## Build
 
@@ -107,7 +84,7 @@ Output:
 build/resource-pack/SkyKings-ResourcePack-1.8.9.zip
 ```
 
-Die ZIP muss `pack.mcmeta` direkt im Root enthalten, nicht in einem zusaetzlichen Unterordner.
+Beim Build wird der Atlas mit Java 8 in 19 Itemtexturen plus `pack.png` zerlegt. Der Build bricht ab, wenn ein Pflichtasset im finalen ZIP fehlt.
 
 ## Release-Regel
 

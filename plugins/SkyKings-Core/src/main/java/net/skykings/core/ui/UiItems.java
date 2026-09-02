@@ -30,6 +30,11 @@ public final class UiItems {
         return stack;
     }
 
+    public static ItemStack icon(ResourcePackIcon icon, String name, String... lore) {
+        if (icon == null) throw new IllegalArgumentException("icon");
+        return item(icon.material(), name, lore);
+    }
+
     public static ItemStack head(String playerName, String name, String... lore) {
         ItemStack stack = new ItemStack(Material.SKULL_ITEM, 1, (short) 3);
         SkullMeta meta = (SkullMeta) stack.getItemMeta();
@@ -81,19 +86,19 @@ public final class UiItems {
     }
 
     public static ItemStack back() {
-        return item(Material.ARROW, UiTheme.MUTED + "Zurueck", UiTheme.DISABLED + "Vorherige Ansicht");
+        return icon(ResourcePackIcon.BACK, UiTheme.MUTED + "Zurueck", UiTheme.DISABLED + "Vorherige Ansicht");
     }
 
     public static ItemStack home() {
-        return item(Material.NETHER_STAR, UiTheme.PRIMARY + "Home", UiTheme.MUTED + "Zur Hauptansicht");
+        return icon(ResourcePackIcon.HOME, UiTheme.PRIMARY + "Home", UiTheme.MUTED + "Zur Hauptansicht");
     }
 
     public static ItemStack next() {
-        return item(Material.ARROW, UiTheme.PRIMARY + "Weiter", UiTheme.MUTED + "Naechste Seite");
+        return icon(ResourcePackIcon.NEXT, UiTheme.PRIMARY + "Weiter", UiTheme.MUTED + "Naechste Seite");
     }
 
     public static ItemStack empty(String title, String description) {
-        return item(Material.BARRIER, UiTheme.MUTED + title, UiTheme.DISABLED + description);
+        return icon(ResourcePackIcon.LOCKED, UiTheme.MUTED + title, UiTheme.DISABLED + description);
     }
 
     public static ItemStack status(Material material, String title, boolean ready, String detail) {
