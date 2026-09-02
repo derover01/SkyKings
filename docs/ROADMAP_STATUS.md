@@ -17,7 +17,7 @@ Diese Datei trennt **implementiert**, **runtime-testpflichtig** und **noch offen
 | 8 Retention | IMPLEMENTIERT / BALANCE-GATE | Daily, Seasons, Achievements, Collection, Hall/Medals sowie Custom-Panel Battle Pass mit 100 Free-Level-Rewards + 100 Premium-Level-Rewards und tab-basiertem Quest Center. Systemquests umfassen u. a. legitime Kills, Pearls, Streak, King Altar, Duel-Siege, Crate-Opens, Bounty-Claims und frische Rare/Epic Map Chests. `/premiumpass give|remove <Spieler>` verwaltet Premium. |
 | 9 Events & Community | IMPLEMENTIERT / MULTIPLAYER-GATE | Giveaway, Peace, Duel/Wager, LMS, King/KOTH, Most Wanted und Clan Wars sind die final vorgesehenen Eventsysteme. Tournament und Juggernaut wurden bewusst entfernt. Standalone- und Friday-Giveaway-Gewinner werden zentral auditiert; der natuerliche Friday-Abschluss kann die finale Firework-Serie trotz bereits beendeter Phase ausfuehren, waehrend Generation-Tokens alte Tasks weiterhin stoppen. Event-Kills sind von Open-World-Stats getrennt; Commands/Drop/Pickup werden in isolierten Events geschuetzt. Multiplayer-Test bleibt Gate. |
 | 10 Release Hardening | CODE-GATE GESCHLOSSEN / RUNTIME-GATES AKTIV | CI fuehrt echte Tests + statischen Release-Audit aus; Tournament/Juggernaut koennen nicht versehentlich wieder als Commands/Services committed werden; Deploy blockiert laufenden Server; Preflight, One-Command-Testvorbereitung, automatischer Legacy-SkyEvents-Backup/Cleanup, Plot-Reset, Backup + Guarded Restore, Event-Isolation-, Voucher/Crate-Anti-Dupe-, Trade-, Lore-, PlayerShop- und Plot-Regressionstests sowie erweiterte `/skcheck`-Diagnose vorhanden. `/commands` fuehrt Casino, Jackpot und PlayerShop im Economy-Hub. Discord-Bridge meldet Status, King-Altar-Captures und kuratierte Killstreak-Meilensteine. Runtime-, Load-, Backup-Restore-, Balance- und Soft-Launch-Tests bleiben bewusst manuell. |
-| 11 Resource Pack / Presentation | FOUNDATION IMPLEMENTIERT / ART + RUNTIME-GATE | Eigener `resource-pack/`-Bereich mit Minecraft-1.8.9-`pack_format: 1`, Build-Workflow und klarer UI-/Branding-Strategie. Der Pack ist ein fester Pre-Launch-Baustein, bleibt aber ohne Gameplay-Abhaengigkeit. Core-Iconset, Economy-/Progression-Icons, Branding-PNGs, finale HTTPS-Auslieferung und echter 1.8.9-Clienttest bleiben offen. |
+| 11 Resource Pack / Presentation | DELIVERY IMPLEMENTIERT / ART + RUNTIME-GATE | Eigener `resource-pack/`-Bereich mit Minecraft-1.8.9-`pack_format: 1`, Build-Workflow, CI-Artefakt, serverseitiger Join-Auslieferung und `/pack`-Retry. SkyKings-Core validiert die Pack-URL fail-closed und `/skcheck` zeigt deaktiviert/bereit/fehlerhaft. Der Pack bleibt ohne Gameplay-Abhaengigkeit. Core-Iconset, Economy-/Progression-Icons, Branding-PNGs, finale HTTPS-URL und echter 1.8.9-Clienttest bleiben offen. |
 
 ## Aktueller Fokus ab Phase 10
 
@@ -31,7 +31,7 @@ Die automatisierbaren Punkte des zuletzt abgearbeiteten Hardening-Fahrplans sind
 6. Casino mit Gewinn/Verlust, Rate-Limit, zu wenig Coins und schnellen Mehrfachklicks testen
 7. Jackpot mit zwei Spielern, 5-%-Sink, Restart und bewusstem PENDING-Settlement/REVIEW_REQUIRED testen
 8. PlayerShop mit zwei Spielern testen: echter Villager-Merchant, letzter Stock, 2x64-Zustellung, voller Inventory-Fall, Revenue-Doppelclaim, Restart-Fenster sowie Overflow-/Recovery-Guards
-9. `/commands` und `/skcheck` ingame auf Casino, Jackpot, PlayerShop, Persistenzdateien und Welten pruefen
+9. `/commands` und `/skcheck` ingame auf Casino, Jackpot, PlayerShop, `/pack`, Persistenzdateien und Welten pruefen
 10. frische `SkyPlots`-Welt mit dem neuen Raster testen; Plot-Rand exakt eine Blockreihe auf dem aeussersten Plotblock, niemals auf der 7er Road
 11. `/p rand` und `/p merge` inklusive Restart-Persistenz testen
 12. `/skymap list` pruefen: SkyPvP, SkyPlots, SkyIslands, SkyCommunityEvent geladen; SkyEvents darf nicht aktiv sein
@@ -48,8 +48,8 @@ Die automatisierbaren Punkte des zuletzt abgearbeiteten Hardening-Fahrplans sind
 23. Backup -> Daten veraendern -> Restore -> Persistenz vergleichen
 24. Economy-/Reward-Balance unter realistischen Spielerzahlen testen
 25. Resource-Pack Core-Iconset + Economy-/Progression-Icons erstellen und gegen die reservierten 1.8.9-Icon-Items mappen
-26. `SkyKings-ResourcePack-1.8.9.zip` bauen, mit und ohne Pack testen und sicherstellen, dass normale PvP-Texturen unangetastet bleiben
-27. finale Pack-ZIP unter stabiler HTTPS-URL hosten und Server-Auslieferung mit frischem Client testen
+26. `SkyKings-ResourcePack-1.8.9.zip` mit echten Assets bauen und mit/ohne Pack testen; normale PvP-Texturen muessen unangetastet bleiben
+27. finale Pack-ZIP unter stabiler HTTPS-URL hosten, `resource-pack.enabled: true` setzen und Join-Auslieferung + `/pack` mit frischem Client testen
 28. danach Soft-Launch-Gate statt weitere Kernsysteme blind aufzubauen
 
 ## UI-Richtung ab jetzt
@@ -77,9 +77,10 @@ Ein System ist fuer SkyKings erst fertig, wenn:
 - der reale Multiplayer-Test erfolgreich war
 
 Der Gesamtserver ist fuer den groesseren Launch erst fertig, wenn zusaetzlich:
-- das Resource-Pack-Foundation-Gate gruen ist
+- das Resource-Pack-Foundation-/Delivery-Gate gruen ist
 - die wichtigsten SkyKings-UI-Icons als echte Assets vorliegen
 - der Pack auf einem frischen 1.8.9-Client ohne Missing Textures laedt
+- Join-Auslieferung und `/pack` mit der finalen HTTPS-URL funktionieren
 - der Server ohne Pack weiterhin voll spielbar bleibt
 - Backup/Restore, Load und Soft-Launch bestanden sind
 
