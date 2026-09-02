@@ -180,9 +180,10 @@ public class PlayerShopServiceTest {
         EconomyService economy = mock(EconomyService.class);
         LoggingService logging = mock(LoggingService.class);
         Player buyer = mock(Player.class);
-        UUID ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
+        UUID buyerId = UUID.randomUUID(), ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
         PlayerShop shop = shop(shopId, ownerId, 0, 1, 0, 1_000L, Long.MAX_VALUE - 500L);
         when(store.get(shopId)).thenReturn(shop);
+        when(buyer.getUniqueId()).thenReturn(buyerId);
 
         PlayerShopService service = new PlayerShopService(store, economy, logging);
         assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId, 0));
