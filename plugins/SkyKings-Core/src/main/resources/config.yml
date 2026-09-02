@@ -6,6 +6,14 @@
 
 debug: false
 
+resource-pack:
+  # Erst aktivieren, wenn das finale 1.8.9-Pack unter einer direkten HTTPS-URL liegt.
+  # Ohne aktivierten Pack bleibt der komplette Server weiterhin spielbar.
+  enabled: false
+  send-on-join: true
+  join-delay-ticks: 40
+  url: ""
+
 storage:
   # SQLITE ist in Phase 1A implementiert und Standard fuer die lokale Entwicklung.
   # MYSQL ist als Zielarchitektur vorbereitet (siehe DataStore-Interface), aber noch
