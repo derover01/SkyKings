@@ -19,12 +19,12 @@ import java.util.UUID;
  * Gibt noch im RAM-Escrow liegende Trade-Items bei einem sauberen Core-/Server-Stop zurueck.
  * Dadurch geht ein offener Trade beim normalen Shutdown nicht verloren.
  */
-final class TradeShutdownRecoveryListener implements Listener {
+public final class TradeShutdownRecoveryListener implements Listener {
     private final TradeService tradeService;
     private final JavaPlugin ownerPlugin;
     private boolean recovered;
 
-    TradeShutdownRecoveryListener(TradeService tradeService, JavaPlugin ownerPlugin) {
+    public TradeShutdownRecoveryListener(TradeService tradeService, JavaPlugin ownerPlugin) {
         this.tradeService = tradeService;
         this.ownerPlugin = ownerPlugin;
     }
