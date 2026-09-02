@@ -21,6 +21,7 @@ import java.util.UUID;
 
 /** /is oeffnet das Hauptmenue; Unterbefehle bleiben fuer schnelle Bedienung verfuegbar. */
 public final class IslandCommand implements CommandExecutor, TabCompleter {
+    private static final String STARTER_RESET_PERMISSION = "skykings.admin.island.starterreset";
     private final IslandService islands;
     private final IslandMenu menu;
 
@@ -38,6 +39,41 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
         Player player = (Player) sender;
         if (args.length == 0 || "menu".equalsIgnoreCase(args[0])) { menu.open(player); return true; }
         String sub = args[0].toLowerCase(Locale.ROOT);
+
+        if ("resetstarter".equals(sub)) {
+            if (!player.hasPermission(STARTER_RESET_PERMISSION)) {
+                player.sendMessage(ChatColor.RED + "Dafuer hast du keine Berechtigung.");
+                return true;
+            }
+            if (args.length != 2) {
+                player.sendMessage(ChatColor.RED + "Nutze /is resetstarter <Spieler>.");
+                return true;
+            }
+            @SuppressWarnings("deprecation") OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+            if (!target.isOnline() && !target.hasPlayedBefore()) {
+                player.sendMessage(ChatColor.RED + "Dieser Spieler hat noch nie auf SkyKings gespielt.");
+                return true;
+            }
+            UUID targetId = target.getUniqueId();
+            if (islands.hasIsland(targetId)) {
+                player.sendMessage(ChatColor.RED + "Der Spieler besitzt noch eine Insel. Erst loeschen, dann Starterclaim resetten.");
+                return true;
+            }
+            try {
+                if (!IslandStarterProtection.resetClaim(targetId)) {
+                    player.sendMessage(ChatColor.YELLOW + "Fuer diesen Spieler war kein Starterclaim gespeichert.");
+                    return true;
+                }
+            } catch (IllegalStateException ex) {
+                player.sendMessage(ChatColor.RED + "Starterclaim konnte nicht sicher zurueckgesetzt werden. Konsole pruefen.");
+                return true;
+            }
+            String targetName = target.getName() == null ? args[1] : target.getName();
+            player.sendMessage(ChatColor.GREEN + "Starterclaim von " + targetName + " wurde zurueckgesetzt.");
+            player.sendMessage(ChatColor.GRAY + "Beim naechsten /is create wird wieder genau einmal Starterloot ausgegeben.");
+            player.playSound(player.getLocation(), Sound.ORB_PICKUP, 0.7F, 1.3F);
+            return true;
+        }
 
         if ("create".equals(sub) || "erstellen".equals(sub)) {
             if (islands.hasIsland(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Du besitzt bereits eine Insel."); return true; }
@@ -105,13 +141,24 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.AQUA + "/is trust <Spieler>" + ChatColor.GRAY + " - Baurechte geben");
         player.sendMessage(ChatColor.AQUA + "/is visit <Spieler>" + ChatColor.GRAY + " - [Welcome]-Insel besuchen");
         player.sendMessage(ChatColor.RED + "/is delete" + ChatColor.GRAY + " - eigene Insel unwiderruflich loeschen");
+        if (player.hasPermission(STARTER_RESET_PERMISSION)) {
+            player.sendMessage(ChatColor.GOLD + "/is resetstarter <Spieler>" + ChatColor.GRAY + " - verlorenen/testweisen Starterclaim resetten");
+        }
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return filter(Arrays.asList("menu", "create", "home", "sethome", "info", "level", "top", "trust", "untrust", "visit", "delete"), args[0]);
-        if (args.length == 2 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0]) || "visit".equalsIgnoreCase(args[0]))) {
-            List<String> names = new ArrayList<String>(); for (Player player : Bukkit.getOnlinePlayers()) names.add(player.getName()); return filter(names, args[1]);
+        if (args.length == 1) {
+            List<String> subcommands = new ArrayList<String>(Arrays.asList("menu", "create", "home", "sethome", "info", "level", "top", "trust", "untrust", "visit", "delete"));
+            if (sender.hasPermission(STARTER_RESET_PERMISSION)) subcommands.add("resetstarter");
+            return filter(subcommands, args[0]);
+        }
+        if (args.length == 2 && ("trust".equalsIgnoreCase(args[0]) || "untrust".equalsIgnoreCase(args[0])
+                || "visit".equalsIgnoreCase(args[0]) || "resetstarter".equalsIgnoreCase(args[0]))) {
+            if ("resetstarter".equalsIgnoreCase(args[0]) && !sender.hasPermission(STARTER_RESET_PERMISSION)) return Collections.emptyList();
+            List<String> names = new ArrayList<String>();
+            for (Player online : Bukkit.getOnlinePlayers()) names.add(online.getName());
+            return filter(names, args[1]);
         }
         return Collections.emptyList();
     }
