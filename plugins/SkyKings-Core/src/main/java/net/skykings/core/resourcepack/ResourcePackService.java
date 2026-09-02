@@ -7,8 +7,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.URI;
@@ -48,9 +51,43 @@ public final class ResourcePackService implements Listener, CommandExecutor {
         }, delay);
     }
 
+    /**
+     * Die GUI wird einen Tick nach dem Oeffnen dekoriert. Das ist wichtig fuer dynamische
+     * Menues wie /trade, deren Inhalte direkt nach player.openInventory(...) gerendert werden.
+     */
+    @EventHandler
+    public void onInventoryOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player)) return;
+        scheduleGuiDecoration((Player) event.getPlayer());
+    }
+
+    /**
+     * Nach einem Klick rendern mehrere SkyKings-GUIs ihren Inhalt neu. Ein Tick spaeter
+     * werden die reservierten Resource-Pack-Icons deshalb erneut angewendet.
+     */
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        scheduleGuiDecoration((Player) event.getWhoClicked());
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         lastRequestAt.remove(event.getPlayer().getUniqueId());
+    }
+
+    private void scheduleGuiDecoration(final Player player) {
+        if (player == null) return;
+        plugin.getServer().getScheduler().runTask(plugin, new Runnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline() || player.getOpenInventory() == null) return;
+                Inventory top = player.getOpenInventory().getTopInventory();
+                if (top == null) return;
+                ResourcePackGuiDecorator.decorate(top, player.getOpenInventory().getTitle());
+                player.updateInventory();
+            }
+        });
     }
 
     @Override
