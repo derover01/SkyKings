@@ -31,11 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Crate UX: Preview, Roulette/Sofort und Open-All; normale Crates bleiben voll stackbar. */
+/** Crate UX: Preview, echtes horizontales Roulette/Sofort und Open-All; normale Crates bleiben voll stackbar. */
 public final class CrateInteractionListener implements Listener {
 
     public static final String OPEN_ALL_PERMISSION = "skykings.perk.crate.openall";
     private static final String PREVIEW_TITLE = ChatColor.DARK_GRAY + "Crate Preview";
+    private static final int[] ROULETTE_SLOTS = {10, 11, 12, 13, 14, 15, 16};
+    private static final int ROULETTE_CENTER = 13;
+    private static final int ROULETTE_STEPS = 34;
 
     private final JavaPlugin plugin;
     private final CrateRegistry registry;
@@ -74,7 +77,6 @@ public final class CrateInteractionListener implements Listener {
         }
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
-            // Nur alte Serial-Crates brauchen den historischen Redemption-Store.
             if (decoded.isLegacySerial() && !redemptionStore.isReady()) {
                 event.getPlayer().sendMessage(ChatColor.RED + "Das Crate-System startet noch. Bitte versuche es gleich erneut.");
                 return;
@@ -93,7 +95,9 @@ public final class CrateInteractionListener implements Listener {
     private void openChoice(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
         GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | Crate oeffnen", 27);
         gui.setItem(11, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "MIT ANIMATION",
-                ChatColor.GRAY + "Ca. 6 Sekunden Roulette mit Sounds.", ChatColor.YELLOW + "Klicken"),
+                ChatColor.GRAY + "Echtes horizontales Roulette.",
+                ChatColor.GRAY + "Die Rolle wird zum Ende sichtbar langsamer.",
+                ChatColor.YELLOW + "Klicken"),
                 (p,e,s) -> startAnimation(p, crate, decoded));
         gui.setItem(15, named(Material.ENDER_CHEST, ChatColor.GREEN.toString() + ChatColor.BOLD + "SOFORT OEFFNEN",
                 ChatColor.GRAY + "Zeigt dir den Gewinn direkt.", ChatColor.YELLOW + "Klicken"),
@@ -118,7 +122,8 @@ public final class CrateInteractionListener implements Listener {
                 || core.getRankService().hasAtLeast(player.getUniqueId(), Rank.EXILE);
     }
 
-    private void startAnimation(Player player, CrateRegistry.CrateDefinition crate, CrateItemCodec.DecodedCrate decoded) {
+    private void startAnimation(final Player player, final CrateRegistry.CrateDefinition crate,
+                                final CrateItemCodec.DecodedCrate decoded) {
         final CrateRegistry.RewardDefinition finalReward = registry.draw(crate);
         if (finalReward == null) {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
@@ -130,42 +135,102 @@ public final class CrateInteractionListener implements Listener {
             return;
         }
 
-        final GuiSession gui = GuiSession.create(player, ChatColor.DARK_GRAY + "SkyKings | " + ChatColor.LIGHT_PURPLE + "Crate Roulette", 27);
-        for (int i = 0; i < 27; i++) gui.setItem(i, named(Material.STAINED_GLASS_PANE, ChatColor.DARK_GRAY + " "));
-        gui.setItem(4, named(Material.NETHER_STAR, ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "SKYKINGS CRATE",
-                ChatColor.GRAY + "Dein Gewinn wird gezogen..."));
-        gui.setItem(12, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + ">>>"));
-        gui.setItem(14, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + "<<<"));
+        final GuiSession gui = GuiSession.create(player,
+                ChatColor.DARK_GRAY + "SkyKings | " + ChatColor.LIGHT_PURPLE + "Crate Roulette", 27);
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, named(Material.STAINED_GLASS_PANE, ChatColor.DARK_GRAY + " "));
+        }
+        gui.setItem(4, named(Material.NETHER_STAR,
+                ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "SKYKINGS CRATE",
+                ChatColor.GRAY + "Rewards rollen von rechts nach links.",
+                ChatColor.GRAY + "Der mittlere Slot entscheidet."));
+        gui.setItem(3, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + "      v"));
+        gui.setItem(22, named(Material.STAINED_GLASS_PANE, ChatColor.GOLD + "      ^"));
+
+        final List<CrateRegistry.RewardDefinition> belt = new ArrayList<CrateRegistry.RewardDefinition>();
+        for (int i = 0; i < ROULETTE_SLOTS.length; i++) {
+            CrateRegistry.RewardDefinition reward = registry.draw(crate);
+            belt.add(reward == null ? finalReward : reward);
+        }
+        renderRoulette(gui.getInventory(), belt);
         core.getGuiManager().open(gui);
-        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.6F, 1.0F);
+        player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.65F, 1.0F);
 
-        final int[] step = {0};
-        final int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
-            if (!player.isOnline()) return;
-            int current = step[0]++;
-            if (current >= 24) return;
-            CrateRegistry.RewardDefinition preview = registry.draw(crate);
-            if (preview != null) gui.getInventory().setItem(13, rewardIcon(preview));
-            float pitch = Math.min(1.9F, 0.75F + current * 0.045F);
-            player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.55F, pitch);
-            player.updateInventory();
-        }, 0L, 4L);
+        rollNext(player, crate, decoded, gui, belt, finalReward, 0);
+    }
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            Bukkit.getScheduler().cancelTask(taskId);
-            if (!player.isOnline()) return;
-            gui.getInventory().setItem(13, rewardIcon(finalReward));
-            gui.getInventory().setItem(4, named(Material.DIAMOND, ChatColor.GOLD.toString() + ChatColor.BOLD + "DEIN GEWINN",
+    private void rollNext(final Player player, final CrateRegistry.CrateDefinition crate,
+                          final CrateItemCodec.DecodedCrate decoded, final GuiSession gui,
+                          final List<CrateRegistry.RewardDefinition> belt,
+                          final CrateRegistry.RewardDefinition finalReward, final int step) {
+        if (!player.isOnline()) return;
+
+        if (step >= ROULETTE_STEPS) {
+            belt.set(ROULETTE_SLOTS.length / 2, finalReward);
+            renderRoulette(gui.getInventory(), belt);
+            gui.getInventory().setItem(4, named(Material.DIAMOND,
+                    ChatColor.GOLD.toString() + ChatColor.BOLD + "DEIN GEWINN",
                     ChatColor.YELLOW + rewardText(finalReward)));
-            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.9F, 1.45F);
+            player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.95F, 1.45F);
             player.updateInventory();
-        }, 96L);
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
-            player.closeInventory();
-            openClaim(player, crate, decoded.getSerial(), decoded.getMaxClaims(), null, finalReward);
-        }, 120L);
+            Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+                    player.closeInventory();
+                    openClaim(player, crate, decoded.getSerial(), decoded.getMaxClaims(), null, finalReward);
+                }
+            }, 24L);
+            return;
+        }
+
+        if (!belt.isEmpty()) belt.remove(0);
+        CrateRegistry.RewardDefinition incoming;
+        if (step == ROULETTE_STEPS - 4) {
+            // Vier Rolls vor Schluss rechts einschieben -> landet exakt im mittleren Slot.
+            incoming = finalReward;
+        } else {
+            incoming = registry.draw(crate);
+            if (incoming == null) incoming = finalReward;
+        }
+        belt.add(incoming);
+        renderRoulette(gui.getInventory(), belt);
+
+        float pitch = Math.min(1.85F, 0.72F + (step * 0.032F));
+        player.playSound(player.getLocation(), Sound.NOTE_PLING, 0.55F, pitch);
+        player.updateInventory();
+
+        Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
+            @Override
+            public void run() {
+                rollNext(player, crate, decoded, gui, belt, finalReward, step + 1);
+            }
+        }, rouletteDelay(step));
+    }
+
+    private long rouletteDelay(int step) {
+        if (step < 18) return 2L;
+        if (step < 25) return 4L;
+        if (step < 30) return 6L;
+        if (step < 33) return 9L;
+        return 13L;
+    }
+
+    private void renderRoulette(Inventory inventory, List<CrateRegistry.RewardDefinition> belt) {
+        for (int i = 0; i < ROULETTE_SLOTS.length; i++) {
+            CrateRegistry.RewardDefinition reward = belt.get(i);
+            ItemStack icon = rewardIcon(reward);
+            ItemMeta meta = icon.getItemMeta();
+            List<String> lore = meta.hasLore() ? new ArrayList<String>(meta.getLore()) : new ArrayList<String>();
+            if (ROULETTE_SLOTS[i] == ROULETTE_CENTER) {
+                lore.add("");
+                lore.add(ChatColor.GOLD.toString() + ChatColor.BOLD + "GEWINN-SLOT");
+            }
+            meta.setLore(lore);
+            icon.setItemMeta(meta);
+            inventory.setItem(ROULETTE_SLOTS[i], icon);
+        }
     }
 
     private void openPreview(Player player, CrateRegistry.CrateDefinition crate) {
