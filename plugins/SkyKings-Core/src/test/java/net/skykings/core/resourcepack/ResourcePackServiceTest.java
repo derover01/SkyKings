@@ -2,6 +2,7 @@ package net.skykings.core.resourcepack;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -25,5 +26,14 @@ public class ResourcePackServiceTest {
         StringBuilder longUrl = new StringBuilder("https://cdn.skykings.de/");
         while (longUrl.length() <= 255) longUrl.append('a');
         assertNotNull(ResourcePackService.validationError(longUrl.toString()));
+    }
+
+    @Test
+    public void resendCooldownRoundsUpAndExpires() {
+        long start = 100_000L;
+        assertEquals(10L, ResourcePackService.remainingCooldownSeconds(start, start));
+        assertEquals(6L, ResourcePackService.remainingCooldownSeconds(start, start + 4_001L));
+        assertEquals(1L, ResourcePackService.remainingCooldownSeconds(start, start + 9_999L));
+        assertEquals(0L, ResourcePackService.remainingCooldownSeconds(start, start + 10_000L));
     }
 }
