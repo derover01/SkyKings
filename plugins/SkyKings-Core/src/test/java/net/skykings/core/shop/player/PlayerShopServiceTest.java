@@ -45,6 +45,7 @@ public class PlayerShopServiceTest {
         when(store.saveChecked()).thenReturn(true);
         when(buyer.getUniqueId()).thenReturn(buyerId);
         when(buyer.getInventory()).thenReturn(buyerInventory);
+        when(economy.canDeposit(ownerId, 950L)).thenReturn(true);
         when(economy.has(buyerId, 1_000L)).thenReturn(true);
         when(economy.withdraw(buyerId, 1_000L, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot 2")).thenReturn(true);
         when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
@@ -78,6 +79,7 @@ public class PlayerShopServiceTest {
         when(store.saveChecked()).thenReturn(true);
         when(buyer.getUniqueId()).thenReturn(buyerId);
         when(buyer.getInventory()).thenReturn(buyerInventory);
+        when(economy.canDeposit(ownerId, 950L)).thenReturn(true);
         when(economy.has(buyerId, 1_000L)).thenReturn(true);
         when(economy.withdraw(buyerId, 1_000L, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot 1")).thenReturn(true);
         when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
@@ -113,6 +115,7 @@ public class PlayerShopServiceTest {
         when(store.saveChecked()).thenReturn(false);
         when(buyer.getUniqueId()).thenReturn(buyerId);
         when(buyer.getInventory()).thenReturn(inventory);
+        when(economy.canDeposit(ownerId, 475L)).thenReturn(true);
         when(economy.has(buyerId, 500L)).thenReturn(true);
         when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
 
@@ -126,6 +129,29 @@ public class PlayerShopServiceTest {
         assertEquals(500L, shop.getOffer(3).getPriceCoins());
         verify(economy, never()).withdraw(any(UUID.class), any(Long.class), any(String.class), any(String.class));
         verify(inventory, never()).addItem(any(ItemStack.class));
+    }
+
+    @Test
+    public void sellerRecoveryOverflowBlocksPurchaseBeforeBuyerMutation() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player buyer = mock(Player.class);
+        UUID ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
+        PlayerShop shop = shop(shopId, ownerId, 0, 16, 0, 1_000L, 0L);
+        when(store.get(shopId)).thenReturn(shop);
+        when(buyer.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(economy.canDeposit(ownerId, 950L)).thenReturn(false);
+
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId, 0));
+
+        assertEquals(16, shop.getOffer(0).getTotalAmount());
+        assertEquals(1_000L, shop.getOffer(0).getPriceCoins());
+        verify(store, never()).saveChecked();
+        verify(buyer, never()).getInventory();
+        verify(economy, never()).has(any(UUID.class), any(Long.class));
+        verify(economy, never()).withdraw(any(UUID.class), any(Long.class), any(String.class), any(String.class));
     }
 
     @Test
@@ -209,7 +235,7 @@ public class PlayerShopServiceTest {
         when(store.get(shopId)).thenReturn(shop);
         when(store.saveChecked()).thenReturn(false);
         when(owner.getUniqueId()).thenReturn(ownerId);
-        when(economy.getBalance(ownerId)).thenReturn(100L);
+        when(economy.canDeposit(ownerId, 12_345L)).thenReturn(true);
 
         PlayerShopService service = new PlayerShopService(store, economy, logging);
         assertEquals(0L, service.claimRevenue(owner, shopId));
