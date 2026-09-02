@@ -50,7 +50,7 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 | Event | Event | `MAGMA_CREAM` | `magma_cream.png` | testen |
 | Branding | SkyKings Logo | Atlas tile 20 | `pack.png` | testen |
 
-Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.png`. `scripts/tools/ResourcePackAtlasBuilder.java` zerlegt sie reproduzierbar beim Pack-Build.
+Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.rgba.gz.b64`. Sie enthaelt gzip-komprimierte rohe RGBA-Pixel als Base64-Text. `scripts/tools/ResourcePackAtlasBuilder.java` rekonstruiert daraus das 160x128-Atlasbild und schreibt die finalen PNGs selbst. So ist der Build unabhaengig von PNG-Decoder-Unterschieden zwischen Java-Versionen.
 
 ## Runtime-Gate
 

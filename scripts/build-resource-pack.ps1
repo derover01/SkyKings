@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $packRoot = Join-Path $repoRoot 'resource-pack'
 $packSourceRoot = Join-Path $repoRoot 'resource-pack-source'
-$atlas = Join-Path $packSourceRoot 'skykings-ui-atlas.png'
+$atlas = Join-Path $packSourceRoot 'skykings-ui-atlas.rgba.gz.b64'
 $atlasTool = Join-Path (Join-Path $PSScriptRoot 'tools') 'ResourcePackAtlasBuilder.java'
 $buildRoot = Join-Path (Join-Path $repoRoot 'build') 'resource-pack'
 $stageRoot = Join-Path $buildRoot 'stage'
@@ -16,7 +16,7 @@ function Ok($text) { Write-Host ("[OK] {0}" -f $text) -ForegroundColor Green }
 if (-not (Test-Path $packRoot)) { Fail 'resource-pack Verzeichnis fehlt.' }
 $mcmeta = Join-Path $packRoot 'pack.mcmeta'
 if (-not (Test-Path $mcmeta)) { Fail 'resource-pack/pack.mcmeta fehlt.' }
-if (-not (Test-Path $atlas)) { Fail 'resource-pack-source/skykings-ui-atlas.png fehlt.' }
+if (-not (Test-Path $atlas)) { Fail 'resource-pack-source/skykings-ui-atlas.rgba.gz.b64 fehlt.' }
 if (-not (Test-Path $atlasTool)) { Fail 'scripts/tools/ResourcePackAtlasBuilder.java fehlt.' }
 
 try {
@@ -40,8 +40,8 @@ Copy-Item $mcmeta (Join-Path $stageRoot 'pack.mcmeta') -Force
 $assets = Join-Path $packRoot 'assets'
 if (Test-Path $assets) { Copy-Item $assets (Join-Path $stageRoot 'assets') -Recurse -Force }
 
-# The real SkyKings icon textures are generated from one committed atlas. This keeps the
-# art source centralized and makes Windows + Linux CI produce the same 1.8.x filenames.
+# The real SkyKings icon textures are generated from one committed raw RGBA atlas source.
+# Java 8 decodes the Base64+gzip pixel data itself and then writes the final legacy PNGs.
 & javac -encoding UTF-8 -d $toolBuild $atlasTool
 if ($LASTEXITCODE -ne 0) { Fail 'ResourcePackAtlasBuilder konnte nicht kompiliert werden.' }
 & java -cp $toolBuild ResourcePackAtlasBuilder $atlas $stageRoot

@@ -10,7 +10,7 @@ Der SkyKings-Resource-Pack ist ein **UI-/Branding-Layer fuer Minecraft 1.8.9**. 
 - keine modernen JSON-Font-/Glyph-Provider
 - keine Abhaengigkeit der Serverlogik vom Pack
 - alle Commands, GUIs und Statusinformationen bleiben ohne Pack voll bedienbar
-- die echten UI-Texturen werden beim Build aus `resource-pack-source/skykings-ui-atlas.png` erzeugt
+- die echten UI-Texturen werden beim Build aus `resource-pack-source/skykings-ui-atlas.rgba.gz.b64` erzeugt
 
 ## Aktueller Core-Icon-Satz
 
@@ -69,6 +69,8 @@ Damit Spieler weiterhin ihr eigenes PvP-Pack nutzen koennen, bleiben standardmae
 ## 1.8.9-Strategie fuer Custom Icons
 
 Da `CustomModelData` in 1.8.9 nicht zur Verfuegung steht, werden Icons ueber **bewusst reservierte Vanilla-Items** umgesetzt. Die zentrale Server-Zuordnung liegt in `ResourcePackIcon.java`; die Build-Zuordnung liegt in `ResourcePackAtlasBuilder.java`. Beide muessen synchron bleiben.
+
+Die Atlas-Quelle liegt als gzip-komprimierte rohe RGBA-Pixel in Base64-Text vor. Dadurch liest Java 8 beim Build keine exportierte PNG-Datei ein; es erzeugt die finalen PNGs selbst reproduzierbar.
 
 ## Build
 

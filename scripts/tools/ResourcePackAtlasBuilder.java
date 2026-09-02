@@ -2,17 +2,27 @@ import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Base64;
+import java.util.zip.GZIPInputStream;
 
 /**
- * Splits the committed SkyKings UI atlas into Minecraft 1.8.x legacy item textures.
- * Uses only Java 8/JRE classes so the same build works on Windows and GitHub Actions.
+ * Builds Minecraft 1.8.x item textures from the committed SkyKings RGBA atlas source.
+ * The source is gzip-compressed raw RGBA bytes stored as Base64 text, so Java 8 never
+ * has to decode a designer/export PNG. Final PNGs are written by Java's own ImageIO.
  */
 public final class ResourcePackAtlasBuilder {
     private static final int TILE = 32;
     private static final int COLS = 5;
     private static final int ROWS = 4;
+    private static final int WIDTH = TILE * COLS;
+    private static final int HEIGHT = TILE * ROWS;
+    private static final int RAW_BYTES = WIDTH * HEIGHT * 4;
 
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
     private static final String[] ITEM_TEXTURES = {
@@ -41,17 +51,12 @@ public final class ResourcePackAtlasBuilder {
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: ResourcePackAtlasBuilder <atlas.png> <stage-root>");
+            throw new IllegalArgumentException("Usage: ResourcePackAtlasBuilder <atlas.rgba.gz.b64> <stage-root>");
         }
 
-        File atlasFile = new File(args[0]);
+        File sourceFile = new File(args[0]);
         File stageRoot = new File(args[1]);
-        BufferedImage atlas = ImageIO.read(atlasFile);
-        if (atlas == null) throw new IOException("Atlas is not a readable PNG: " + atlasFile);
-        if (atlas.getWidth() != TILE * COLS || atlas.getHeight() != TILE * ROWS) {
-            throw new IOException("Unexpected atlas size " + atlas.getWidth() + "x" + atlas.getHeight()
-                    + "; expected " + (TILE * COLS) + "x" + (TILE * ROWS));
-        }
+        BufferedImage atlas = readRawAtlas(sourceFile);
 
         File itemDir = new File(stageRoot, "assets/minecraft/textures/items");
         if (!itemDir.exists() && !itemDir.mkdirs()) {
@@ -66,7 +71,6 @@ public final class ResourcePackAtlasBuilder {
             }
         }
 
-        // Last tile is the SkyKings crest. Keep it larger than an inventory icon for the pack selector.
         BufferedImage logo = crop(atlas, 19);
         BufferedImage packIcon = resizeNearest(logo, 128, 128);
         File packPng = new File(stageRoot, "pack.png");
@@ -75,6 +79,39 @@ public final class ResourcePackAtlasBuilder {
         }
 
         System.out.println("[OK] Generated " + ITEM_TEXTURES.length + " SkyKings item textures + pack.png");
+    }
+
+    private static BufferedImage readRawAtlas(File file) throws IOException {
+        byte[] text = Files.readAllBytes(file.toPath());
+        String encoded = new String(text, StandardCharsets.US_ASCII).trim();
+        byte[] gz = Base64.getDecoder().decode(encoded);
+
+        ByteArrayOutputStream rawOut = new ByteArrayOutputStream(RAW_BYTES);
+        GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(gz));
+        try {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = gzip.read(buffer)) != -1) rawOut.write(buffer, 0, read);
+        } finally {
+            gzip.close();
+        }
+        byte[] raw = rawOut.toByteArray();
+        if (raw.length != RAW_BYTES) {
+            throw new IOException("Unexpected raw atlas byte count " + raw.length + "; expected " + RAW_BYTES);
+        }
+
+        BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        int p = 0;
+        for (int y = 0; y < HEIGHT; y++) {
+            for (int x = 0; x < WIDTH; x++) {
+                int r = raw[p++] & 0xFF;
+                int g = raw[p++] & 0xFF;
+                int b = raw[p++] & 0xFF;
+                int a = raw[p++] & 0xFF;
+                image.setRGB(x, y, (a << 24) | (r << 16) | (g << 8) | b);
+            }
+        }
+        return image;
     }
 
     private static BufferedImage crop(BufferedImage atlas, int index) {

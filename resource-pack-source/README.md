@@ -1,6 +1,8 @@
 # SkyKings UI Atlas Source
 
-`skykings-ui-atlas.png` is the compact source atlas for the Minecraft 1.8.9 UI/branding pack.
+`skykings-ui-atlas.rgba.gz.b64` is the canonical compact source for the Minecraft 1.8.9 UI/branding atlas.
+
+It contains gzip-compressed raw RGBA pixels encoded as Base64 text. This deliberately avoids relying on Java 8 to decode a designer/export PNG during CI. The build helper reconstructs a 160x128 ARGB image and writes the final Minecraft PNGs itself.
 
 Grid: 5 columns x 4 rows, 32x32 pixels per tile, row-major order.
 
