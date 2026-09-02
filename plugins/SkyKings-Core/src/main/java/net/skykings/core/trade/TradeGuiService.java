@@ -153,8 +153,8 @@ public final class TradeGuiService implements Listener {
     }
 
     private void changeCoins(Player player, TradeSession session, TradeOffer self, long delta) {
-        long next = Math.max(0L, self.getCoins() + delta);
-        next = Math.min(next, economyService.getBalance(player.getUniqueId()));
+        long next = TradeSettlementGuard.adjustOffer(self.getCoins(), delta,
+                economyService.getBalance(player.getUniqueId()));
         if (next == self.getCoins()) return;
         self.setCoins(next);
         resetAcceptance(session);
@@ -204,10 +204,19 @@ public final class TradeGuiService implements Listener {
         TradeOffer a = session.getLeft();
         TradeOffer b = session.getRight();
 
-        if (!economyService.has(a.getPlayer(), a.getCoins()) || !economyService.has(b.getPlayer(), b.getCoins())) {
+        long leftBalance = economyService.getBalance(a.getPlayer());
+        long rightBalance = economyService.getBalance(b.getPlayer());
+        if (leftBalance < a.getCoins() || rightBalance < b.getCoins()) {
             resetAcceptance(session);
             left.sendMessage(ChatColor.RED + "Trade gestoppt: Ein Kontostand hat sich veraendert.");
             right.sendMessage(ChatColor.RED + "Trade gestoppt: Ein Kontostand hat sich veraendert.");
+            refresh(session);
+            return;
+        }
+        if (!TradeSettlementGuard.canSettle(leftBalance, a.getCoins(), rightBalance, b.getCoins())) {
+            resetAcceptance(session);
+            left.sendMessage(ChatColor.RED + "Trade gestoppt: Die Coin-Auszahlung wuerde einen Kontostand ueberlaufen lassen.");
+            right.sendMessage(ChatColor.RED + "Trade gestoppt: Die Coin-Auszahlung wuerde einen Kontostand ueberlaufen lassen.");
             refresh(session);
             return;
         }
