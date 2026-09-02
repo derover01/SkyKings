@@ -100,6 +100,7 @@ import net.skykings.core.storage.DataStoreException;
 import net.skykings.core.storage.sqlite.SQLiteDataStore;
 import net.skykings.core.trade.TradeGuiService;
 import net.skykings.core.trade.TradeService;
+import net.skykings.core.trade.TradeShutdownRecoveryListener;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.ServicePriority;
@@ -219,6 +220,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(shopNpcService, this);
         getServer().getPluginManager().registerEvents(mapProtectionService, this);
         getServer().getPluginManager().registerEvents(tradeGuiService, this);
+        getServer().getPluginManager().registerEvents(new TradeShutdownRecoveryListener(tradeService, this), this);
         getServer().getPluginManager().registerEvents(new IslandProtectionListener(islandService), this);
         getServer().getPluginManager().registerEvents(new PlotProtectionListener(plotService), this);
         getServer().getPluginManager().registerEvents(clanService, this);
