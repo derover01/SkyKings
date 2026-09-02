@@ -99,6 +99,41 @@ public class EconomyServiceImplTest {
         assertEquals(AuditEventType.ECONOMY_SET, auditSink.getEvents().get(0).getType());
     }
 
+    @Test
+    public void setBalanceCanUpdateExistingPersistedProfileAfterLogout() {
+        final UUID offlineUuid = UUID.randomUUID();
+        final PlayerProfile persisted = new PlayerProfile(offlineUuid, "OfflineAdminTarget", Rank.SPIELER, 250L, 0L, 0L, 0L);
+        FakePlayerProfileService persistedService = new FakePlayerProfileService() {
+            @Override
+            public PlayerProfile loadExisting(UUID target) {
+                if (!offlineUuid.equals(target)) return null;
+                put(persisted);
+                return persisted;
+            }
+        };
+        RecordingAuditSink sink = new RecordingAuditSink();
+        EconomyServiceImpl service = new EconomyServiceImpl(persistedService,
+                new LoggingServiceImpl(Collections.singletonList(sink), Logger.getLogger("offline-set-test")));
+
+        service.setBalance(offlineUuid, 5_000L, "ADMIN", "manual offline correction");
+
+        assertEquals(5_000L, service.getBalance(offlineUuid));
+        assertEquals(1, sink.getEvents().size());
+        assertEquals(AuditEventType.ECONOMY_SET, sink.getEvents().get(0).getType());
+    }
+
+    @Test
+    public void setBalanceDoesNotCreateUnknownProfile() {
+        UUID unknown = UUID.randomUUID();
+        try {
+            economyService.setBalance(unknown, 500L, "ADMIN", "unknown");
+            fail("Expected IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // expected
+        }
+        assertTrue(auditSink.getEvents().isEmpty());
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void depositRejectsNegativeAmount() {
         economyService.deposit(uuid, -10L, "TEST", null);
