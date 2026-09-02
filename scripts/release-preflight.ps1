@@ -55,22 +55,34 @@ $required = @(
     'scripts\deploy-server.ps1',
     'scripts\backup-server.ps1',
     'scripts\reset-skyplots.ps1',
+    'scripts\build-resource-pack.ps1',
+    'resource-pack\pack.mcmeta',
+    'resource-pack\README.md',
     'docs\NEXT_PC_CHECKLIST.md',
     'docs\ROADMAP_STATUS.md'
 )
 foreach ($relative in $required) {
     if (-not (Test-Path (Join-Path $repoRoot $relative))) { Fail ("Fehlt: $relative") }
 }
-Ok 'Kritische Projektdateien vorhanden'
+Ok 'Kritische Projektdateien inklusive Resource-Pack vorhanden'
 
-# 5) Vollstaendiger CI-aehnlicher lokaler Gate
+# 5) Resource-Pack Gate
+Write-Host ''
+Write-Host 'Minecraft 1.8.9 Resource-Pack bauen...' -ForegroundColor Cyan
+& (Join-Path $PSScriptRoot 'build-resource-pack.ps1')
+if ($LASTEXITCODE -ne 0) { Fail ("Resource-Pack Build fehlgeschlagen (ExitCode $LASTEXITCODE).") }
+$packZip = Join-Path (Join-Path (Join-Path $repoRoot 'build') 'resource-pack') 'SkyKings-ResourcePack-1.8.9.zip'
+if (-not (Test-Path $packZip)) { Fail 'Resource-Pack ZIP fehlt nach Build.' }
+Ok ("Resource-Pack Release-Artefakt: {0}" -f $packZip)
+
+# 6) Vollstaendiger CI-aehnlicher lokaler Gate
 Write-Host ''
 Write-Host 'Maven Tests + Build...' -ForegroundColor Cyan
 & mvn clean package
 if ($LASTEXITCODE -ne 0) { Fail ("Maven Build fehlgeschlagen (ExitCode $LASTEXITCODE).") }
 Ok 'Alle Maven Tests + Builds erfolgreich'
 
-# 6) Erwartete vier Module
+# 7) Erwartete vier Module
 $modules = @('SkyKings-Core','SkyKings-Combat','SkyKings-Crates','SkyKings-Admin')
 foreach ($module in $modules) {
     $target = Join-Path $repoRoot ("plugins\$module\target")
@@ -84,8 +96,11 @@ foreach ($module in $modules) {
 
 Write-Host ''
 Write-Host 'PRE-FLIGHT GRUEN' -ForegroundColor Green
+Write-Host 'Release-Artefakte:' -ForegroundColor Cyan
+Write-Host '  - vier SkyKings Plugin-JARs' -ForegroundColor White
+Write-Host '  - build\resource-pack\SkyKings-ResourcePack-1.8.9.zip' -ForegroundColor White
 Write-Host 'Naechster Schritt:' -ForegroundColor Cyan
 Write-Host '  .\scripts\deploy-server.ps1' -ForegroundColor White
 Write-Host 'Danach bei frischem Plot-Test einmalig:' -ForegroundColor Cyan
 Write-Host '  .\scripts\reset-skyplots.ps1' -ForegroundColor White
-Write-Host 'Dann Server starten und ingame /skcheck ausfuehren.' -ForegroundColor White
+Write-Host 'Dann Server starten, ingame /skcheck ausfuehren und Runtime-Checklist abarbeiten.' -ForegroundColor White
