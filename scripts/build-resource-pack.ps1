@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $packRoot = Join-Path $repoRoot 'resource-pack'
 $packSourceRoot = Join-Path $repoRoot 'resource-pack-source'
-$atlas = Join-Path $packSourceRoot 'skykings-ui-atlas.rgba.gz.b64'
+$atlas = Join-Path $packSourceRoot 'skykings-ui-atlas.rgba.gz'
 $atlasTool = Join-Path (Join-Path $PSScriptRoot 'tools') 'ResourcePackAtlasBuilder.java'
 $buildRoot = Join-Path (Join-Path $repoRoot 'build') 'resource-pack'
 $stageRoot = Join-Path $buildRoot 'stage'
@@ -16,8 +16,9 @@ function Ok($text) { Write-Host ("[OK] {0}" -f $text) -ForegroundColor Green }
 if (-not (Test-Path $packRoot)) { Fail 'resource-pack Verzeichnis fehlt.' }
 $mcmeta = Join-Path $packRoot 'pack.mcmeta'
 if (-not (Test-Path $mcmeta)) { Fail 'resource-pack/pack.mcmeta fehlt.' }
-if (-not (Test-Path $atlas)) { Fail 'resource-pack-source/skykings-ui-atlas.rgba.gz.b64 fehlt.' }
+if (-not (Test-Path $atlas)) { Fail 'resource-pack-source/skykings-ui-atlas.rgba.gz fehlt.' }
 if (-not (Test-Path $atlasTool)) { Fail 'scripts/tools/ResourcePackAtlasBuilder.java fehlt.' }
+if ((Get-Item $atlas).Length -lt 1024) { Fail 'SkyKings UI-Atlas Quelle ist unplausibel klein.' }
 
 try {
     $meta = Get-Content $mcmeta -Raw | ConvertFrom-Json
@@ -40,8 +41,8 @@ Copy-Item $mcmeta (Join-Path $stageRoot 'pack.mcmeta') -Force
 $assets = Join-Path $packRoot 'assets'
 if (Test-Path $assets) { Copy-Item $assets (Join-Path $stageRoot 'assets') -Recurse -Force }
 
-# The real SkyKings icon textures are generated from one committed raw RGBA atlas source.
-# Java 8 decodes the Base64+gzip pixel data itself and then writes the final legacy PNGs.
+# Real SkyKings icon textures are generated from one compact binary RGBA atlas source.
+# Java 8 inflates raw pixels and writes the final legacy PNGs itself.
 & javac -encoding UTF-8 -d $toolBuild $atlasTool
 if ($LASTEXITCODE -ne 0) { Fail 'ResourcePackAtlasBuilder konnte nicht kompiliert werden.' }
 & java -cp $toolBuild ResourcePackAtlasBuilder $atlas $stageRoot
@@ -58,7 +59,7 @@ Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $outputZip -C
 
 if (-not (Test-Path $outputZip)) { Fail 'Resource-Pack ZIP wurde nicht erzeugt.' }
 
-# ZIP-Root und Pflichtassets verifizieren. pack.mcmeta/pack.png muessen direkt im Root liegen.
+# ZIP-Root und ALLE Pflichtassets verifizieren. pack.mcmeta/pack.png muessen direkt im Root liegen.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($outputZip)
 try {
@@ -66,17 +67,29 @@ try {
         'pack.mcmeta',
         'pack.png',
         'assets/minecraft/textures/items/minecart_normal.png',
+        'assets/minecraft/textures/items/minecart_furnace.png',
+        'assets/minecraft/textures/items/minecart_hopper.png',
         'assets/minecraft/textures/items/barrier.png',
+        'assets/minecraft/textures/items/slimeball.png',
+        'assets/minecraft/textures/items/fireworks.png',
+        'assets/minecraft/textures/items/ender_eye.png',
         'assets/minecraft/textures/items/gold_nugget.png',
         'assets/minecraft/textures/items/nether_star.png',
         'assets/minecraft/textures/items/map_empty.png',
+        'assets/minecraft/textures/items/book_writable.png',
+        'assets/minecraft/textures/items/minecart_chest.png',
         'assets/minecraft/textures/items/minecart_command_block.png',
+        'assets/minecraft/textures/items/repeater.png',
+        'assets/minecraft/textures/items/hopper.png',
         'assets/minecraft/textures/items/name_tag.png',
+        'assets/minecraft/textures/items/book_written.png',
+        'assets/minecraft/textures/items/shears.png',
         'assets/minecraft/textures/items/magma_cream.png'
     )
     foreach ($entryName in $required) {
         $entry = $zip.Entries | Where-Object { $_.FullName -eq $entryName } | Select-Object -First 1
         if ($null -eq $entry) { Fail ("Pflichtasset fehlt im ZIP: {0}" -f $entryName) }
+        if ($entry.Length -le 0) { Fail ("Pflichtasset ist leer im ZIP: {0}" -f $entryName) }
     }
 } finally {
     $zip.Dispose()

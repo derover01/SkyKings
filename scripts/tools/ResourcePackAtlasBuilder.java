@@ -2,19 +2,16 @@ import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.Base64;
 import java.util.zip.GZIPInputStream;
 
 /**
  * Builds Minecraft 1.8.x item textures from the committed SkyKings RGBA atlas source.
- * The source is gzip-compressed raw RGBA bytes stored as Base64 text, so Java 8 never
- * has to decode a designer/export PNG. Final PNGs are written by Java's own ImageIO.
+ * The source is gzip-compressed raw RGBA bytes. Java 8 only has to inflate raw pixels
+ * and writes the final PNGs itself, avoiding decoder differences in designer-export PNGs.
  */
 public final class ResourcePackAtlasBuilder {
     private static final int TILE = 32;
@@ -26,32 +23,32 @@ public final class ResourcePackAtlasBuilder {
 
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
     private static final String[] ITEM_TEXTURES = {
-            "minecart_normal.png",       // HOME
-            "minecart_furnace.png",      // BACK
-            "minecart_hopper.png",       // NEXT
-            "barrier.png",               // LOCKED
-            "slimeball.png",             // READY
-            "fireworks.png",             // COMPLETED
-            "ender_eye.png",             // PREMIUM
-            "gold_nugget.png",           // COINS
-            "nether_star.png",           // STAR
-            "map_empty.png",             // BATTLE PASS
-            "book_writable.png",         // QUESTS
-            "minecart_chest.png",        // KITS
-            "minecart_command_block.png",// CRATES
-            "repeater.png",              // JACKPOT
-            "hopper.png",                // SHOP
-            "name_tag.png",              // TRADE
-            "book_written.png",          // CLAN
-            "shears.png",                // DUEL
-            "magma_cream.png"             // EVENT
+            "minecart_normal.png",        // HOME
+            "minecart_furnace.png",       // BACK
+            "minecart_hopper.png",        // NEXT
+            "barrier.png",                // LOCKED
+            "slimeball.png",              // READY
+            "fireworks.png",              // COMPLETED
+            "ender_eye.png",              // PREMIUM
+            "gold_nugget.png",            // COINS
+            "nether_star.png",            // STAR
+            "map_empty.png",              // BATTLE PASS
+            "book_writable.png",          // QUESTS
+            "minecart_chest.png",         // KITS
+            "minecart_command_block.png", // CRATES
+            "repeater.png",               // JACKPOT
+            "hopper.png",                 // SHOP
+            "name_tag.png",               // TRADE
+            "book_written.png",           // CLAN
+            "shears.png",                 // DUEL
+            "magma_cream.png"              // EVENT
     };
 
     private ResourcePackAtlasBuilder() {}
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
-            throw new IllegalArgumentException("Usage: ResourcePackAtlasBuilder <atlas.rgba.gz.b64> <stage-root>");
+            throw new IllegalArgumentException("Usage: ResourcePackAtlasBuilder <atlas.rgba.gz> <stage-root>");
         }
 
         File sourceFile = new File(args[0]);
@@ -82,12 +79,10 @@ public final class ResourcePackAtlasBuilder {
     }
 
     private static BufferedImage readRawAtlas(File file) throws IOException {
-        byte[] text = Files.readAllBytes(file.toPath());
-        String encoded = new String(text, StandardCharsets.US_ASCII).trim();
-        byte[] gz = Base64.getDecoder().decode(encoded);
+        if (!file.isFile()) throw new IOException("Atlas source missing: " + file);
 
         ByteArrayOutputStream rawOut = new ByteArrayOutputStream(RAW_BYTES);
-        GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(gz));
+        GZIPInputStream gzip = new GZIPInputStream(new FileInputStream(file));
         try {
             byte[] buffer = new byte[8192];
             int read;
@@ -95,6 +90,7 @@ public final class ResourcePackAtlasBuilder {
         } finally {
             gzip.close();
         }
+
         byte[] raw = rawOut.toByteArray();
         if (raw.length != RAW_BYTES) {
             throw new IOException("Unexpected raw atlas byte count " + raw.length + "; expected " + RAW_BYTES);
