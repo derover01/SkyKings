@@ -41,9 +41,16 @@ public final class IslandCommand implements CommandExecutor, TabCompleter {
 
         if ("create".equals(sub) || "erstellen".equals(sub)) {
             if (islands.hasIsland(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Du besitzt bereits eine Insel."); return true; }
-            if (!islands.create(player)) { player.sendMessage(ChatColor.RED + "Deine Insel konnte nicht erstellt werden."); return true; }
+            try {
+                if (!IslandStarterProtection.create(islands, player)) { player.sendMessage(ChatColor.RED + "Deine Insel konnte nicht erstellt werden."); return true; }
+            } catch (IllegalStateException ex) {
+                player.sendMessage(ChatColor.RED + "Deine Insel wurde erstellt, aber der Starter-Schutz konnte nicht sicher gespeichert werden. Bitte Admin informieren.");
+                return true;
+            }
             player.sendMessage(ChatColor.AQUA.toString() + ChatColor.BOLD + "SKYKINGS ISLANDS " + ChatColor.GREEN + "Deine Insel wurde erstellt!");
-            player.sendMessage(ChatColor.GRAY + "Baum, Void und Startertruhe sind im klassischen SkyBlock-Stil aufgebaut.");
+            if (IslandStarterProtection.hasClaimed(player.getUniqueId())) {
+                player.sendMessage(ChatColor.GRAY + "Starterressourcen werden pro Spieler nur einmal ausgegeben.");
+            }
             return true;
         }
         if ("delete".equals(sub) || "remove".equals(sub) || "loeschen".equals(sub) || "löschen".equals(sub)) {
