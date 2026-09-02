@@ -86,7 +86,7 @@ public final class VoucherRedeemListener implements Listener {
         gui.setItem(11, UiItems.item(Material.EMERALD_BLOCK,
                 ChatColor.GREEN.toString() + ChatColor.BOLD + "ANNEHMEN",
                 ChatColor.GRAY + "Gutschein jetzt einloesen.",
-                ChatColor.RED + "Danach ist er verbraucht."), (p, e, s) -> {
+                ChatColor.RED + "Danach wird ein Exemplar verbraucht."), (p, e, s) -> {
             p.closeInventory();
             if (!hasMatchingSerial(p, voucher.getSerial())) {
                 p.sendMessage(ChatColor.RED + "Der Gutschein ist nicht mehr in deinem Inventar.");
@@ -112,9 +112,15 @@ public final class VoucherRedeemListener implements Listener {
 
     private void beginRedeem(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
         final UUID serial = voucher.getSerial();
-        store.redeem(serial).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
+        final int maxClaims = maxClaims(voucher);
+        if (maxClaims < 1) {
+            player.sendMessage(ChatColor.RED + "Dieser Gutschein ist nicht als serverseitig ausgegeben registriert.");
+            SoundFeedback.error(player);
+            return;
+        }
+        store.redeem(serial, maxClaims).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!marked) {
-                player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits eingeloest oder konnte nicht sicher gespeichert werden.");
+                player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits vollstaendig eingeloest oder konnte nicht sicher gespeichert werden.");
                 SoundFeedback.error(player);
                 return;
             }
@@ -127,12 +133,20 @@ public final class VoucherRedeemListener implements Listener {
             consumeMatchingSerial(player, serial);
             core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
                     player.getUniqueId(), player.getName(), null,
-                    "serial=" + serial + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
+                    "serial=" + serial + ", claim=" + store.getRedeemedClaims(serial) + "/" + maxClaims
+                            + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
             if (voucher.getType() != VoucherItemCodec.VoucherType.GIVEALL_COINS) {
                 player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
             }
             SoundFeedback.reward(player);
         }));
+    }
+
+    private int maxClaims(VoucherItemCodec.DecodedVoucher voucher) {
+        if (voucher == null) return 0;
+        if (!voucher.isStackable()) return 1;
+        IssuedItemStore issued = IssuedItemStore.active();
+        return issued == null ? 0 : issued.getVoucherMaxClaims(voucher.getSerial(), voucher.getType(), voucher.getTarget());
     }
 
     private boolean canRedeem(Player player, VoucherItemCodec.DecodedVoucher voucher) {
@@ -289,9 +303,7 @@ public final class VoucherRedeemListener implements Listener {
         try {
             long amount = Long.parseLong(raw);
             return amount > 0L && amount <= MAX_COIN_VOUCHER ? amount : -1L;
-        } catch (NumberFormatException ex) {
-            return -1L;
-        }
+        } catch (NumberFormatException ex) { return -1L; }
     }
 
     private boolean invalid(Player player) {
