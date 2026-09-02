@@ -1,6 +1,7 @@
 package net.skykings.crates;
 
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.economy.BalanceSettlementGuard;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.kit.KitDefinition;
 import net.skykings.core.logging.AuditEvent;
@@ -178,8 +179,25 @@ public final class VoucherRedeemListener implements Listener {
             case PREFIX:
                 return voucher.getTarget().matches("[a-zA-Z0-9_-]{1,32}") || invalid(player);
             case COINS:
+                long amount = parseCoinAmount(voucher.getTarget());
+                if (amount <= 0L) return invalid(player);
+                if (!BalanceSettlementGuard.canAdd(core.getEconomyService().getBalance(player.getUniqueId()), amount)) {
+                    player.sendMessage(ChatColor.RED + "Dein Coin-Kontostand ist zu hoch fuer diesen Gutschein.");
+                    SoundFeedback.error(player);
+                    return false;
+                }
+                return true;
             case GIVEALL_COINS:
-                return parseCoinAmount(voucher.getTarget()) > 0L || invalid(player);
+                long giveAllAmount = parseCoinAmount(voucher.getTarget());
+                if (giveAllAmount <= 0L) return invalid(player);
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    if (!BalanceSettlementGuard.canAdd(core.getEconomyService().getBalance(online.getUniqueId()), giveAllAmount)) {
+                        player.sendMessage(ChatColor.RED + "GiveAll abgebrochen: Mindestens ein Online-Kontostand ist zu hoch.");
+                        SoundFeedback.error(player);
+                        return false;
+                    }
+                }
+                return true;
             default:
                 return invalid(player);
         }
