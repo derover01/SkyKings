@@ -160,6 +160,11 @@ public final class PlayerShopService {
     public synchronized boolean addStock(Player owner, UUID shopId, int amount) {
         PlayerShop shop = store.get(shopId);
         if (owner == null || shop == null || amount <= 0 || !placementPolicy.canManageShop(owner, shop)) return false;
+        int oldStock = shop.getStock();
+        // Auch bei theoretisch sehr grossem Langzeitbestand niemals int-Wraparound zulassen.
+        // Ein negativer Bestand koennte sonst nach genug Einzahlungen persistiert werden.
+        if (oldStock < 0 || oldStock > Integer.MAX_VALUE - amount) return false;
+
         ItemStack hand = owner.getItemInHand();
         if (hand == null || hand.getType() == Material.AIR || hand.getAmount() < amount) return false;
         if (shop.getMaterial() == null) {
@@ -171,7 +176,6 @@ public final class PlayerShopService {
         if (!hand.getEnchantments().isEmpty()) return false;
 
         ItemStack originalHand = hand.clone();
-        int oldStock = shop.getStock();
         int remaining = hand.getAmount() - amount;
         if (remaining <= 0) owner.setItemInHand(new ItemStack(Material.AIR));
         else { hand.setAmount(remaining); owner.setItemInHand(hand); }
