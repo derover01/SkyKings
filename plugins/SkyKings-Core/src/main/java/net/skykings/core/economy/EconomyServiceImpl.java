@@ -28,8 +28,6 @@ public final class EconomyServiceImpl implements EconomyService {
 
     @Override
     public void setBalance(UUID uuid, long amount, String actor, String reason) {
-        // Kein Overflow-Risiko: amount wird direkt als neuer Kontostand uebernommen, es findet
-        // keine Addition zweier Werte statt.
         if (amount < 0) {
             throw new IllegalArgumentException("Kontostand darf nicht negativ sein: " + amount);
         }
@@ -48,14 +46,15 @@ public final class EconomyServiceImpl implements EconomyService {
         if (amount <= 0) {
             throw new IllegalArgumentException("Einzahlungsbetrag muss positiv sein: " + amount);
         }
-        PlayerProfile profile = requireProfile(uuid);
+        // Serverseitige Credits (z. B. Jackpot oder Shop-Recovery) muessen auch einen Spieler
+        // erreichen, der nach seiner Teilnahme ausgeloggt hat. Es werden dabei ausschliesslich
+        // bereits persistierte Profile geladen; unbekannte UUIDs erzeugen keinen neuen Datensatz.
+        PlayerProfile profile = requireProfileForCredit(uuid);
         long newBalance;
         synchronized (profile) {
             try {
                 newBalance = Math.addExact(profile.getCoins(), amount);
             } catch (ArithmeticException e) {
-                // Profil bewusst NICHT veraendert und KEIN Audit-Event geschrieben - die Transaktion
-                // ist fehlgeschlagen, bevor irgendein Zustand mutiert wurde.
                 throw new EconomyOverflowException("Einzahlung wuerde den gueltigen Wertebereich ueberschreiten: "
                         + "uuid=" + uuid + ", aktuellerKontostand=" + profile.getCoins() + ", betrag=" + amount, e);
             }
@@ -73,8 +72,6 @@ public final class EconomyServiceImpl implements EconomyService {
         PlayerProfile profile = requireProfile(uuid);
         long newBalance;
         synchronized (profile) {
-            // Kein Overflow-Risiko: amount ist hier immer positiv und durch die Pruefung direkt
-            // darunter <= profile.getCoins() (>= 0), das Ergebnis liegt also stets in [0, coins].
             if (profile.getCoins() < amount) {
                 return false;
             }
@@ -90,6 +87,15 @@ public final class EconomyServiceImpl implements EconomyService {
         PlayerProfile profile = profileService.getCached(uuid);
         if (profile == null) {
             throw new IllegalStateException("Kein geladenes PlayerProfile fuer " + uuid + " (Spieler online?).");
+        }
+        return profile;
+    }
+
+    private PlayerProfile requireProfileForCredit(UUID uuid) {
+        PlayerProfile profile = profileService.getCached(uuid);
+        if (profile == null) profile = profileService.loadExisting(uuid);
+        if (profile == null) {
+            throw new IllegalStateException("Kein bestehendes PlayerProfile fuer " + uuid + ".");
         }
         return profile;
     }
