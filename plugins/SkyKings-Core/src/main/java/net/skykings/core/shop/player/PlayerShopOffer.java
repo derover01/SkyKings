@@ -16,11 +16,11 @@ public final class PlayerShopOffer {
     public short getData() { return data; }
     public void setData(short data) { this.data = data; }
     public int getAmountTop() { return amountTop; }
-    public void setAmountTop(int amountTop) { this.amountTop = amountTop; }
+    public void setAmountTop(int amountTop) { this.amountTop = clampStack(amountTop); }
     public int getAmountMiddle() { return amountMiddle; }
-    public void setAmountMiddle(int amountMiddle) { this.amountMiddle = amountMiddle; }
+    public void setAmountMiddle(int amountMiddle) { this.amountMiddle = clampStack(amountMiddle); }
     public long getPriceCoins() { return priceCoins; }
-    public void setPriceCoins(long priceCoins) { this.priceCoins = priceCoins; }
+    public void setPriceCoins(long priceCoins) { this.priceCoins = Math.max(0L, priceCoins); }
 
     public int getTotalAmount() {
         return amountTop + amountMiddle;
@@ -44,5 +44,9 @@ public final class PlayerShopOffer {
         amountTop = 0;
         amountMiddle = 0;
         priceCoins = 0L;
+    }
+
+    private int clampStack(int amount) {
+        return Math.max(0, Math.min(64, amount));
     }
 }
