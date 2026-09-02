@@ -35,6 +35,7 @@ Für jede normale, handelbare Belohnung denselben Gegenstand **separat** 2–5 M
 - [ ] Spieler unter Exile erhalten keinen unerlaubten Open-All-Pfad.
 - [ ] Rapid-Clicks erzeugen keine zusätzlichen Rewards.
 - [ ] Legacy-Crates aus altem Bestand bleiben lesbar/einlösbar.
+- [ ] Legacy-Serial-Crate genau beim Einlösen disconnecten: kein doppelter Reward; verbleibender Altbestand wird nach Reconnect konsistent behandelt.
 
 ## 3. Gutscheine / Voucher
 
@@ -50,6 +51,8 @@ Neue v2-Gutscheine: gleicher Typ + gleiches Ziel = identische Meta und damit sta
 - [ ] Rang-, Rankup-, Kit-, Rechte-, Prefix-, Coin- und GiveAll-Gutscheine einzeln prüfen.
 - [ ] Confirm-GUI bei Rang/Rechte: Ablehnen verbraucht nichts; Annehmen verbraucht exakt ein Exemplar.
 - [ ] Inventar-voll-Fall beim Kit: kein Claim-/Itemverlust durch fehlenden Platz.
+- [ ] Coin-Voucher bei Kontostand nahe `Long.MAX_VALUE`: Einlösung wird **vor** Claim blockiert; Voucher bleibt erhalten und Kontostand unverändert.
+- [ ] GiveAll-Coin-Voucher mit mindestens einem Online-Spieler nahe `Long.MAX_VALUE`: gesamte Einlösung wird **vor** Claim blockiert; kein Empfänger erhält Teil-Auszahlung und Voucher bleibt erhalten.
 - [ ] `issued-items.txt` und `redeemed-vouchers.txt` nach Restart weiterhin konsistent.
 - [ ] **Stats-Reset-Voucher: N/A** – dieser Voucher-Typ existiert im aktuellen Codebestand nicht.
 
@@ -176,6 +179,8 @@ Mindestens zwei Clients gleichzeitig.
 - [ ] Käufer disconnectet/alt+F4 während geöffnetem Villager-Trade → keine virtuellen Merchant-Items bleiben erhalten und kein Kauf wird erfunden.
 - [ ] Gleichzeitige Casino-/Jackpot-Aktionen erzeugen keine negativen/duplizierten Kontostände.
 - [ ] Crate-Rapid-Open erzeugt keine Mehrfachclaims außerhalb des Stackbestands.
+- [ ] Zwei Spieler öffnen einen normalen `/trade`, legen Items ein und **ohne Abschluss** wird der Server sauber mit `stop` beendet → nach Stop/Restart besitzt jeder Spieler exakt seine eigenen angebotenen Items wieder; kein Item fehlt und keines ist doppelt.
+- [ ] Trade-Shutdown mit vollem Inventar eines Teilnehmers → nicht einlagerbare Rückgabe wird am Spieler gedroppt statt gelöscht.
 
 ## 12. Finales Release-Gate
 
