@@ -111,6 +111,12 @@ public final class VoucherRedeemListener implements Listener {
         SoundFeedback.menuOpen(player);
     }
 
+    /**
+     * Claim-Persistenz und Reward-Vergabe laufen bewusst im selben Bukkit-Tick. Dadurch existiert
+     * kein Async-Fenster mehr, in dem der Claim bereits sicher verbraucht ist, der Spieler aber vor
+     * der Reward-Vergabe disconnectet. Die Store-Methode schreibt nur eine kleine Append-Zeile und
+     * bleibt durch die serverseitige Claim-Grenze gegen Rapid-Clicks abgesichert.
+     */
     private void beginRedeem(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
         final UUID serial = voucher.getSerial();
         final int maxClaims = maxClaims(voucher);
@@ -119,28 +125,29 @@ public final class VoucherRedeemListener implements Listener {
             SoundFeedback.error(player);
             return;
         }
-        store.redeem(serial, maxClaims).thenAccept(marked -> plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (!marked) {
-                player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits vollstaendig eingeloest oder konnte nicht sicher gespeichert werden.");
-                SoundFeedback.error(player);
-                return;
-            }
-            if (!grant(player, voucher)) {
-                player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + serial);
-                SoundFeedback.error(player);
-                return;
-            }
+        if (!player.isOnline()) return;
 
-            consumeMatchingSerial(player, serial);
-            core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
-                    player.getUniqueId(), player.getName(), null,
-                    "serial=" + serial + ", claim=" + store.getRedeemedClaims(serial) + "/" + maxClaims
-                            + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
-            if (voucher.getType() != VoucherItemCodec.VoucherType.GIVEALL_COINS) {
-                player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
-            }
-            SoundFeedback.reward(player);
-        }));
+        boolean marked = store.redeemSync(serial, maxClaims);
+        if (!marked) {
+            player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits vollstaendig eingeloest oder konnte nicht sicher gespeichert werden.");
+            SoundFeedback.error(player);
+            return;
+        }
+        if (!grant(player, voucher)) {
+            player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + serial);
+            SoundFeedback.error(player);
+            return;
+        }
+
+        consumeMatchingSerial(player, serial);
+        core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
+                player.getUniqueId(), player.getName(), null,
+                "serial=" + serial + ", claim=" + store.getRedeemedClaims(serial) + "/" + maxClaims
+                        + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
+        if (voucher.getType() != VoucherItemCodec.VoucherType.GIVEALL_COINS) {
+            player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
+        }
+        SoundFeedback.reward(player);
     }
 
     private int maxClaims(VoucherItemCodec.DecodedVoucher voucher) {
