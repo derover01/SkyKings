@@ -7,6 +7,7 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 ## 1. Hilfe & Navigation
 
 - `/commands` - zentraler SkyKings Help Hub. Aliases: `/befehle`, `/cmds`.
+- `/pack` - fordert den aktuell konfigurierten SkyKings Resource Pack erneut an. Aliases: `/resourcepack`, `/texturepack`.
 - `/spawn` - 3-Sekunden-Teleport zum globalen Spawn; Combat/Bewegung/Schaden koennen abbrechen. Countdown, Fehler und erfolgreicher Teleport haben Soundfeedback.
 - `/warp` - Warp-GUI.
 - `/warp <Name>` - 3-Sekunden-Direktreise zu einem Warp.
@@ -34,7 +35,9 @@ Diese Datei ist die dauerhaft gepflegte Command-Quelle fuer Spieler, Staff und S
 - `/worth` - Verkaufswert des gehaltenen Items.
 - `/sell <hand|all>` - whitelisted Items verkaufen.
 - `/trade <Spieler|accept|deny>` - sicherer Zwei-Spieler-Handel mit Items und Coins.
-- `/playershop <kaufen|set|stock|withdraw|claim|info|remove>` - PlayerShop-Verwaltung.
+- `/playershop kaufen` - kauft ein stackbares Haendler-Ei. Nach Platzierung: **Shift + Rechtsklick** auf den eigenen Villager oeffnet Besitzer-Dashboard/Angebotseditor; normaler Rechtsklick oeffnet das echte Villager-Handelsfenster.
+- `/playershop claim` - ausstehende Shop-Einnahmen als Coins abholen.
+- `/playershop remove` - eigenen leeren Shop sicher entfernen und Haendler-Ei zurueckerhalten.
 - `/shoprent` - Market-Rentals-GUI mit geschuetzten Mietstaenden.
 - `/shoprent rent <Stand>` - freien Marktstand fuer Coins mieten.
 - `/shoprent release <Stand>` - eigene Miete vorzeitig beenden; keine anteilige Rueckerstattung.
@@ -275,7 +278,8 @@ Jeder Casino-NPC oeffnet direkt seine physische Station. Bei Coin Flip, Crown Di
 15. `/casino` sowie alle sechs physischen Casino-NPCs mit Coins und Sternen testen; Guthaben vor/nach jedem Spiel pruefen.
 16. Multiplayer: Duel, LMS, Clan Wars, Trade, PlayerShop und Market Rentals.
 17. Restart-/Persistenz- und Backup/Restore-Gates.
-18. Economy-/Reward-Balance, dann Soft Launch.
+18. finalen 1.8.9-Resource-Pack hosten, `resource-pack.enabled` aktivieren und Join + `/pack` auf frischem Client testen.
+19. Economy-/Reward-Balance, dann Soft Launch.
 
 ## 15. Pflege-Regel
 
