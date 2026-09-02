@@ -75,7 +75,7 @@ final class PlayerShopMerchantSafetyListener implements Listener {
     private boolean isSkyKingsMerchant(Inventory top) {
         if (top == null || top.getType() != InventoryType.MERCHANT || top.getSize() < 3) return false;
         ItemStack token = top.getItem(0);
-        if (token == null || token.getType() != Material.NETHER_STAR || !token.hasItemMeta()) return false;
+        if (token == null || token.getType() != Material.GOLD_NUGGET || !token.hasItemMeta()) return false;
         ItemMeta meta = token.getItemMeta();
         return meta != null && meta.hasDisplayName() && TOKEN_NAME.equals(meta.getDisplayName());
     }
