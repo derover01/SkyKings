@@ -1,8 +1,5 @@
 package net.skykings.core.trade;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.java.JavaPlugin;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -14,21 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class TradeService {
     private final Map<UUID, UUID> pendingRequests = new ConcurrentHashMap<UUID, UUID>();
     private final Map<UUID, TradeSession> activeByPlayer = new ConcurrentHashMap<UUID, TradeSession>();
-
-    public TradeService() {
-        // Offene Trade-Items liegen waehrend einer Session absichtlich im RAM-Escrow. Damit ein
-        // sauberer Plugin-/Server-Stop diese Items nicht verlieren kann, installiert die Runtime
-        // einen kleinen Disable-Recovery-Listener. In reinen Unit-Tests ohne Bukkit-Server bleibt
-        // dieser Pfad folgenlos.
-        try {
-            JavaPlugin plugin = JavaPlugin.getProvidingPlugin(TradeService.class);
-            if (plugin != null && Bukkit.getPluginManager() != null) {
-                Bukkit.getPluginManager().registerEvents(new TradeShutdownRecoveryListener(this, plugin), plugin);
-            }
-        } catch (Throwable ignored) {
-            // Kein Bukkit-Kontext (z. B. Unit-Test) - normale Trade-Logik bleibt nutzbar.
-        }
-    }
 
     /** Check + Request-Eintrag sind eine atomare Zustandsaenderung. */
     public synchronized boolean request(UUID sender, UUID target) {
