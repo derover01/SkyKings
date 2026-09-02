@@ -166,6 +166,28 @@ public class PlayerShopServiceTest {
         verify(ownerInventory, never()).addItem(any());
     }
 
+    @Test
+    public void addStockFailsBeforeMutationWhenStockWouldOverflow() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player owner = mock(Player.class);
+
+        UUID ownerId = UUID.randomUUID();
+        UUID shopId = UUID.randomUUID();
+        PlayerShop shop = configuredShop(shopId, ownerId, Integer.MAX_VALUE - 5, 1, 500L, 0L);
+
+        when(store.get(shopId)).thenReturn(shop);
+        when(owner.getUniqueId()).thenReturn(ownerId);
+
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        assertFalse(service.addStock(owner, shopId, 10));
+        assertEquals(Integer.MAX_VALUE - 5, shop.getStock());
+        verify(store, never()).saveChecked();
+        verify(owner, never()).getItemInHand();
+        verifyNoInteractions(economy);
+    }
+
     private PlayerShop configuredShop(UUID shopId, UUID ownerId, int stock, int amountPerSale,
                                       long price, long pendingRevenue) {
         PlayerShop shop = new PlayerShop(shopId, ownerId);
