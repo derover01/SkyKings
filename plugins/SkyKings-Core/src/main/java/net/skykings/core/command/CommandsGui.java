@@ -86,7 +86,7 @@ public final class CommandsGui {
         action(gui, 28, Material.NETHER_STAR, "/jackpot", "Serverweiter Coin-Jackpot", "jackpot");
         info(gui, 30, Material.MONSTER_EGG, "/playershop kaufen", "Eigenen Händler starten");
         action(gui, 32, Material.EMERALD_BLOCK, "/shoprent", "Geschützten Marktstand mieten", "shoprent");
-        info(gui, 34, Material.HOPPER, "/playershop ...", "Stock, Preis, Einnahmen");
+        info(gui, 34, Material.HOPPER, "Shift + Rechtsklick", "Angebote, Erlös & Shop entfernen");
         nav(gui);
         guiManager.open(gui);
     }
