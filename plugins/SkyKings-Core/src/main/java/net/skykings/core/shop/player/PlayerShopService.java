@@ -53,11 +53,14 @@ public final class PlayerShopService {
         PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
         if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
         if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
+        long price = offer.getPriceCoins();
+        long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
+        // Serverzustand zuerst pruefen: bei einem unmoeglichen Revenue-Settlement weder Bukkit-Inventar
+        // anfassen noch den Käufer-/Economy-Pfad starten.
+        if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
         ItemStack top = offer.topStack(), middle = offer.middleStack();
         if (!canFit(buyer, top, middle)) return Result.INVENTORY_FULL;
-        long price = offer.getPriceCoins(); if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
-        long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
-        if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
+        if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
 
         Material material = offer.getMaterial(); short data = offer.getData(); int topAmount = offer.getAmountTop(), middleAmount = offer.getAmountMiddle(); long oldPrice = offer.getPriceCoins();
         offer.clear();
