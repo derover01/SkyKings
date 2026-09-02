@@ -82,6 +82,7 @@ import net.skykings.core.rank.RankProgressionService;
 import net.skykings.core.rank.RankService;
 import net.skykings.core.rank.RankServiceImpl;
 import net.skykings.core.rank.RanksGui;
+import net.skykings.core.resourcepack.ResourcePackService;
 import net.skykings.core.retention.DailyRewardCommand;
 import net.skykings.core.retention.DailyRewardService;
 import net.skykings.core.shop.PvpRestockShopGui;
@@ -185,6 +186,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         PlayerShopService playerShopService = new PlayerShopService(playerShopStore, economyService, loggingService);
         playerShopService.setPlacementPolicy(new IslandShopPlacementPolicy(islandService, plotService));
         PlayerShopController playerShopController = new PlayerShopController(playerShopService);
+        ResourcePackService resourcePackService = new ResourcePackService(this);
         this.spawnerStackService = new SpawnerStackService(this, islandService, plotService);
         this.mobStackService = new MobStackService(this, islandService, plotService);
 
@@ -226,6 +228,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         getServer().getPluginManager().registerEvents(clanService, this);
         getServer().getPluginManager().registerEvents(clanBaseService, this);
         getServer().getPluginManager().registerEvents(playerShopController, this);
+        getServer().getPluginManager().registerEvents(resourcePackService, this);
         getServer().getPluginManager().registerEvents(spawnerStackService, this);
         getServer().getPluginManager().registerEvents(mobStackService, this);
 
@@ -234,6 +237,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         }), 40L, 40L);
 
         if (!registerCommand("commands", new CommandsCommand(commandsGui))) return;
+        if (!registerCommand("pack", resourcePackService)) return;
         PluginCommand kitCommand = requireCommand("kit"); if (kitCommand == null) return;
         KitCommand kitExecutor = new KitCommand(kitGrantService, kitGui); kitCommand.setExecutor(kitExecutor); kitCommand.setTabCompleter(kitExecutor);
         PluginCommand rankupCommand = requireCommand("rankup"); if (rankupCommand == null) return; rankupCommand.setExecutor(new RankupCommand(rankProgressionService));
@@ -266,7 +270,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
-        getLogger().info("SkyKings-Core (Claims + Plots + Clans/ClanBase + PlayerShops + Spawner/Mob-Stacking + Retention) aktiviert. Storage: " + configService.getStorageType());
+        getLogger().info("SkyKings-Core (Claims + Plots + Clans/ClanBase + PlayerShops + ResourcePack + Spawner/Mob-Stacking + Retention) aktiviert. Storage: " + configService.getStorageType());
     }
 
     private boolean registerCommand(String name, CommandExecutor executor) {
