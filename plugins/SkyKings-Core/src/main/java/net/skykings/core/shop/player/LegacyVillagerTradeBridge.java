@@ -6,11 +6,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Reflection-only 1.8.x bridge for the real vanilla villager trade screen.
@@ -21,21 +24,26 @@ final class LegacyVillagerTradeBridge {
 
     boolean configureAndOpen(Player player, Villager villager, PlayerShop shop) {
         if (player == null || villager == null || shop == null) return false;
+        String stage = "handles";
         try {
             Object playerHandle = getHandle(player);
             Object villagerHandle = getHandle(villager);
+
+            stage = "villager offers";
             Object offers = getOffers(villagerHandle, playerHandle);
-            if (!(offers instanceof List)) return false;
+            if (!(offers instanceof List)) return fail(stage, "getOffers lieferte keine MerchantRecipe-Liste", null);
 
             @SuppressWarnings("unchecked")
             List<Object> recipes = (List<Object>) offers;
             recipes.clear();
 
+            stage = "NMS recipe classes";
             Class<?> nmsItemStackClass = Class.forName("net.minecraft.server.v1_8_R3.ItemStack");
             Class<?> merchantRecipeClass = Class.forName("net.minecraft.server.v1_8_R3.MerchantRecipe");
             Constructor<?> recipeConstructor = findRecipeConstructor(merchantRecipeClass, nmsItemStackClass);
-            if (recipeConstructor == null) return false;
+            if (recipeConstructor == null) return fail(stage, "passender MerchantRecipe(ItemStack, ItemStack)-Konstruktor fehlt", null);
 
+            stage = "recipe conversion";
             for (int index = 0; index < PlayerShop.MAX_OFFERS; index++) {
                 PlayerShopOffer offer = shop.getOffer(index);
                 if (offer == null || !offer.isConfigured()) continue;
@@ -46,16 +54,35 @@ final class LegacyVillagerTradeBridge {
                 recipes.add(recipeConstructor.newInstance(nmsToken, nmsPreview));
             }
 
-            if (recipes.isEmpty()) return false;
+            if (recipes.isEmpty()) return fail("recipe conversion", "keine konfigurierten Angebote nach NMS-Konvertierung", null);
+
+            stage = "openTrade(IMerchant)";
             Method openTrade = findOpenTrade(playerHandle.getClass(), villagerHandle.getClass());
-            if (openTrade == null) return false;
+            if (openTrade == null) return fail(stage, "EntityHuman#openTrade(IMerchant) konnte nicht gefunden werden", null);
             openTrade.setAccessible(true);
             openTrade.invoke(playerHandle, villagerHandle);
             PlayerShopTradeSnapshotRegistry.open(player.getUniqueId(), shop);
             return true;
-        } catch (Exception ignored) {
+        } catch (Exception ex) {
             PlayerShopTradeSnapshotRegistry.close(player.getUniqueId());
-            return false;
+            return fail(stage, "Reflection-Aufruf fehlgeschlagen fuer Spieler " + player.getName(), ex);
+        }
+    }
+
+    private boolean fail(String stage, String message, Throwable error) {
+        Logger logger = logger();
+        String full = "PlayerShop Legacy-Merchant-Bridge [" + stage + "]: " + message
+                + ". Erwartete Runtime: CraftBukkit/Spigot v1_8_R3.";
+        if (error == null) logger.severe(full);
+        else logger.log(Level.SEVERE, full, error);
+        return false;
+    }
+
+    private Logger logger() {
+        try {
+            return JavaPlugin.getProvidingPlugin(LegacyVillagerTradeBridge.class).getLogger();
+        } catch (Throwable ignored) {
+            return Logger.getLogger("SkyKings-Core");
         }
     }
 
