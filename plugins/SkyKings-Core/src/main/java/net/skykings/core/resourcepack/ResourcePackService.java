@@ -8,10 +8,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Level;
 
 /**
@@ -20,8 +24,10 @@ import java.util.logging.Level;
  */
 public final class ResourcePackService implements Listener, CommandExecutor {
     private static final int MAX_JOIN_DELAY_TICKS = 20 * 30;
+    private static final long RESEND_COOLDOWN_MS = 10_000L;
 
     private final JavaPlugin plugin;
+    private final Map<UUID, Long> lastRequestAt = new HashMap<UUID, Long>();
 
     public ResourcePackService(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -40,6 +46,11 @@ public final class ResourcePackService implements Listener, CommandExecutor {
                 if (player.isOnline()) send(player, false);
             }
         }, delay);
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        lastRequestAt.remove(event.getPlayer().getUniqueId());
     }
 
     @Override
@@ -67,8 +78,17 @@ public final class ResourcePackService implements Listener, CommandExecutor {
             return false;
         }
 
+        long now = System.currentTimeMillis();
+        Long previous = lastRequestAt.get(player.getUniqueId());
+        long remaining = previous == null ? 0L : remainingCooldownSeconds(previous.longValue(), now);
+        if (remaining > 0L) {
+            if (manual) player.sendMessage(ChatColor.YELLOW + "Bitte warte noch " + remaining + "s, bevor du den Pack erneut anforderst.");
+            return false;
+        }
+
         try {
             player.setResourcePack(url);
+            lastRequestAt.put(player.getUniqueId(), now);
             if (manual) {
                 player.sendMessage(ChatColor.AQUA + "SkyKings Resource Pack wurde angefordert.");
                 player.sendMessage(ChatColor.GRAY + "Falls nichts erscheint: Server-Ressourcenpakete in der Serverliste aktivieren.");
@@ -115,6 +135,13 @@ public final class ResourcePackService implements Listener, CommandExecutor {
         } catch (URISyntaxException ex) {
             return "URL-Syntax ist ungueltig: " + ex.getMessage();
         }
+    }
+
+    public static long remainingCooldownSeconds(long lastRequestMillis, long nowMillis) {
+        long elapsed = Math.max(0L, nowMillis - lastRequestMillis);
+        long remainingMs = RESEND_COOLDOWN_MS - elapsed;
+        if (remainingMs <= 0L) return 0L;
+        return (remainingMs + 999L) / 1000L;
     }
 
     private static boolean isAscii(String value) {
