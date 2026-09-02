@@ -5,6 +5,7 @@ import net.skykings.admin.casino.CasinoNpcService;
 import net.skykings.admin.cleanup.GroundClearService;
 import net.skykings.admin.command.AnnouncementCommand;
 import net.skykings.admin.command.ClearChatCommand;
+import net.skykings.admin.command.CoinAdminCommand;
 import net.skykings.admin.command.DiscordTestCommand;
 import net.skykings.admin.command.GroundClearCommand;
 import net.skykings.admin.command.MapTeleportCommand;
@@ -59,6 +60,8 @@ public class SkyKingsAdmin extends JavaPlugin {
 
         PluginCommand rankCommand = getCommand("rang");
         PluginCommand rightsCommand = getCommand("rechte");
+        PluginCommand addCoinsCommand = getCommand("addcoins");
+        PluginCommand setCoinsCommand = getCommand("setcoins");
         PluginCommand announcementCommand = getCommand("announcement");
         PluginCommand clearChatCommand = getCommand("clearchat");
         PluginCommand groundClearCommand = getCommand("clear");
@@ -72,9 +75,10 @@ public class SkyKingsAdmin extends JavaPlugin {
         PluginCommand raffleCommand = getCommand("verlosen");
         PluginCommand casinoCommand = getCommand("casino");
         PluginCommand casinoNpcCommand = getCommand("casinonpc");
-        if (rankCommand == null || rightsCommand == null || announcementCommand == null || clearChatCommand == null
-                || groundClearCommand == null || systemCheckCommand == null || discordTestCommand == null
-                || warpCommand == null || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null
+        if (rankCommand == null || rightsCommand == null || addCoinsCommand == null || setCoinsCommand == null
+                || announcementCommand == null || clearChatCommand == null || groundClearCommand == null
+                || systemCheckCommand == null || discordTestCommand == null || warpCommand == null
+                || setWarpCommand == null || delWarpCommand == null || mapTeleportCommand == null
                 || fridayCommand == null || raffleCommand == null || casinoCommand == null || casinoNpcCommand == null) {
             getLogger().severe("Ein SkyKings-Admin-Command fehlt in plugin.yml - Plugin wird deaktiviert.");
             getServer().getPluginManager().disablePlugin(this);
@@ -88,6 +92,13 @@ public class SkyKingsAdmin extends JavaPlugin {
         RightsAdminCommand rightsExecutor = new RightsAdminCommand(core.getVoucherPermissionService());
         rightsCommand.setExecutor(rightsExecutor);
         rightsCommand.setTabCompleter(rightsExecutor);
+
+        CoinAdminCommand addCoinsExecutor = new CoinAdminCommand(core.getEconomyService(), CoinAdminCommand.Mode.ADD);
+        addCoinsCommand.setExecutor(addCoinsExecutor);
+        addCoinsCommand.setTabCompleter(addCoinsExecutor);
+        CoinAdminCommand setCoinsExecutor = new CoinAdminCommand(core.getEconomyService(), CoinAdminCommand.Mode.SET);
+        setCoinsCommand.setExecutor(setCoinsExecutor);
+        setCoinsCommand.setTabCompleter(setCoinsExecutor);
 
         announcementCommand.setExecutor(new AnnouncementCommand());
         clearChatCommand.setExecutor(new ClearChatCommand());
@@ -128,7 +139,7 @@ public class SkyKingsAdmin extends JavaPlugin {
         if (discordBridge.isConfigured("status")) {
             discordBridge.send("status", "🟢 SkyKings-Admin wurde gestartet.");
         }
-        getLogger().info("SkyKings-Admin mit Combat-Warps, Freitags-Community-Event, globalen Verlosungen, Void-Crown-Casino/NPC-Stationen, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
+        getLogger().info("SkyKings-Admin mit Coin-Verwaltung, Combat-Warps, Freitags-Community-Event, globalen Verlosungen, Void-Crown-Casino/NPC-Stationen, Map-, Rang-, Rechte-, Announcement-, Boden-Clear-, Diagnose- und Discord-Tools aktiviert.");
     }
 
     @Override
