@@ -62,6 +62,43 @@ public class PlayerShopServiceTest {
     }
 
     @Test
+    public void partialSecondStackDeliveryRestoresInventoryRefundsAndOffer() {
+        PlayerShopStore store = mock(PlayerShopStore.class);
+        EconomyService economy = mock(EconomyService.class);
+        LoggingService logging = mock(LoggingService.class);
+        Player buyer = mock(Player.class);
+        PlayerInventory buyerInventory = mock(PlayerInventory.class);
+        Inventory fitInventory = mock(Inventory.class);
+        UUID buyerId = UUID.randomUUID(), ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
+        PlayerShop shop = shop(shopId, ownerId, 0, 64, 64, 1_000L, 100L);
+        HashMap<Integer, ItemStack> leftovers = new HashMap<Integer, ItemStack>();
+        leftovers.put(0, mock(ItemStack.class));
+
+        when(store.get(shopId)).thenReturn(shop);
+        when(store.saveChecked()).thenReturn(true);
+        when(buyer.getUniqueId()).thenReturn(buyerId);
+        when(buyer.getInventory()).thenReturn(buyerInventory);
+        when(economy.has(buyerId, 1_000L)).thenReturn(true);
+        when(economy.withdraw(buyerId, 1_000L, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot 1")).thenReturn(true);
+        when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
+        when(buyerInventory.addItem(any(ItemStack.class)))
+                .thenReturn(new HashMap<Integer, ItemStack>())
+                .thenReturn(leftovers);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.createInventory((InventoryHolder) null, 36)).thenReturn(fitInventory);
+            PlayerShopService service = new PlayerShopService(store, economy, logging);
+            assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId, 0));
+        }
+
+        assertEquals(128, shop.getOffer(0).getTotalAmount());
+        assertEquals(1_000L, shop.getOffer(0).getPriceCoins());
+        assertEquals(100L, shop.getPendingRevenue());
+        verify(economy).deposit(buyerId, 1_000L, "PLAYER_SHOP_ROLLBACK", "Rollback Shop " + shopId);
+        verify(buyerInventory).setItem(0, null);
+    }
+
+    @Test
     public void reservationSaveFailureLeavesOfferAndDoesNotCharge() {
         PlayerShopStore store = mock(PlayerShopStore.class);
         EconomyService economy = mock(EconomyService.class);
