@@ -12,13 +12,13 @@ import org.bukkit.inventory.PlayerInventory;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -92,29 +92,22 @@ public class PlayerShopServiceTest {
     }
 
     @Test
-    public void pendingRevenueOverflowBlocksPurchaseWithoutMutation() {
+    public void pendingRevenueOverflowBlocksPurchaseBeforeBuyerChecks() {
         PlayerShopStore store = mock(PlayerShopStore.class);
         EconomyService economy = mock(EconomyService.class);
         LoggingService logging = mock(LoggingService.class);
         Player buyer = mock(Player.class);
-        PlayerInventory inventory = mock(PlayerInventory.class);
-        Inventory fitInventory = mock(Inventory.class);
-        UUID buyerId = UUID.randomUUID(), ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID(), shopId = UUID.randomUUID();
         PlayerShop shop = shop(shopId, ownerId, 0, 1, 0, 1_000L, Long.MAX_VALUE - 500L);
         when(store.get(shopId)).thenReturn(shop);
-        when(buyer.getUniqueId()).thenReturn(buyerId);
-        when(buyer.getInventory()).thenReturn(inventory);
-        when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
 
-        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
-            bukkit.when(() -> Bukkit.createInventory((InventoryHolder) null, 36)).thenReturn(fitInventory);
-            PlayerShopService service = new PlayerShopService(store, economy, logging);
-            assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId, 0));
-        }
+        PlayerShopService service = new PlayerShopService(store, economy, logging);
+        assertEquals(PlayerShopService.Result.FAILED, service.purchase(buyer, shopId, 0));
 
         assertEquals(1, shop.getOffer(0).getTotalAmount());
         verify(store, never()).saveChecked();
         verifyNoInteractions(economy);
+        verify(buyer, never()).getInventory();
     }
 
     @Test
@@ -134,8 +127,8 @@ public class PlayerShopServiceTest {
         when(fitInventory.addItem(any(ItemStack.class))).thenReturn(new HashMap<Integer, ItemStack>());
 
         PlayerShopService service = new PlayerShopService(store, economy, logging);
-        assertTrue(service.putOfferStack(owner, shopId, 5, false, new ItemStack(Material.GOLDEN_APPLE, 64)));
-        assertTrue(service.putOfferStack(owner, shopId, 5, true, new ItemStack(Material.GOLDEN_APPLE, 64)));
+        assertTrue(service.putOfferStack(owner, shopId, 5, false, plainStack(Material.GOLDEN_APPLE, 64, (short) 0)));
+        assertTrue(service.putOfferStack(owner, shopId, 5, true, plainStack(Material.GOLDEN_APPLE, 64, (short) 0)));
         assertTrue(service.setOfferPrice(owner, shopId, 5, 2_000_000L));
         assertEquals(128, shop.getOffer(5).getTotalAmount());
 
@@ -162,8 +155,8 @@ public class PlayerShopServiceTest {
         when(owner.getUniqueId()).thenReturn(ownerId);
         PlayerShopService service = new PlayerShopService(store, economy, logging);
 
-        assertTrue(service.putOfferStack(owner, shopId, 2, false, new ItemStack(Material.DIAMOND, 32)));
-        assertFalse(service.putOfferStack(owner, shopId, 2, true, new ItemStack(Material.EMERALD, 32)));
+        assertTrue(service.putOfferStack(owner, shopId, 2, false, plainStack(Material.DIAMOND, 32, (short) 0)));
+        assertFalse(service.putOfferStack(owner, shopId, 2, true, plainStack(Material.EMERALD, 32, (short) 0)));
         assertEquals(32, shop.getOffer(2).getTotalAmount());
         assertEquals(Material.DIAMOND, shop.getOffer(2).getMaterial());
     }
@@ -185,6 +178,16 @@ public class PlayerShopServiceTest {
         assertEquals(0L, service.claimRevenue(owner, shopId));
         assertEquals(12_345L, shop.getPendingRevenue());
         verify(economy, never()).deposit(any(UUID.class), any(Long.class), any(String.class), any(String.class));
+    }
+
+    private ItemStack plainStack(Material material, int amount, short data) {
+        ItemStack stack = mock(ItemStack.class);
+        when(stack.getType()).thenReturn(material);
+        when(stack.getAmount()).thenReturn(amount);
+        when(stack.getDurability()).thenReturn(data);
+        when(stack.hasItemMeta()).thenReturn(false);
+        when(stack.getEnchantments()).thenReturn(Collections.emptyMap());
+        return stack;
     }
 
     private PlayerShop shop(UUID shopId, UUID ownerId, int offerIndex, int top, int middle, long price, long pending) {
