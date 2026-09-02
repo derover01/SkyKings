@@ -5,12 +5,13 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/** Kodiert Gutschein-Typ, Ziel und eindeutige Seriennummer persistent und spielerunsichtbar im Item. */
+/** Kodiert Gutschein-Typ und Ziel persistent; neue identische Gutscheine sind voll stackbar. */
 public final class VoucherItemCodec {
 
     public enum VoucherType { RANK, RANKUP, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
@@ -18,24 +19,23 @@ public final class VoucherItemCodec {
     private static final String LEGACY_MARKER = ChatColor.BLACK + "skykings:voucher:";
     private static final String META_MARKER = ChatColor.BLACK + "#sv";
     private static final int META_CHUNK = 12;
+    private static final String STACK_VERSION = "v2";
 
     private final IssuedItemStore issuedStore;
 
     public VoucherItemCodec() { this(IssuedItemStore.active()); }
 
-    public VoucherItemCodec(IssuedItemStore issuedStore) {
-        this.issuedStore = issuedStore;
-    }
+    public VoucherItemCodec(IssuedItemStore issuedStore) { this.issuedStore = issuedStore; }
 
     public ItemStack create(VoucherType type, String target, String displayTarget) {
         String cleanTarget = cleanDisplay(target, displayTarget);
-        UUID serial = UUID.randomUUID();
         String sanitizedTarget = sanitize(target);
+        UUID serial = stableSerial(type, sanitizedTarget);
         if (issuedStore != null && !issuedStore.issueVoucher(serial, type, sanitizedTarget)) {
-            throw new IllegalStateException("Voucher-Serial konnte nicht sicher registriert werden");
+            throw new IllegalStateException("Voucher-Claim konnte nicht sicher registriert werden");
         }
         ItemStack item = baseItem(type, cleanTarget, true);
-        String payload = type.name().toLowerCase(Locale.ROOT) + "|" + sanitizedTarget + "|" + serial;
+        String payload = STACK_VERSION + "|" + type.name().toLowerCase(Locale.ROOT) + "|" + sanitizedTarget + "|" + serial;
 
         ItemStack nbtItem = VoucherNbtCodec.write(item, payload);
         if (nbtItem != null) return nbtItem;
@@ -49,8 +49,7 @@ public final class VoucherItemCodec {
     }
 
     public ItemStack preview(VoucherType type, String displayTarget) {
-        String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
-                displayTarget == null ? "" : displayTarget));
+        String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', displayTarget == null ? "" : displayTarget));
         return baseItem(type, cleanTarget, false);
     }
 
@@ -75,7 +74,7 @@ public final class VoucherItemCodec {
         }
         lore.add("");
         lore.add(redeemable ? ChatColor.YELLOW + "Rechtsklick: einloesen" : ChatColor.GRAY + "Crate-Reward Preview");
-        if (redeemable) lore.add(ChatColor.DARK_GRAY + "Einmalig • SkyKings");
+        if (redeemable) lore.add(ChatColor.DARK_GRAY + "Einmalig pro Exemplar • SkyKings");
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
@@ -89,35 +88,44 @@ public final class VoucherItemCodec {
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
         StringBuilder payload = new StringBuilder();
-        for (String line : meta.getLore()) {
-            if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
-        }
+        for (String line : meta.getLore()) if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
         if (payload.length() > 0) return decodePayload(payload.toString());
 
         for (String line : meta.getLore()) {
             if (line == null || !line.startsWith(LEGACY_MARKER)) continue;
             String[] parts = line.substring(LEGACY_MARKER.length()).split(":", 3);
             if (parts.length != 3) return null;
-            return decoded(parts[0], parts[1], parts[2]);
+            return decodedLegacy(parts[0], parts[1], parts[2]);
         }
         return null;
     }
 
     private DecodedVoucher decodePayload(String payload) {
-        String[] parts = payload.split("\\|", 3);
-        if (parts.length != 3) return null;
-        return decoded(parts[0], parts[1], parts[2]);
+        if (payload == null) return null;
+        String[] v2 = payload.split("\\|", 4);
+        if (v2.length == 4 && STACK_VERSION.equalsIgnoreCase(v2[0])) return decoded(v2[1], v2[2], v2[3], true);
+        String[] legacy = payload.split("\\|", 3);
+        if (legacy.length != 3) return null;
+        return decoded(legacy[0], legacy[1], legacy[2], false);
     }
 
-    private DecodedVoucher decoded(String rawType, String target, String rawSerial) {
+    private DecodedVoucher decodedLegacy(String rawType, String target, String rawSerial) {
+        return decoded(rawType, target, rawSerial, false);
+    }
+
+    private DecodedVoucher decoded(String rawType, String target, String rawSerial, boolean stackable) {
         try {
             VoucherType type = VoucherType.valueOf(rawType.toUpperCase(Locale.ROOT));
             UUID serial = UUID.fromString(rawSerial);
+            if (stackable && !serial.equals(stableSerial(type, target))) return null;
             if (issuedStore != null && !issuedStore.isIssuedVoucher(serial, type, target)) return null;
-            return new DecodedVoucher(type, target, serial);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+            return new DecodedVoucher(type, target, serial, stackable);
+        } catch (IllegalArgumentException ignored) { return null; }
+    }
+
+    private UUID stableSerial(VoucherType type, String target) {
+        String seed = "SkyKingsVoucher:" + STACK_VERSION + ":" + type.name().toLowerCase(Locale.ROOT) + ":" + sanitize(target);
+        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8));
     }
 
     private void addMeta(List<String> lore, String payload) {
@@ -128,8 +136,7 @@ public final class VoucherItemCodec {
     }
 
     private String cleanDisplay(String target, String displayTarget) {
-        return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
-                displayTarget == null ? target : displayTarget));
+        return ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', displayTarget == null ? target : displayTarget));
     }
 
     private String shortTarget(VoucherType type, String cleanTarget) {
@@ -144,33 +151,23 @@ public final class VoucherItemCodec {
         return value;
     }
 
-    private String stripSuffix(String value, String suffix) {
-        return value.endsWith(suffix) ? value.substring(0, value.length() - suffix.length()) : value;
-    }
+    private String stripSuffix(String value, String suffix) { return value.endsWith(suffix) ? value.substring(0, value.length() - suffix.length()) : value; }
 
     private Material materialFor(VoucherType type) {
         switch (type) {
             case RANK:
             case RANKUP:
-            case PERMISSION:
-                return Material.BOOK;
-            case KIT:
-                return Material.PAPER;
-            case PREFIX:
-                return Material.NAME_TAG;
+            case PERMISSION: return Material.BOOK;
+            case KIT: return Material.PAPER;
+            case PREFIX: return Material.NAME_TAG;
             case COINS:
-            case GIVEALL_COINS:
-                return Material.DOUBLE_PLANT;
-            default:
-                return Material.PAPER;
+            case GIVEALL_COINS: return Material.DOUBLE_PLANT;
+            default: return Material.PAPER;
         }
     }
 
     private short dataFor(VoucherType type) { return 0; }
-
-    private String sanitize(String target) {
-        return target == null ? "" : target.trim().toLowerCase(Locale.ROOT).replace(":", "");
-    }
+    private String sanitize(String target) { return target == null ? "" : target.trim().toLowerCase(Locale.ROOT).replace(":", ""); }
 
     private String nameFor(VoucherType type) {
         switch (type) {
@@ -202,15 +199,13 @@ public final class VoucherItemCodec {
         private final VoucherType type;
         private final String target;
         private final UUID serial;
-
-        DecodedVoucher(VoucherType type, String target, UUID serial) {
-            this.type = type;
-            this.target = target;
-            this.serial = serial;
+        private final boolean stackable;
+        DecodedVoucher(VoucherType type, String target, UUID serial, boolean stackable) {
+            this.type = type; this.target = target; this.serial = serial; this.stackable = stackable;
         }
-
         public VoucherType getType() { return type; }
         public String getTarget() { return target; }
         public UUID getSerial() { return serial; }
+        public boolean isStackable() { return stackable; }
     }
 }
