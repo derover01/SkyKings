@@ -13,17 +13,14 @@ import java.util.UUID;
 /** Kodiert Gutschein-Typ, Ziel und eindeutige Seriennummer persistent und spielerunsichtbar im Item. */
 public final class VoucherItemCodec {
 
-    public enum VoucherType { RANK, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
+    public enum VoucherType { RANK, RANKUP, KIT, PERMISSION, PREFIX, COINS, GIVEALL_COINS }
 
-    /** Legacy-Marker bleibt lesbar, damit bereits ausgegebene Testgutscheine dekodiert werden koennen. */
     private static final String LEGACY_MARKER = ChatColor.BLACK + "skykings:voucher:";
-    /** Fallback fuer Umgebungen ohne CraftBukkit-NBT (z. B. isolierte Unit-Tests). */
     private static final String META_MARKER = ChatColor.BLACK + "#sv";
     private static final int META_CHUNK = 12;
 
     private final IssuedItemStore issuedStore;
 
-    /** Nutzt im laufenden Plugin automatisch das aktive Issued-Registry; in isolierten Tests null. */
     public VoucherItemCodec() { this(IssuedItemStore.active()); }
 
     public VoucherItemCodec(IssuedItemStore issuedStore) {
@@ -40,11 +37,9 @@ public final class VoucherItemCodec {
         ItemStack item = baseItem(type, cleanTarget, true);
         String payload = type.name().toLowerCase(Locale.ROOT) + "|" + sanitizedTarget + "|" + serial;
 
-        // Auf dem echten Spigot-Server: technische Daten ausschliesslich im NBT, nicht im Tooltip.
         ItemStack nbtItem = VoucherNbtCodec.write(item, payload);
         if (nbtItem != null) return nbtItem;
 
-        // Nur Fallback fuer Test-Doubles/ungewoehnliche Server ohne CraftBukkit-NBT-Zugriff.
         ItemMeta meta = item.getItemMeta();
         List<String> lore = new ArrayList<String>(meta.getLore());
         addMeta(lore, payload);
@@ -53,7 +48,6 @@ public final class VoucherItemCodec {
         return item;
     }
 
-    /** Nur fuer GUI-Preview/Inventar-Simulation. Erzeugt absichtlich keine gueltige Serial. */
     public ItemStack preview(VoucherType type, String displayTarget) {
         String cleanTarget = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&',
                 displayTarget == null ? "" : displayTarget));
@@ -72,6 +66,10 @@ public final class VoucherItemCodec {
         } else if (type == VoucherType.GIVEALL_COINS) {
             lore.add(ChatColor.GRAY + "Pro Spieler: " + ChatColor.GOLD + cleanTarget);
             lore.add(ChatColor.YELLOW + "Fuer alle Online-Spieler.");
+        } else if (type == VoucherType.RANKUP) {
+            lore.add(ChatColor.GOLD + "ULTRA SELTEN");
+            lore.add(ChatColor.GRAY + "Steigt genau " + ChatColor.WHITE + "eine Rangstufe" + ChatColor.GRAY + " auf.");
+            lore.add(ChatColor.GRAY + "Funktioniert auch beim Wechsel in Paid-Raenge.");
         } else {
             lore.add(ChatColor.GRAY + "Belohnung: " + ChatColor.WHITE + cleanTarget);
         }
@@ -85,22 +83,17 @@ public final class VoucherItemCodec {
 
     public DecodedVoucher decode(ItemStack item) {
         if (item == null || item.getType() == Material.AIR || !item.hasItemMeta()) return null;
-
-        // Neue Gutscheine: echte interne Item-Daten, komplett ausserhalb der sichtbaren Lore.
         String nbtPayload = VoucherNbtCodec.read(item);
         if (nbtPayload != null) return decodePayload(nbtPayload);
 
         ItemMeta meta = item.getItemMeta();
         if (meta == null || !meta.hasLore()) return null;
-
-        // Rueckwaertskompatibilitaet fuer den kurzen Lore-Marker der vorherigen Version.
         StringBuilder payload = new StringBuilder();
         for (String line : meta.getLore()) {
             if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
         }
         if (payload.length() > 0) return decodePayload(payload.toString());
 
-        // Rueckwaertskompatibilitaet fuer ganz alte Testitems.
         for (String line : meta.getLore()) {
             if (line == null || !line.startsWith(LEGACY_MARKER)) continue;
             String[] parts = line.substring(LEGACY_MARKER.length()).split(":", 3);
@@ -140,6 +133,7 @@ public final class VoucherItemCodec {
     }
 
     private String shortTarget(VoucherType type, String cleanTarget) {
+        if (type == VoucherType.RANKUP) return "+1 Rang";
         String value = cleanTarget == null ? "" : cleanTarget.trim();
         if (type == VoucherType.RANK) value = stripSuffix(value, " Rang");
         if (type == VoucherType.KIT) value = stripSuffix(value, " Kit");
@@ -157,6 +151,7 @@ public final class VoucherItemCodec {
     private Material materialFor(VoucherType type) {
         switch (type) {
             case RANK:
+            case RANKUP:
             case PERMISSION:
                 return Material.BOOK;
             case KIT:
@@ -171,10 +166,7 @@ public final class VoucherItemCodec {
         }
     }
 
-    private short dataFor(VoucherType type) {
-        // DOUBLE_PLANT:0 ist in 1.8 das Sonnenblumen-Item.
-        return 0;
-    }
+    private short dataFor(VoucherType type) { return 0; }
 
     private String sanitize(String target) {
         return target == null ? "" : target.trim().toLowerCase(Locale.ROOT).replace(":", "");
@@ -183,6 +175,7 @@ public final class VoucherItemCodec {
     private String nameFor(VoucherType type) {
         switch (type) {
             case RANK: return "Ranggutschein";
+            case RANKUP: return "RANKUP-GUTSCHEIN";
             case KIT: return "Kitgutschein";
             case PERMISSION: return "Rechtegutschein";
             case PREFIX: return "Prefixgutschein";
@@ -195,6 +188,7 @@ public final class VoucherItemCodec {
     private ChatColor colorFor(VoucherType type) {
         switch (type) {
             case RANK: return ChatColor.AQUA;
+            case RANKUP: return ChatColor.GOLD;
             case KIT: return ChatColor.GREEN;
             case PERMISSION: return ChatColor.LIGHT_PURPLE;
             case PREFIX: return ChatColor.YELLOW;
