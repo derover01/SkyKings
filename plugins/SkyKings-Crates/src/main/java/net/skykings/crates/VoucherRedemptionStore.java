@@ -61,34 +61,41 @@ public final class VoucherRedemptionStore {
     public CompletableFuture<Boolean> redeem(UUID serial) { return redeem(serial, 1); }
 
     /**
-     * Reserviert genau einen Claim, bevor der Reward vergeben wird. Identische stackbare Voucher
-     * duerfen bis zur serverseitig registrierten Ausgabezahl eingelöst werden; kopierte Stacks
-     * koennen diese Grenze nicht erhoehen. Jeder erfolgreiche Claim wird als eigene UUID-Zeile
-     * persistiert, wodurch bestehende Redemption-Dateien ohne Migration kompatibel bleiben.
+     * Asynchroner Kompatibilitaetspfad fuer Tests/Background-Aufrufer. Die eigentliche
+     * Reservierung + Datei-Persistenz geschieht gemeinsam in {@link #redeemSync(UUID, int)}.
      */
-    public CompletableFuture<Boolean> redeem(UUID serial, int maxClaims) {
+    public CompletableFuture<Boolean> redeem(final UUID serial, final int maxClaims) {
         if (!ready || serial == null || maxClaims < 1) return CompletableFuture.completedFuture(false);
+        return CompletableFuture.supplyAsync(() -> redeemSync(serial, maxClaims), executor);
+    }
+
+    /**
+     * Reserviert und persistiert genau einen Claim als eine synchrone Operation.
+     *
+     * Der Live-Spielerpfad verwendet diese Methode auf dem Bukkit-Hauptthread, damit zwischen
+     * "Claim sicher gespeichert" und anschliessender Reward-Vergabe kein separater Async-Callback-
+     * Tick liegt, in dem der Spieler disconnecten kann. Die Dateioperation ist nur ein append einer
+     * UUID-Zeile; Rapid-Clicks bleiben durch dieselbe synchronisierte Claim-Grenze fail-closed.
+     */
+    public boolean redeemSync(UUID serial, int maxClaims) {
+        if (!ready || serial == null || maxClaims < 1) return false;
         synchronized (redeemedClaims) {
             int current = redeemedClaims.containsKey(serial) ? redeemedClaims.get(serial) : 0;
-            if (current >= maxClaims) return CompletableFuture.completedFuture(false);
+            if (current >= maxClaims) return false;
             redeemedClaims.put(serial, current + 1);
-        }
-        return CompletableFuture.supplyAsync(() -> {
             try (FileWriter writer = new FileWriter(file, true)) {
                 writer.write(serial.toString());
                 writer.write(System.lineSeparator());
                 writer.flush();
                 return true;
             } catch (IOException ex) {
-                synchronized (redeemedClaims) {
-                    int current = redeemedClaims.containsKey(serial) ? redeemedClaims.get(serial) : 0;
-                    if (current <= 1) redeemedClaims.remove(serial);
-                    else redeemedClaims.put(serial, current - 1);
-                }
+                int reserved = redeemedClaims.containsKey(serial) ? redeemedClaims.get(serial) : 0;
+                if (reserved <= 1) redeemedClaims.remove(serial);
+                else redeemedClaims.put(serial, reserved - 1);
                 logger.log(Level.SEVERE, "Voucher-Claim konnte nicht gespeichert werden: " + serial, ex);
                 return false;
             }
-        }, executor);
+        }
     }
 
     public int getRedeemedClaims(UUID serial) {
@@ -97,9 +104,8 @@ public final class VoucherRedemptionStore {
     }
 
     /**
-     * Neue Redemptions werden zuerst gesperrt. Bereits eingereihte Datei-Writes bekommen
-     * bis zu fünf Sekunden Zeit, sauber zu Ende zu laufen, damit ein Restart keinen
-     * bereits vergebenen Gutschein wieder einloesbar macht.
+     * Neue Redemptions werden zuerst gesperrt. Bereits eingereihte Background-Aufrufe bekommen
+     * bis zu fünf Sekunden Zeit, sauber zu Ende zu laufen.
      */
     public void shutdown() {
         ready = false;
