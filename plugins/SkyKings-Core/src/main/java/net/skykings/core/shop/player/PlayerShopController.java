@@ -72,7 +72,16 @@ public final class PlayerShopController implements Listener, CommandExecutor {
                 player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
                 return true;
             }
-            player.getInventory().addItem(egg);
+            // canFit() ist nur ein Preflight. Falls sich das Inventar trotzdem zwischenzeitlich
+            // geaendert hat, darf der Spieler weder Coins verlieren noch ein Item gedroppt bekommen.
+            if (!player.getInventory().addItem(egg).isEmpty()) {
+                core.getEconomyService().deposit(player.getUniqueId(), EGG_PRICE, "PLAYER_SHOP_EGG_ROLLBACK",
+                        "Haendler-Ei konnte nach Abbuchung nicht zugestellt werden");
+                player.updateInventory();
+                player.sendMessage(ChatColor.RED + "Das Haendler-Ei konnte nicht sicher zugestellt werden. Deine Coins wurden erstattet.");
+                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+                return true;
+            }
             player.updateInventory();
             player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "HAENDLER-EI GEKAUFT! " + ChatColor.GRAY + "Rechtsklick auf deiner Insel/deinem Plot zum Platzieren.");
             player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, 1.4F);
@@ -146,10 +155,29 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.sendMessage(ChatColor.RED + "Das Haendler-Ei kann nur auf deiner eigenen Insel oder deinem eigenen Plot platziert werden.");
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F); return;
         }
-        Villager villager = player.getWorld().spawn(location, Villager.class);
+
+        final Villager villager;
+        try {
+            villager = player.getWorld().spawn(location, Villager.class);
+        } catch (RuntimeException ex) {
+            store.deleteChecked(shop.getId());
+            player.sendMessage(ChatColor.RED + "Der PlayerShop konnte nicht sicher erstellt werden. Dein Haendler-Ei wurde nicht verbraucht.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+            return;
+        }
         villager.setCustomName(ChatColor.GOLD.toString() + ChatColor.BOLD + "Shop " + ChatColor.YELLOW + "von " + player.getName());
         villager.setCustomNameVisible(true);
-        shop.setVillagerUuid(villager.getUniqueId()); store.save();
+        shop.setVillagerUuid(villager.getUniqueId());
+        if (!store.saveChecked()) {
+            // Der initiale Shop-Datensatz wurde bereits persistiert. Wenn die Villager-Verknuepfung
+            // nicht sicher gespeichert werden kann, weder Ei verbrauchen noch einen halben Shop stehen lassen.
+            shop.setVillagerUuid(null);
+            villager.remove();
+            store.deleteChecked(shop.getId());
+            player.sendMessage(ChatColor.RED + "Der PlayerShop konnte nicht sicher gespeichert werden. Dein Haendler-Ei wurde nicht verbraucht.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
+            return;
+        }
         consumeHand(player);
         player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "PLAYERSHOP PLATZIERT! " + ChatColor.GRAY + "Rechtsklick auf den Haendler fuer die Verwaltung.");
         player.playSound(location, Sound.LEVEL_UP, 0.8F, 1.35F);
@@ -267,7 +295,15 @@ public final class PlayerShopController implements Listener, CommandExecutor {
             player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
             return;
         }
-        removeVillager(shop.getVillagerUuid()); store.delete(shop.getId());
+        // Erst die persistente Shop-Definition entfernen. Wenn das fehlschlaegt, muss der Villager
+        // stehen bleiben, damit kein gueltiger Shop-Datensatz ohne zugehoerige Entity entsteht.
+        if (!store.deleteChecked(shop.getId())) {
+            player.sendMessage(ChatColor.RED + "Der PlayerShop konnte nicht sicher entfernt werden. Es wurde nichts veraendert.");
+            player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.6F, 0.9F);
+            return;
+        }
+        removeVillager(shop.getVillagerUuid());
+        openOwnerShops.remove(player.getUniqueId());
         player.sendMessage(ChatColor.YELLOW + "PlayerShop entfernt.");
         player.playSound(player.getLocation(), Sound.CLICK, 0.7F, 0.7F);
     }
