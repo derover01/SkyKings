@@ -52,6 +52,9 @@ public final class PlayerShopService {
     public synchronized Result purchase(Player buyer, UUID shopId, int offerIndex) {
         PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
         if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
+        // Der Besitzer darf seinen eigenen Shop normal ansehen, aber niemals selbst kaufen. Sonst
+        // wuerde ein versehentlicher Klick Stock entfernen und nur die 5-%-Fee verbrennen.
+        if (buyer.getUniqueId().equals(shop.getOwner())) return Result.NOT_ALLOWED;
         if (!PlayerShopTradeSnapshotRegistry.matchesIfPresent(buyer.getUniqueId(), shopId, offerIndex, offer)) return Result.INVALID_SHOP;
         if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
         long price = offer.getPriceCoins();
