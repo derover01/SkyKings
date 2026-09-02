@@ -125,7 +125,7 @@ crates:
         voucher-type: COINS
         target: '100000'
         display-target: '100.000 Coins'
-        weight: 210
+        weight: 209
         ev-value: 100000
       coins-250k:
         type: VOUCHER
@@ -163,4 +163,11 @@ crates:
         display-target: 'Diamond Free-Rang'
         weight: 3
         ev-value: 3000000
+      ultra-rankup:
+        type: VOUCHER
+        voucher-type: RANKUP
+        target: next
+        display-target: 'Ultra Rankup'
+        weight: 1
+        ev-value: 50000000
       player-shop-egg: {type: PLAYER_SHOP_EGG, amount: 1, weight: 20, ev-value: 2500000}
