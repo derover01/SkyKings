@@ -57,6 +57,9 @@ public final class PlayerShopService {
         long price = offer.getPriceCoins();
         long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
         if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
+        // Falls der finale Shop-Store-Save ausfaellt, wird der Verkaeufer direkt ueber die Economy
+        // recovered. Dieser Fallback muss bereits vor Stock-/Buyer-Mutationen sicher moeglich sein.
+        if (sellerRevenue > 0L && !economy.canDeposit(shop.getOwner(), sellerRevenue)) return Result.FAILED;
         ItemStack top = offer.topStack(), middle = offer.middleStack();
         if (!canFit(buyer, top, middle)) return Result.INVENTORY_FULL;
         if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
@@ -118,7 +121,7 @@ public final class PlayerShopService {
     public synchronized long claimRevenue(Player owner, UUID shopId) {
         PlayerShop shop = store.get(shopId); if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
         long amount = shop.getPendingRevenue(); if (amount <= 0L) return 0L;
-        try { Math.addExact(economy.getBalance(owner.getUniqueId()), amount); } catch (ArithmeticException ex) { throw new RevenueClaimOverflowException(); }
+        if (!economy.canDeposit(owner.getUniqueId(), amount)) throw new RevenueClaimOverflowException();
         shop.setPendingRevenue(0L); if (!store.saveChecked()) { shop.setPendingRevenue(amount); return 0L; }
         economy.deposit(owner.getUniqueId(), amount, "PLAYER_SHOP", "Shop-Einnahmen " + shopId); return amount;
     }
