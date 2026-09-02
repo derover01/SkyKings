@@ -11,6 +11,7 @@ Diese Liste ist das finale Ingame-/Windows-Gate nach dem automatisierten Build. 
 - [ ] Konsole auf `SEVERE`, Stacktraces, fehlende Commands und Service-Fehler prüfen.
 - [ ] `/skcheck` ausführen und alle Pflichtsysteme auf `[OK]` prüfen.
 - [ ] `SkyPvP`, `SkyIslands`, `SkyPlots`, `SkyCommunityEvent` geladen.
+- [ ] `build/resource-pack/SkyKings-ResourcePack-1.8.9.zip` wurde durch Preflight/CI erzeugt.
 
 ## 1. Universelle Item-Stackability
 
@@ -142,6 +143,7 @@ Mit Käufer + Verkäufer testen. Käufer benutzt **das echte Vanilla-Villager-Ha
 - [ ] ESC/Inventar schließen gibt **keinen** virtuellen Netherstern oder Preview-Gegenstand zurück.
 - [ ] Kauf mit ausreichend Coins + Platz: Angebot wird exakt einmal verkauft, Käufer Coins − Preis, Käufer Itemmenge korrekt, Seller Pending Revenue korrekt.
 - [ ] 2×64-Angebot kaufen: exakt beide gespeicherten Stacks werden einmal zugestellt.
+- [ ] Bei einem unerwarteten Zustellfehler darf niemals nur Stack 1 beim Käufer verbleiben; Kauf muss als Einheit zurückrollen.
 - [ ] 5-%-Fee korrekt, auch bei Preisen, die nicht glatt durch 100 teilbar sind.
 - [ ] Nicht genug Coins: weder Stock noch Items verändern.
 - [ ] Inventar voll: weder Coins noch Stock gehen verloren.
@@ -153,6 +155,7 @@ Mit Käufer + Verkäufer testen. Käufer benutzt **das echte Vanilla-Villager-Ha
 - [ ] Einnahmen claimen: Pending Revenue wird exakt einmal ausgezahlt.
 - [ ] Test mit extrem hohem Coin-Kontostand: Wenn Claim den `long`-Kontostand ueberlaufen wuerde, wird die Auszahlung blockiert und Pending Revenue bleibt unveraendert gespeichert.
 - [ ] Sehr hohes bereits angesammeltes Pending Revenue: weiterer Kauf darf vor Abbuchung fail-closed abbrechen statt Revenue zu ueberlaufen.
+- [ ] Verkäuferkonto nahe `Long.MAX_VALUE`: ein Kauf, dessen Revenue-Recovery nicht sicher gutgeschrieben werden koennte, muss vor Stock-/Käufermutation blockiert werden.
 - [ ] Shop mit leerem Stock + abgeholten Einnahmen entfernen → Villager verschwindet und genau **ein** Haendler-Ei wird zurückgegeben; bei freier Hand direkt in die Hand.
 - [ ] Kein Platz fuer das zurückzugebende Haendler-Ei → Remove wird komplett abgebrochen; Shop und Villager bleiben erhalten.
 - [ ] Zurückgegebenes Haendler-Ei ist erneut platzierbar und stackt mit aktuellen Haendler-Eiern.
@@ -182,13 +185,49 @@ Mindestens zwei Clients gleichzeitig.
 - [ ] Zwei Spieler öffnen einen normalen `/trade`, legen Items ein und **ohne Abschluss** wird der Server sauber mit `stop` beendet → nach Stop/Restart besitzt jeder Spieler exakt seine eigenen angebotenen Items wieder; kein Item fehlt und keines ist doppelt.
 - [ ] Trade-Shutdown mit vollem Inventar eines Teilnehmers → nicht einlagerbare Rückgabe wird am Spieler gedroppt statt gelöscht.
 
-## 12. Finales Release-Gate
+## 12. SkyKings Resource Pack / Presentation
+
+Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch ohne Pack voll funktionieren.
+
+### Build / technische Basis
+
+- [ ] `.\scripts\build-resource-pack.ps1` erzeugt `build/resource-pack/SkyKings-ResourcePack-1.8.9.zip`.
+- [ ] ZIP enthaelt `pack.mcmeta` direkt im Root.
+- [ ] `pack_format` ist `1`.
+- [ ] GitHub Actions liefert `skykings-resource-pack-1.8.9` als eigenes Artifact.
+- [ ] keine Entwicklungsdateien/Dummy-PNGs landen im Release-ZIP.
+
+### Assets / Compatibility
+
+- [ ] Core-Icons Home, Back, Next, Locked, Ready, Completed und Premium fertig.
+- [ ] Economy-Icons Coins, Netherstar, Shop, Trade, Jackpot/Casino fertig.
+- [ ] Progression-Icons Battle Pass, Quest, Kit/Rank und Season fertig.
+- [ ] Crate-/Voucher-Branding fertig.
+- [ ] jede verwendete Material-/Data-Kombination ist im `docs/RESOURCE_PACK.md`-Manifest reserviert.
+- [ ] Sword, Bow, Rod, Armor, Ender Pearl, Golden Apple und wichtige PvP-Bloecke werden nicht ungewollt global ueberschrieben.
+
+### Echter 1.8.9-Client
+
+- [ ] Pack laedt auf frischem Minecraft-1.8.9-Client ohne Fehlermeldung.
+- [ ] keine pink/schwarzen Missing-Texture-Flächen.
+- [ ] GUI Scale Small und Normal getestet.
+- [ ] Battle Pass, Quest Center, Kit Arsenal, Crate Center und Commands Hub mit Pack gut lesbar.
+- [ ] dieselben Systeme ohne Pack weiterhin voll bedienbar.
+- [ ] PlayerShop und `/trade` funktionieren mit und ohne Pack identisch.
+- [ ] SkyKings-Pack zusammen mit einem normalen PvP-Pack testen: Waffen/Ruestung/PvP-Items des Spieler-Packs bleiben nutzbar.
+- [ ] finale ZIP unter stabiler HTTPS-URL hosten und Server-Auslieferung nach Relog/Restart testen.
+
+## 13. Finales Release-Gate
 
 - [ ] Automatisierter Maven-/CI-Build auf `main` grün.
+- [ ] Resource-Pack-Build auf `main` grün und ZIP-Artifact vorhanden.
 - [ ] Alle automatisierten Tests grün.
 - [ ] `/skcheck` ohne Pflichtfehler.
 - [ ] Alle obigen kritischen Runtime-Flows auf echtem 1.8.9-Server getestet.
+- [ ] Resource-Pack-Client-Gate bestanden.
+- [ ] Backup -> Daten veraendern -> Restore erfolgreich geprüft.
+- [ ] kleiner Multiplayer-/Load-Soft-Launch erfolgreich.
 - [ ] Testserver einmal vollständig neu gestartet und Kernflows erneut kurz geprüft.
-- [ ] Erst danach Produktion freigeben.
+- [ ] Erst danach Produktion / groesseren Launch freigeben.
 
-> Wichtig: Ein grüner Compile-/Unit-Test ersetzt bei Minecraft 1.8.9 keine echte Bukkit-/Client-Runtime-Prüfung. Der letzte Release-Schritt bleibt deshalb bewusst ein manueller Multiplayer-Test auf dem Windows-Testserver.
+> Wichtig: Ein grüner Compile-/Unit-Test ersetzt bei Minecraft 1.8.9 keine echte Bukkit-/Client-Runtime-Prüfung. Der letzte Release-Schritt bleibt deshalb bewusst ein manueller Multiplayer- und Presentation-Test auf dem Windows-Testserver.
