@@ -35,15 +35,23 @@ public final class IslandMenu {
         decorate(gui);
 
         if (!hasIsland) {
+            boolean starterClaimed = IslandStarterProtection.hasClaimed(player.getUniqueId());
             gui.setItem(22, UiItems.item(Material.GRASS, UiTheme.SUCCESS + "Insel erstellen",
                     UiTheme.MUTED + "Klassische SkyBlock-Starterinsel",
-                    UiTheme.MUTED + "mit Baum und Ressourcen-Truhe.",
+                    starterClaimed ? UiTheme.WARNING + "Starterressourcen wurden bereits beansprucht."
+                            : UiTheme.MUTED + "mit Baum und Ressourcen-Truhe.",
                     "",
                     UiTheme.TEXT + "Schutz: 129 x 129",
                     UiItems.action("Klicken zum Erstellen")), (p,e,s) -> {
                 p.closeInventory();
-                if (islands.create(p)) p.sendMessage(UiTheme.SUCCESS + "Deine SkyKings-Insel wurde erstellt.");
-                else p.sendMessage(UiTheme.DANGER + "Deine Insel konnte nicht erstellt werden.");
+                try {
+                    if (IslandStarterProtection.create(islands, p)) {
+                        p.sendMessage(UiTheme.SUCCESS + "Deine SkyKings-Insel wurde erstellt.");
+                        if (starterClaimed) p.sendMessage(UiTheme.WARNING + "Starterloot wird pro Spieler nur einmal ausgegeben.");
+                    } else p.sendMessage(UiTheme.DANGER + "Deine Insel konnte nicht erstellt werden.");
+                } catch (IllegalStateException ex) {
+                    p.sendMessage(UiTheme.DANGER + "Starter-Schutz konnte nicht sicher gespeichert werden. Bitte Admin informieren.");
+                }
             });
             gui.setItem(31, UiItems.item(Material.BOOK, UiTheme.PRIMARY + "Island-System",
                     UiTheme.MUTED + "Baue deine Insel aus.",
@@ -91,6 +99,7 @@ public final class IslandMenu {
                     UiTheme.DANGER + "UNWIDERRUFLICH",
                     UiTheme.MUTED + "Alle Bloecke, Kisten, Entities, Homes",
                     UiTheme.MUTED + "und Trusts dieser Insel gehen verloren.", "",
+                    UiTheme.WARNING + "Starterloot gibt es danach nicht erneut.",
                     UiItems.action("Klicken fuer Warnung")), (p,e,s) -> openDeleteConfirm(p));
         }
 
@@ -112,7 +121,8 @@ public final class IslandMenu {
                 UiTheme.MUTED + "• Home und Welcome-Punkt",
                 UiTheme.MUTED + "• Trusted-Spieler und Island-Level",
                 "",
-                UiTheme.WARNING + "Danach kannst du eine neue Insel erstellen."));
+                UiTheme.WARNING + "Danach kannst du eine neue Insel erstellen.",
+                UiTheme.DANGER + "Starterressourcen werden NICHT erneut ausgegeben."));
         gui.setItem(11, UiItems.item(Material.EMERALD_BLOCK, UiTheme.SUCCESS + "ABBRECHEN",
                 UiTheme.MUTED + "Deine Insel bleibt unveraendert.", "", UiItems.action("Zurueck")),
                 (p,e,s) -> open(p));
@@ -121,9 +131,17 @@ public final class IslandMenu {
                 UiTheme.WARNING + "Keine Wiederherstellung moeglich.",
                 UiItems.action("Klicken zum Bestaetigen")), (p,e,s) -> {
             p.closeInventory();
+            try {
+                IslandStarterProtection.markClaimed(p.getUniqueId());
+            } catch (IllegalStateException ex) {
+                p.sendMessage(UiTheme.DANGER + "Loeschen abgebrochen: Starter-Schutz konnte nicht sicher gespeichert werden.");
+                p.playSound(p.getLocation(), Sound.VILLAGER_NO, 0.7F, 1.0F);
+                return;
+            }
             if (islands.delete(p.getUniqueId())) {
                 p.sendMessage(UiTheme.DANGER + "Deine alte Insel wurde vollstaendig geloescht.");
                 p.sendMessage(UiTheme.SUCCESS + "Du kannst jetzt mit /is create eine neue Insel erstellen.");
+                p.sendMessage(UiTheme.WARNING + "Starterressourcen werden pro Spieler nur einmal ausgegeben.");
                 p.playSound(p.getLocation(), Sound.ANVIL_LAND, 0.7F, 0.8F);
                 open(p);
             } else {
