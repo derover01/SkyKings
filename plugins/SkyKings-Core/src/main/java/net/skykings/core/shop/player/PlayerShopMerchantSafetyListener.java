@@ -2,10 +2,10 @@ package net.skykings.core.shop.player;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
@@ -51,6 +51,16 @@ final class PlayerShopMerchantSafetyListener implements Listener {
                 return;
             }
         }
+    }
+
+    @EventHandler
+    public void onClose(InventoryCloseEvent event) {
+        Inventory top = event.getInventory();
+        if (!isSkyKingsMerchant(top)) return;
+        // Vanilla gibt Merchant-Inputs beim Schliessen normalerweise an den Spieler zurueck.
+        // Unser Preis-Token ist rein virtuell und muss vorher entfernt werden.
+        top.setItem(0, new ItemStack(Material.AIR));
+        if (top.getSize() > 1) top.setItem(1, new ItemStack(Material.AIR));
     }
 
     private boolean isSkyKingsMerchant(Inventory top) {
