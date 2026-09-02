@@ -12,6 +12,14 @@ commands:
   rechte:
     description: Vergibt ein freigegebenes Gutschein-Recht.
     usage: /rechte <Spieler> <Recht>
+  addcoins:
+    description: Fügt einem bekannten Spieler Coins hinzu.
+    usage: /addcoins <Spieler> <Anzahl>
+    permission: skykings.admin.coins
+  setcoins:
+    description: Setzt den Coin-Kontostand eines bekannten Spielers.
+    usage: /setcoins <Spieler> <Anzahl>
+    permission: skykings.admin.coins
   announcement:
     description: Sendet eine formatierte SkyKings-Ankündigung.
     usage: /announcement <Nachricht>
@@ -71,6 +79,9 @@ permissions:
     default: false
   skykings.admin.rechte:
     description: Darf /rechte verwenden.
+    default: false
+  skykings.admin.coins:
+    description: Darf Coin-Kontostände mit /addcoins und /setcoins administrativ ändern.
     default: false
   skykings.admin.systemcheck:
     description: Darf den SkyKings Runtime-Systemcheck ausführen.
