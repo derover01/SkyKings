@@ -60,17 +60,24 @@ public final class CrateRedemptionStore {
 
     public boolean isReady() { return ready; }
 
-    /** Reserviert genau einen Claim der Batch. Insgesamt sind hoechstens maxClaims erlaubt. */
-    public CompletableFuture<Boolean> redeem(UUID serial, int maxClaims) {
+    /** Asynchroner Kompatibilitaetspfad; Live-Spieler verwenden redeemSync. */
+    public CompletableFuture<Boolean> redeem(final UUID serial, final int maxClaims) {
         if (!ready || serial == null || maxClaims < 1) return CompletableFuture.completedFuture(false);
-        final int newCount;
+        return CompletableFuture.supplyAsync(() -> redeemSync(serial, maxClaims), executor);
+    }
+
+    /**
+     * Reserviert und persistiert genau einen Batch-Claim in einer synchronen Operation.
+     * Dadurch kann der Live-Legacy-Crate-Pfad Claim und Reward im selben Bukkit-Tick behandeln,
+     * statt nach der Dateireservierung auf einen separaten Async-Callback zu warten.
+     */
+    public boolean redeemSync(UUID serial, int maxClaims) {
+        if (!ready || serial == null || maxClaims < 1) return false;
         synchronized (redeemedCounts) {
             int current = redeemedCounts.containsKey(serial) ? redeemedCounts.get(serial) : 0;
-            if (current >= maxClaims) return CompletableFuture.completedFuture(false);
-            newCount = current + 1;
+            if (current >= maxClaims) return false;
+            int newCount = current + 1;
             redeemedCounts.put(serial, newCount);
-        }
-        return CompletableFuture.supplyAsync(() -> {
             try (FileWriter writer = new FileWriter(file, true)) {
                 writer.write(serial.toString());
                 writer.write(",");
@@ -79,20 +86,18 @@ public final class CrateRedemptionStore {
                 writer.flush();
                 return true;
             } catch (IOException ex) {
-                synchronized (redeemedCounts) {
-                    int current = redeemedCounts.containsKey(serial) ? redeemedCounts.get(serial) : 0;
-                    if (current == newCount) {
-                        if (newCount <= 1) redeemedCounts.remove(serial);
-                        else redeemedCounts.put(serial, newCount - 1);
-                    }
+                int reserved = redeemedCounts.containsKey(serial) ? redeemedCounts.get(serial) : 0;
+                if (reserved == newCount) {
+                    if (newCount <= 1) redeemedCounts.remove(serial);
+                    else redeemedCounts.put(serial, newCount - 1);
                 }
                 logger.log(Level.SEVERE, "Crate-Claim konnte nicht gespeichert werden: " + serial, ex);
                 return false;
             }
-        }, executor);
+        }
     }
 
-    /** Verhindert, dass ein Restart bereits reservierte Claims vor dem Datei-Flush verliert. */
+    /** Verhindert, dass ein Restart bereits eingereihte Background-Aufrufe vor dem Datei-Flush verliert. */
     public void shutdown() {
         ready = false;
         executor.shutdown();
