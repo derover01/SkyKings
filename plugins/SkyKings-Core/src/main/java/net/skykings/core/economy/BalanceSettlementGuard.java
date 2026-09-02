@@ -1,8 +1,13 @@
 package net.skykings.core.economy;
 
-/** Reine Grenzwertpruefung fuer Transaktionen mit Abbuchung und anschliessender Gutschrift. */
+/** Reine Grenzwertpruefung fuer nichtnegative long-Transaktionen. */
 public final class BalanceSettlementGuard {
     private BalanceSettlementGuard() {}
+
+    /** Prueft eine Addition ohne Zustand zu mutieren oder auf saturierende Werte auszuweichen. */
+    public static boolean canAdd(long base, long addition) {
+        return base >= 0L && addition >= 0L && addition <= Long.MAX_VALUE - base;
+    }
 
     /**
      * Prueft, ob aus einem Kontostand zuerst debit abgezogen und danach credit addiert werden kann,
@@ -11,8 +16,7 @@ public final class BalanceSettlementGuard {
     public static boolean canSettle(long balance, long debit, long credit) {
         if (balance < 0L || debit < 0L || credit < 0L) return false;
         if (balance < debit) return false;
-        long afterDebit = balance - debit;
-        return credit <= Long.MAX_VALUE - afterDebit;
+        return canAdd(balance - debit, credit);
     }
 
     /** Liefert den finalen Kontostand; nur nach erfolgreichem canSettle-Aufruf verwenden. */
