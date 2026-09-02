@@ -9,6 +9,14 @@ import static org.junit.Assert.assertTrue;
 public class BalanceSettlementGuardTest {
 
     @Test
+    public void safeAdditionAllowsBoundaryAndRejectsOverflow() {
+        assertTrue(BalanceSettlementGuard.canAdd(Long.MAX_VALUE - 10L, 10L));
+        assertFalse(BalanceSettlementGuard.canAdd(Long.MAX_VALUE - 10L, 11L));
+        assertFalse(BalanceSettlementGuard.canAdd(-1L, 1L));
+        assertFalse(BalanceSettlementGuard.canAdd(1L, -1L));
+    }
+
+    @Test
     public void normalDebitAndCreditIsAllowed() {
         assertTrue(BalanceSettlementGuard.canSettle(1_000L, 100L, 500L));
         assertEquals(1_400L, BalanceSettlementGuard.settledBalance(1_000L, 100L, 500L));
