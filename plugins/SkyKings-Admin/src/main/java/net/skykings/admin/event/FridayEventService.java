@@ -2,6 +2,8 @@ package net.skykings.admin.event;
 
 import net.skykings.admin.warp.WarpService;
 import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.logging.AuditEvent;
+import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.model.Rank;
 import net.skykings.core.sound.SoundFeedback;
 import net.skykings.crates.CrateItemCodec;
@@ -195,6 +197,7 @@ public final class FridayEventService implements CommandExecutor {
                 + ChatColor.YELLOW + " gewinnt " + ChatColor.WHITE + rewardText + ChatColor.YELLOW + "!");
         broadcastSound(draw == AUTO_DRAW_COUNT ? Sound.LEVEL_UP : Sound.NOTE_PLING, 0.85F, 1.15F + draw * 0.035F);
         fireworks(winner.getLocation(), draw == AUTO_DRAW_COUNT ? 4 : 2);
+        auditWinner(winner, "friday-auto", rewardText);
         if (draw == 5) fireworks(eventLocation, 3);
     }
 
@@ -304,6 +307,7 @@ public final class FridayEventService implements CommandExecutor {
                     + ChatColor.YELLOW + " gewinnt " + ChatColor.WHITE + prizeName + ChatColor.YELLOW + "!");
             broadcastSound(Sound.LEVEL_UP, 0.85F, 1.4F);
             fireworks(winner.getLocation(), 2);
+            auditWinner(winner, "friday-manual", auditDescription(prize));
         }
         manualDrawRunning = false;
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -540,6 +544,18 @@ public final class FridayEventService implements CommandExecutor {
         for (Player player : Bukkit.getOnlinePlayers()) player.playSound(player.getLocation(), sound, volume, pitch);
     }
 
+    private void auditWinner(Player winner, String mode, String reward) {
+        if (winner == null || core == null || core.getLoggingService() == null) return;
+        core.getLoggingService().log(new AuditEvent(AuditEventType.GIVEAWAY_WIN,
+                winner.getUniqueId(), winner.getName(), null,
+                "mode=" + mode + ", reward=" + (reward == null ? "unknown" : ChatColor.stripColor(reward))));
+    }
+
+    private String auditDescription(ItemStack stack) {
+        if (stack == null) return "unknown";
+        return stack.getAmount() + "x " + stack.getType().name();
+    }
+
     private void fireworks(Location location, int amount) {
         for (int i = 0; i < amount; i++) {
             final Location at = randomized(location, 5.5D, 0.5D + random.nextDouble() * 2.5D);
@@ -566,7 +582,7 @@ public final class FridayEventService implements CommandExecutor {
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
             @Override public void run() {
                 synchronized (FridayEventService.this) {
-                    if (token != generation || phase == Phase.IDLE) return;
+                    if (token != generation) return;
                 }
                 action.run();
             }
