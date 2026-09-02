@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $packRoot = Join-Path $repoRoot 'resource-pack'
-$buildRoot = Join-Path $repoRoot 'build\resource-pack'
+$buildRoot = Join-Path (Join-Path $repoRoot 'build') 'resource-pack'
 $stageRoot = Join-Path $buildRoot 'stage'
 $outputZip = Join-Path $buildRoot 'SkyKings-ResourcePack-1.8.9.zip'
 
@@ -11,7 +11,7 @@ function Ok($text) { Write-Host ("[OK] {0}" -f $text) -ForegroundColor Green }
 
 if (-not (Test-Path $packRoot)) { Fail 'resource-pack Verzeichnis fehlt.' }
 $mcmeta = Join-Path $packRoot 'pack.mcmeta'
-if (-not (Test-Path $mcmeta)) { Fail 'resource-pack\pack.mcmeta fehlt.' }
+if (-not (Test-Path $mcmeta)) { Fail 'resource-pack/pack.mcmeta fehlt.' }
 
 try {
     $meta = Get-Content $mcmeta -Raw | ConvertFrom-Json
@@ -45,7 +45,7 @@ Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $outputZip -C
 
 if (-not (Test-Path $outputZip)) { Fail 'Resource-Pack ZIP wurde nicht erzeugt.' }
 
-# ZIP Root grob verifizieren. pack.mcmeta muss direkt im Root liegen.
+# ZIP-Root verifizieren. pack.mcmeta muss direkt im Root liegen.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($outputZip)
 try {
