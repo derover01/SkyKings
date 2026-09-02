@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class EconomyServiceImplTest {
 
@@ -41,6 +42,41 @@ public class EconomyServiceImplTest {
         assertEquals(150L, economyService.getBalance(uuid));
         assertEquals(1, auditSink.getEvents().size());
         assertEquals(AuditEventType.ECONOMY_DEPOSIT, auditSink.getEvents().get(0).getType());
+    }
+
+    @Test
+    public void depositCanCreditExistingPersistedProfileAfterLogout() {
+        final UUID offlineUuid = UUID.randomUUID();
+        final PlayerProfile persisted = new PlayerProfile(offlineUuid, "OfflineWinner", Rank.SPIELER, 250L, 0L, 0L, 0L);
+        FakePlayerProfileService persistedService = new FakePlayerProfileService() {
+            @Override
+            public PlayerProfile loadExisting(UUID target) {
+                if (!offlineUuid.equals(target)) return null;
+                put(persisted);
+                return persisted;
+            }
+        };
+        RecordingAuditSink sink = new RecordingAuditSink();
+        EconomyServiceImpl service = new EconomyServiceImpl(persistedService,
+                new LoggingServiceImpl(Collections.singletonList(sink), Logger.getLogger("offline-credit-test")));
+
+        service.deposit(offlineUuid, 750L, "JACKPOT", "offline winner");
+
+        assertEquals(1_000L, service.getBalance(offlineUuid));
+        assertEquals(1, sink.getEvents().size());
+        assertEquals(AuditEventType.ECONOMY_DEPOSIT, sink.getEvents().get(0).getType());
+    }
+
+    @Test
+    public void depositDoesNotCreateUnknownProfile() {
+        UUID unknown = UUID.randomUUID();
+        try {
+            economyService.deposit(unknown, 100L, "TEST", "unknown");
+            fail("Expected IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // expected
+        }
+        assertTrue(auditSink.getEvents().isEmpty());
     }
 
     @Test
@@ -101,7 +137,7 @@ public class EconomyServiceImplTest {
 
         try {
             economyService.deposit(richUuid, 10L, "TEST", null);
-            org.junit.Assert.fail("Erwartete EconomyOverflowException");
+            fail("Erwartete EconomyOverflowException");
         } catch (EconomyOverflowException expected) {
             // erwartet
         }
