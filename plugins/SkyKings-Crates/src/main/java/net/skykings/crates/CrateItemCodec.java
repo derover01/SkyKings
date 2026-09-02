@@ -35,7 +35,7 @@ public final class CrateItemCodec {
         int safeAmount = Math.max(1, Math.min(64, amount));
         ItemStack item = new ItemStack(Material.SKULL_ITEM, safeAmount, (short) 3);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
-        applyHead(meta, crate.getHeadOwner());
+        applyHead(meta, resolvedHead(crate));
         meta.setDisplayName(color(crate.getDisplayName()));
         List<String> lore = new ArrayList<String>();
         lore.add(ChatColor.GRAY + "Linksklick: " + ChatColor.WHITE + "Rewards ansehen");
@@ -46,6 +46,25 @@ public final class CrateItemCodec {
         meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
+    }
+
+    /**
+     * Alte Configs hatten fuer Vote/Common/Rare/Epic/Legendary/Royal/King alle MHF_Chest.
+     * Solange dort noch der Default steht, erzwingen wir pro Tier einen eigenen stabilen Kopf.
+     * Explizite texture:-Werte (z. B. Build/Fight/Money/Utility/Event) bleiben unangetastet.
+     */
+    private String resolvedHead(CrateRegistry.CrateDefinition crate) {
+        String configured = crate.getHeadOwner() == null ? "" : crate.getHeadOwner().trim();
+        if (!configured.isEmpty() && !"MHF_Chest".equalsIgnoreCase(configured)) return configured;
+        String id = crate.getId() == null ? "" : crate.getId().toLowerCase(Locale.ROOT);
+        if ("vote".equals(id)) return "MHF_Question";
+        if ("common".equals(id)) return "MHF_Chicken";
+        if ("rare".equals(id)) return "MHF_Enderman";
+        if ("epic".equals(id)) return "MHF_Blaze";
+        if ("legendary".equals(id)) return "MHF_Golem";
+        if ("royal".equals(id)) return "MHF_Wither";
+        if ("king".equals(id)) return "MHF_Dragon";
+        return configured.isEmpty() ? "MHF_Chest" : configured;
     }
 
     /**
@@ -110,7 +129,6 @@ public final class CrateItemCodec {
             }
         }
 
-        // Migration: bereits ausgegebene Batch-/Serial-Crates bleiben bis zum Aufbrauchen gueltig.
         StringBuilder payload = new StringBuilder();
         for (String line : meta.getLore()) {
             if (line != null && line.startsWith(META_MARKER)) payload.append(line.substring(META_MARKER.length()));
