@@ -1,6 +1,6 @@
 # SkyKings – Next Runtime Checklist
 
-Stand: 2026-09-02
+Stand: 2026-09-03
 
 Diese Liste ist das finale Ingame-/Windows-Gate nach dem automatisierten Build. Sie wird erst auf einem echten Paper/Spigot-1.8.9-Testserver mit mindestens zwei Clients vollständig abgehakt.
 
@@ -137,10 +137,10 @@ Mit Käufer + Verkäufer testen. Käufer benutzt **das echte Vanilla-Villager-Ha
 - [ ] Normaler Rechtsklick als Käufer öffnet **das echte Villager-Handelsfenster**, kein separates 3×9-Käufer-GUI.
 - [ ] Mehrere konfigurierte Angebote lassen sich mit den Vanilla-Pfeilen/Trade-Auswahl durchschalten.
 - [ ] Trade-Vorschau zeigt Item, Gesamtmenge/zweiten Stack und Coin-Preis verständlich an.
-- [ ] Virtueller `SkyKings Coins`-Netherstern ist nicht entnehmbar und landet niemals im Spielerinventar.
+- [ ] Virtueller `SkyKings Coins`-Goldnugget zeigt mit Pack das Coin-Icon, ist nicht entnehmbar und landet niemals im Spielerinventar.
 - [ ] Shift-Klick aus dem unteren Spielerinventar kann keine Items in die Merchant-Eingabeslots verschieben.
 - [ ] Drag über die Merchant-Slots wird blockiert.
-- [ ] ESC/Inventar schließen gibt **keinen** virtuellen Netherstern oder Preview-Gegenstand zurück.
+- [ ] ESC/Inventar schließen gibt **keinen** virtuellen Coin-Token oder Preview-Gegenstand zurück.
 - [ ] Kauf mit ausreichend Coins + Platz: Angebot wird exakt einmal verkauft, Käufer Coins − Preis, Käufer Itemmenge korrekt, Seller Pending Revenue korrekt.
 - [ ] 2×64-Angebot kaufen: exakt beide gespeicherten Stacks werden einmal zugestellt.
 - [ ] Bei einem unerwarteten Zustellfehler darf niemals nur Stack 1 beim Käufer verbleiben; Kauf muss als Einheit zurückrollen.
@@ -165,7 +165,7 @@ Mit Käufer + Verkäufer testen. Käufer benutzt **das echte Vanilla-Villager-Ha
 - [ ] `/commands` → Economy & Handel zeigt **Casino**, **Jackpot** und **PlayerShop**.
 - [ ] Casino-Karte öffnet `/casino`.
 - [ ] Jackpot-Karte öffnet `/jackpot`.
-- [ ] PlayerShop-Hinweise zeigen die korrekten Commands.
+- [ ] PlayerShop-Hinweise zeigen `/playershop kaufen` und den Besitzerzugriff per Shift + Rechtsklick korrekt.
 - [ ] Navigation Back/Home bleibt funktionsfähig.
 - [ ] Admin mit `skykings.admin.coins`: `/addcoins <Spieler> <Anzahl>` erhöht exakt um die angegebene positive Menge.
 - [ ] Admin mit `skykings.admin.coins`: `/setcoins <Spieler> <Anzahl>` setzt exakt auf den Wert; `0` funktioniert, negative Werte werden abgelehnt.
@@ -187,35 +187,44 @@ Mindestens zwei Clients gleichzeitig.
 
 ## 12. SkyKings Resource Pack / Presentation
 
-Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch ohne Pack voll funktionieren.
+Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch ohne Pack voll funktionieren. Das 19er-Core-Iconset ist bereits implementiert; dieser Abschnitt ist jetzt reines Client-/Visual-Gate.
 
 ### Build / technische Basis
 
 - [ ] `.\scripts\build-resource-pack.ps1` erzeugt `build/resource-pack/SkyKings-ResourcePack-1.8.9.zip`.
-- [ ] ZIP enthaelt `pack.mcmeta` direkt im Root.
+- [ ] ZIP enthaelt `pack.mcmeta` und `pack.png` direkt im Root.
 - [ ] `pack_format` ist `1`.
 - [ ] GitHub Actions liefert `skykings-resource-pack-1.8.9` als eigenes Artifact.
-- [ ] keine Entwicklungsdateien/Dummy-PNGs landen im Release-ZIP.
+- [ ] ZIP enthält alle 19 erwarteten Legacy-Itemtexturen und keine Entwicklungs-/Quelldateien.
 
-### Assets / Compatibility
+### 19 Core-Icons
 
-- [ ] Core-Icons Home, Back, Next, Locked, Ready, Completed und Premium fertig.
-- [ ] Economy-Icons Coins, Netherstar, Shop, Trade, Jackpot/Casino fertig.
-- [ ] Progression-Icons Battle Pass, Quest, Kit/Rank und Season fertig.
-- [ ] Crate-/Voucher-Branding fertig.
-- [ ] jede verwendete Material-/Data-Kombination ist im `docs/RESOURCE_PACK.md`-Manifest reserviert.
+- [ ] Navigation: Home, Back, Next korrekt.
+- [ ] Status: Locked, Ready, Completed korrekt.
+- [ ] Premium korrekt.
+- [ ] Economy: Coins, SkyKings Stern, Shop, Trade, Jackpot korrekt.
+- [ ] Progression: Battle Pass, Quests, Kits korrekt.
+- [ ] Crates korrekt.
+- [ ] Social/Event: Clan, Duel, Event korrekt.
+- [ ] Coins (`GOLD_NUGGET`) und SkyKings Stern (`NETHER_STAR`) sind visuell eindeutig verschieden.
+- [ ] PlayerShop-Villager verwendet im virtuellen Input das Coin-Icon und niemals den Stern.
+- [ ] jede verwendete Material-Kombination stimmt mit `docs/RESOURCE_PACK.md` und `ResourcePackIcon` überein.
 - [ ] Sword, Bow, Rod, Armor, Ender Pearl, Golden Apple und wichtige PvP-Bloecke werden nicht ungewollt global ueberschrieben.
 
 ### Echter 1.8.9-Client
 
 - [ ] Pack laedt auf frischem Minecraft-1.8.9-Client ohne Fehlermeldung.
 - [ ] keine pink/schwarzen Missing-Texture-Flächen.
+- [ ] `pack.png` ist in der Pack-/Serverdarstellung sichtbar.
 - [ ] GUI Scale Small und Normal getestet.
-- [ ] Battle Pass, Quest Center, Kit Arsenal, Crate Center und Commands Hub mit Pack gut lesbar.
+- [ ] Battle Pass, Quest Center, Kit Arsenal, Crate Center, Commands Hub, Jackpot, Trade und PlayerShop mit Pack gut lesbar.
+- [ ] GUI-Decorator verändert nur dekorative Slots; echte Reward-/PvP-Items bleiben ihre echten Materialien.
 - [ ] dieselben Systeme ohne Pack weiterhin voll bedienbar.
 - [ ] PlayerShop und `/trade` funktionieren mit und ohne Pack identisch.
 - [ ] SkyKings-Pack zusammen mit einem normalen PvP-Pack testen: Waffen/Ruestung/PvP-Items des Spieler-Packs bleiben nutzbar.
+- [ ] `/pack` hat 10s Resend-Cooldown und kann nicht gespammt werden.
 - [ ] finale ZIP unter stabiler HTTPS-URL hosten und Server-Auslieferung nach Relog/Restart testen.
+- [ ] Pack ablehnen/deaktivieren: Server bleibt vollständig spielbar.
 
 ## 13. Finales Release-Gate
 
