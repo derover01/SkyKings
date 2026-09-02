@@ -114,18 +114,42 @@ Kompletten Flow **natürlich** durchlaufen lassen; nicht per Stop abkürzen.
 
 ## 9. PlayerShop
 
-Mit Käufer + Verkäufer testen.
+Mit Käufer + Verkäufer testen. Käufer benutzt **das echte Vanilla-Villager-Handelsfenster**; die 3×9-Oberfläche ist nur der Besitzer-Editor.
 
-- [ ] Shop erstellen/konfigurieren, Stock einzahlen.
-- [ ] Kauf mit ausreichend Coins + Platz: Stock − Menge, Käufer Coins − Preis, Käufer Item + Menge, Seller Pending Revenue korrekt.
+### Besitzer / Einrichtung
+
+- [ ] `/playershop kaufen` → Haendler-Ei erhalten und auf eigener Insel/eigenem Plot platzieren.
+- [ ] Shift + Rechtsklick auf eigenen Villager öffnet Besitzer-Menü.
+- [ ] `Angebote bearbeiten` öffnet den 3×9-Editor.
+- [ ] Bis zu 9 Angebots-Spalten gleichzeitig konfigurieren.
+- [ ] Pro Spalte obere + mittlere Reihe mit demselben Item/Data befüllen; dadurch sind z. B. 2×64 Items in einem Trade möglich.
+- [ ] Unterschiedliches Item/Data in zweiter Reihe derselben Spalte wird abgelehnt.
+- [ ] Preisänderungen (+1/-1, Shift ±10, Mittelklick +100, Q Reset) werden gespeichert.
+- [ ] Stock withdraw/add und Restart: persistenter Bestand und Preise korrekt.
+- [ ] Fremder Spieler kann Shop nicht verwalten.
+
+### Echtes Villager-Handelsfenster / Kauf
+
+- [ ] Normaler Rechtsklick als Käufer öffnet **das echte Villager-Handelsfenster**, kein separates 3×9-Käufer-GUI.
+- [ ] Mehrere konfigurierte Angebote lassen sich mit den Vanilla-Pfeilen/Trade-Auswahl durchschalten.
+- [ ] Trade-Vorschau zeigt Item, Gesamtmenge/zweiten Stack und Coin-Preis verständlich an.
+- [ ] Virtueller `SkyKings Coins`-Netherstern ist nicht entnehmbar und landet niemals im Spielerinventar.
+- [ ] Shift-Klick aus dem unteren Spielerinventar kann keine Items in die Merchant-Eingabeslots verschieben.
+- [ ] Drag über die Merchant-Slots wird blockiert.
+- [ ] ESC/Inventar schließen gibt **keinen** virtuellen Netherstern oder Preview-Gegenstand zurück.
+- [ ] Kauf mit ausreichend Coins + Platz: Angebot wird exakt einmal verkauft, Käufer Coins − Preis, Käufer Itemmenge korrekt, Seller Pending Revenue korrekt.
+- [ ] 2×64-Angebot kaufen: exakt beide gespeicherten Stacks werden einmal zugestellt.
 - [ ] 5-%-Fee korrekt, auch bei Preisen, die nicht glatt durch 100 teilbar sind.
 - [ ] Nicht genug Coins: weder Stock noch Items verändern.
 - [ ] Inventar voll: weder Coins noch Stock gehen verloren.
+- [ ] Ausverkauftes/zwischenzeitlich geändertes Angebot kann aus einem bereits offenen Trade-Fenster nicht doppelt gekauft werden.
+- [ ] Nach erfolgreichem Kauf aktualisiert/öffnet sich der Villager-Trade mit dem neuesten Shopzustand erneut.
+
+### Erlös / Entfernen
+
 - [ ] Einnahmen claimen: Pending Revenue wird exakt einmal ausgezahlt.
 - [ ] Test mit extrem hohem Coin-Kontostand: Wenn Claim den `long`-Kontostand ueberlaufen wuerde, wird die Auszahlung blockiert und Pending Revenue bleibt unveraendert gespeichert.
 - [ ] Sehr hohes bereits angesammeltes Pending Revenue: weiterer Kauf darf vor Abbuchung fail-closed abbrechen statt Revenue zu ueberlaufen.
-- [ ] Stock withdraw/add und Restart: persistenter Bestand korrekt.
-- [ ] Fremder Spieler kann Shop nicht verwalten.
 - [ ] Shop mit leerem Stock + abgeholten Einnahmen entfernen → Villager verschwindet und genau **ein** Haendler-Ei wird zurückgegeben; bei freier Hand direkt in die Hand.
 - [ ] Kein Platz fuer das zurückzugebende Haendler-Ei → Remove wird komplett abgebrochen; Shop und Villager bleiben erhalten.
 - [ ] Zurückgegebenes Haendler-Ei ist erneut platzierbar und stackt mit aktuellen Haendler-Eiern.
@@ -147,7 +171,9 @@ Mit Käufer + Verkäufer testen.
 Mindestens zwei Clients gleichzeitig.
 
 - [ ] Gleichzeitiger Voucher-Rechtsklick auf denselben verbleibenden Claim erzeugt insgesamt maximal einen Reward.
-- [ ] Gleichzeitige PlayerShop-Käufe beim letzten Stock können zusammen nicht mehr Stock verkaufen als vorhanden.
+- [ ] Zwei Käufer öffnen dasselbe PlayerShop-Angebot gleichzeitig; beim letzten Stock kann insgesamt nur **ein** Kauf erfolgreich sein.
+- [ ] Verkäufer verändert/entnimmt ein Angebot, während Käufer das Villager-Fenster offen hat → alter Preview-Klick erzeugt keinen Dupe und keine falsche Abbuchung.
+- [ ] Käufer disconnectet/alt+F4 während geöffnetem Villager-Trade → keine virtuellen Merchant-Items bleiben erhalten und kein Kauf wird erfunden.
 - [ ] Gleichzeitige Casino-/Jackpot-Aktionen erzeugen keine negativen/duplizierten Kontostände.
 - [ ] Crate-Rapid-Open erzeugt keine Mehrfachclaims außerhalb des Stackbestands.
 
