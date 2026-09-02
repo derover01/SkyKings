@@ -32,6 +32,10 @@ jobs:
         shell: pwsh
         run: ./scripts/release-static-audit.ps1
 
+      - name: Build Minecraft 1.8.9 resource pack
+        shell: pwsh
+        run: ./scripts/build-resource-pack.ps1
+
       - name: Test and build all SkyKings modules
         run: mvn -B -U package
 
@@ -45,4 +49,12 @@ jobs:
             plugins/SkyKings-Combat/target/*.jar
             plugins/SkyKings-Crates/target/*.jar
             plugins/SkyKings-Admin/target/*.jar
+          if-no-files-found: error
+
+      - name: Upload resource pack
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skykings-resource-pack-1.8.9
+          path: build/resource-pack/SkyKings-ResourcePack-1.8.9.zip
           if-no-files-found: error
