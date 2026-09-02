@@ -260,9 +260,7 @@ public final class SkyKingsCore extends JavaPlugin implements SkyKingsCoreAPI {
         if (!registerCommand("spawnerstack", spawnerStackService)) return;
         if (!registerCommand("dailyrewards", new DailyRewardCommand(dailyRewardService))) return;
         if (!registerCommand("gm", new GamemodeCommand())) return;
-        TrashCommand trashCommand = new TrashCommand();
-        if (!registerCommand("trash", trashCommand)) return;
-        if (!registerCommand("clearinv", trashCommand)) return;
+        if (!registerCommand("trash", new TrashCommand())) return;
 
         getServer().getServicesManager().register(SkyKingsCoreAPI.class, this, this, ServicePriority.Normal);
         logIntegrationStatus();
