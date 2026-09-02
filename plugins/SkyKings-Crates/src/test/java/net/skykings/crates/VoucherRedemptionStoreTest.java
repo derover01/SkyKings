@@ -42,6 +42,34 @@ public class VoucherRedemptionStoreTest {
     }
 
     @Test
+    public void synchronousLiveClaimPersistsBeforeReturning() throws Exception {
+        File dir = Files.createTempDirectory("skykings-voucher-sync").toFile();
+        File file = new File(dir, "redeemed-vouchers.txt");
+        UUID serial = UUID.randomUUID();
+
+        VoucherRedemptionStore first = create(file);
+        first.initialize().get(5, TimeUnit.SECONDS);
+        assertTrue(first.redeemSync(serial, 2));
+        assertEquals(1, first.getRedeemedClaims(serial));
+        assertEquals(1, Files.readAllLines(file.toPath()).size());
+        first.shutdown();
+        stores.remove(first);
+
+        VoucherRedemptionStore restarted = create(file);
+        restarted.initialize().get(5, TimeUnit.SECONDS);
+        assertEquals(1, restarted.getRedeemedClaims(serial));
+        assertTrue(restarted.redeemSync(serial, 2));
+        assertFalse(restarted.redeemSync(serial, 2));
+    }
+
+    @Test
+    public void synchronousLiveClaimFailsClosedBeforeInitialization() throws Exception {
+        File dir = Files.createTempDirectory("skykings-voucher-sync-ready").toFile();
+        VoucherRedemptionStore store = create(new File(dir, "redeemed-vouchers.txt"));
+        assertFalse(store.redeemSync(UUID.randomUUID(), 1));
+    }
+
+    @Test
     public void stackSerialAllowsExactlyIssuedClaimCount() throws Exception {
         File dir = Files.createTempDirectory("skykings-voucher-stack").toFile();
         File file = new File(dir, "redeemed-vouchers.txt");
