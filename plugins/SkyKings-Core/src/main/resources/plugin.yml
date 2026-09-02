@@ -110,13 +110,9 @@ commands:
     usage: /gm <0|1|2|3> [Spieler]
     aliases: [gamemode]
   trash:
-    description: Öffnet ein temporäres Müllinventar.
+    description: Öffnet ein temporäres Müllinventar oder leert mit /clearinv dein Inventar.
     usage: /trash
-    aliases: [muell, müll]
-  clearinv:
-    description: Leert das komplette eigene Inventar inklusive Rüstung und Cursor.
-    usage: /clearinv
-    aliases: [clearinventory]
+    aliases: [muell, müll, clearinv, clearinventory]
 permissions:
   skykings.admin.commands:
     description: Zeigt den Admin-Bereich im /commands-Menü.
