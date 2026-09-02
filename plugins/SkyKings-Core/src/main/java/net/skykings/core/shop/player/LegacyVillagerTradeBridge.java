@@ -51,8 +51,10 @@ final class LegacyVillagerTradeBridge {
             if (openTrade == null) return false;
             openTrade.setAccessible(true);
             openTrade.invoke(playerHandle, villagerHandle);
+            PlayerShopTradeSnapshotRegistry.open(player.getUniqueId(), shop);
             return true;
         } catch (Exception ignored) {
+            PlayerShopTradeSnapshotRegistry.close(player.getUniqueId());
             return false;
         }
     }
