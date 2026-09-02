@@ -9,11 +9,39 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - Foundation: IMPLEMENTIERT
 - Build-ZIP: IMPLEMENTIERT
 - CI-Artifact: IMPLEMENTIERT
+- Server-Delivery (`/pack` + Join): IMPLEMENTIERT
+- HTTPS-/1.8-URL-Validierung: IMPLEMENTIERT
 - Core-Icons: OFFEN
 - Economy-/Progression-Icons: OFFEN
 - Branding-PNGs: OFFEN
 - Client-Runtime-Test: OFFEN
 - stabile HTTPS-Auslieferung: OFFEN
+
+## Server-Auslieferung
+
+SkyKings-Core kann den Pack ueber die klassische Minecraft-1.8-Resource-Pack-Anforderung an den Client senden. Das Feature ist bewusst standardmaessig deaktiviert, bis die finale ZIP unter einer stabilen direkten HTTPS-URL liegt.
+
+`plugins/SkyKings-Core/config.yml`:
+
+```yaml
+resource-pack:
+  enabled: false
+  send-on-join: true
+  join-delay-ticks: 40
+  url: ""
+```
+
+Release-Ablauf:
+
+1. finale ZIP bauen,
+2. ZIP unter einer direkten stabilen HTTPS-URL hosten,
+3. URL in `resource-pack.url` eintragen,
+4. `enabled: true` setzen,
+5. Server komplett neu starten,
+6. mit frischem 1.8.9-Client Join-Auslieferung testen,
+7. `/pack` als manuellen Retry testen.
+
+Die URL-Pruefung ist fail-closed: leer, HTTP statt HTTPS, Nicht-ASCII, Fragmente oder offensichtlich ungeeignete URLs werden nicht an den Client gesendet. Ein kaputter/nicht konfigurierter Pack deaktiviert niemals das Gameplay.
 
 ## 1.8.9-Regeln
 
@@ -53,6 +81,9 @@ Eine Material-/Data-Kombination gilt erst dann als reserviert, wenn sie gegen da
 Vor groesserem Launch:
 
 - [ ] Pack-ZIP laedt auf frischem 1.8.9-Client
+- [ ] `/pack` fordert die konfigurierte ZIP erneut an
+- [ ] Join mit `send-on-join: true` fordert die ZIP nach dem konfigurierten Delay an
+- [ ] deaktivierter/leer konfigurierter Pack erzeugt keinen Join-Fehler
 - [ ] keine Missing-Texture-Flaechen
 - [ ] GUI Scale Small/Normal getestet
 - [ ] Battle Pass, Quests, Kits, Crates und Commands Hub mit Pack lesbar
