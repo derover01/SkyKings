@@ -26,7 +26,7 @@ public final class CommandsGui {
         category(gui, 10, Material.DIAMOND_SWORD, ChatColor.RED + "PvP & Profil",
                 "Stats, Bounties, Cosmetics", p -> openPvp(p));
         category(gui, 12, Material.GOLD_INGOT, ChatColor.GOLD + "Economy & Handel",
-                "Shop, Trade, Rentals, Jackpot", p -> openEconomy(p));
+                "Shop, Trade, Casino, Jackpot", p -> openEconomy(p));
         category(gui, 14, Material.GRASS, ChatColor.GREEN + "Islands & Plots",
                 "Private Welten & Schutz", p -> openClaims(p));
         category(gui, 16, Material.EXP_BOTTLE, ChatColor.AQUA + "Progression",
@@ -82,6 +82,7 @@ public final class CommandsGui {
         action(gui, 12, Material.PAPER, "/worth", "Hand-Item bewerten", "worth");
         info(gui, 14, Material.GOLD_INGOT, "/sell <hand|all>", "Items verkaufen");
         info(gui, 16, Material.CHEST, "/trade <Spieler>", "Sicherer Spielerhandel");
+        action(gui, 22, Material.REDSTONE, "/casino", "Void Crown Casino", "casino");
         action(gui, 28, Material.NETHER_STAR, "/jackpot", "Serverweiter Coin-Jackpot", "jackpot");
         info(gui, 30, Material.MONSTER_EGG, "/playershop kaufen", "Eigenen Händler starten");
         action(gui, 32, Material.EMERALD_BLOCK, "/shoprent", "Geschützten Marktstand mieten", "shoprent");
