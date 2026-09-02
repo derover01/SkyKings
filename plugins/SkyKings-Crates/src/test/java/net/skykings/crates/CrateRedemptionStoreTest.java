@@ -44,6 +44,34 @@ public class CrateRedemptionStoreTest {
     }
 
     @Test
+    public void synchronousLegacyClaimPersistsBeforeReturning() throws Exception {
+        File dir = Files.createTempDirectory("skykings-crate-sync").toFile();
+        File file = new File(dir, "redeemed-crates.txt");
+        UUID serial = UUID.randomUUID();
+
+        CrateRedemptionStore first = create(file);
+        first.initialize().get(5, TimeUnit.SECONDS);
+        assertTrue(first.redeemSync(serial, 2));
+        List<String> lines = Files.readAllLines(file.toPath());
+        assertEquals(1, lines.size());
+        assertTrue(lines.get(0).startsWith(serial.toString() + ",1"));
+        first.shutdown();
+        stores.remove(first);
+
+        CrateRedemptionStore restarted = create(file);
+        restarted.initialize().get(5, TimeUnit.SECONDS);
+        assertTrue(restarted.redeemSync(serial, 2));
+        assertFalse(restarted.redeemSync(serial, 2));
+    }
+
+    @Test
+    public void synchronousLegacyClaimFailsClosedBeforeInitialization() throws Exception {
+        File dir = Files.createTempDirectory("skykings-crate-sync-ready").toFile();
+        CrateRedemptionStore store = create(new File(dir, "redeemed-crates.txt"));
+        assertFalse(store.redeemSync(UUID.randomUUID(), 1));
+    }
+
+    @Test
     public void consumedBatchRemainsConsumedAfterRestart() throws Exception {
         File dir = Files.createTempDirectory("skykings-crate-restart").toFile();
         File file = new File(dir, "redeemed-crates.txt");
