@@ -2,6 +2,7 @@ package net.skykings.core.trade;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,32 +27,26 @@ import java.util.logging.Level;
 /**
  * Verdrahtet das persistente TradeEscrowJournal um die bestehende Trade-GUI herum.
  *
- * Die LOWEST-Handler schreiben zuerst einen transienten Write-Ahead-State. Die bestehenden
- * TradeGuiService-Handler mutieren danach das Inventar. MONITOR persistiert anschliessend die
- * Spielerdatei und committed erst dann ACTIVE. Ein Hard-Crash zwischen diesen Schritten endet
- * daher in REVIEW_REQUIRED statt in einer automatischen Doppel-Auszahlung.
+ * LOWEST schreibt zuerst einen transienten Write-Ahead-State. Die bestehende TradeGuiService-
+ * Logik mutiert danach Inventar/Escrow. MONITOR speichert anschliessend Playerdaten und committed
+ * erst dann ACTIVE. Ein Hard-Crash zwischen den Schritten wird so REVIEW_REQUIRED statt Dupe.
  */
 public final class TradeEscrowJournalListener implements Listener {
     private static final String TRADE_TITLE = ChatColor.DARK_GRAY + "SkyKings | Trade";
 
     private final JavaPlugin plugin;
     private final TradeService tradeService;
-    private final TradeGuiService tradeGuiService;
     private final TradeEscrowJournal journal;
     private final Map<UUID, ClickTxn> clickTxns = new HashMap<UUID, ClickTxn>();
     private final Map<UUID, ReturnTxn> closeTxns = new HashMap<UUID, ReturnTxn>();
     private final Map<UUID, ReturnTxn> quitTxns = new HashMap<UUID, ReturnTxn>();
     private List<TradeSession> shutdownSessions = new ArrayList<TradeSession>();
 
-    public TradeEscrowJournalListener(JavaPlugin plugin, TradeService tradeService,
-                                      TradeGuiService tradeGuiService, TradeEscrowJournal journal) {
+    public TradeEscrowJournalListener(JavaPlugin plugin, TradeService tradeService, TradeEscrowJournal journal) {
         this.plugin = plugin;
         this.tradeService = tradeService;
-        this.tradeGuiService = tradeGuiService;
         this.journal = journal;
 
-        // Bei /reload (nicht empfohlen) koennen Spieler bereits online sein. Ein normaler Start
-        // recovered ueber PlayerJoinEvent, dieser Task deckt nur den Legacy-Sonderfall ab.
         Bukkit.getScheduler().runTask(plugin, new Runnable() {
             @Override public void run() {
                 for (Player online : Bukkit.getOnlinePlayers()) recover(online);
@@ -61,8 +56,7 @@ public final class TradeEscrowJournalListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onClickBefore(InventoryClickEvent event) {
-        if (!isTrade(event)) return;
-        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (!isTrade(event) || !(event.getWhoClicked() instanceof Player)) return;
         Player player = (Player) event.getWhoClicked();
         TradeSession session = tradeService.get(player.getUniqueId());
         if (session == null || session.isFinished()) return;
@@ -72,7 +66,7 @@ public final class TradeEscrowJournalListener implements Listener {
         int raw = event.getRawSlot();
         if (raw >= 54) {
             ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType() == org.bukkit.Material.AIR || self.getItems().size() >= 18) return;
+            if (clicked == null || clicked.getType() == Material.AIR || self.getItems().size() >= 18) return;
             boolean prepared = journal.prepareInbound(session, player.getUniqueId(), event.getSlot(), clicked.clone());
             clickTxns.put(player.getUniqueId(), new ClickTxn(session, Kind.INBOUND, prepared));
             return;
@@ -184,8 +178,7 @@ public final class TradeEscrowJournalListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onCloseAfter(InventoryCloseEvent event) {
         ReturnTxn txn = closeTxns.remove(event.getPlayer().getUniqueId());
-        if (txn == null) return;
-        finishReturnTxn(txn, "INVENTORY_CLOSE");
+        if (txn != null) finishReturnTxn(txn, "INVENTORY_CLOSE");
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -199,8 +192,7 @@ public final class TradeEscrowJournalListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuitAfter(PlayerQuitEvent event) {
         ReturnTxn txn = quitTxns.remove(event.getPlayer().getUniqueId());
-        if (txn == null) return;
-        finishReturnTxn(txn, "PLAYER_QUIT");
+        if (txn != null) finishReturnTxn(txn, "PLAYER_QUIT");
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -302,16 +294,13 @@ public final class TradeEscrowJournalListener implements Listener {
                     return;
                 }
 
-                // Alle absichtlich abgebrochenen Settlement-Pfade resetten beide Accepts. Bleibt
-                // die Session dagegen accepted, ist der Settlement-Task unerwartet abgebrochen;
-                // dann niemals automatisch ACTIVE markieren.
                 if (!session.bothAccepted()) {
                     if (!journal.saveActive(session)) {
                         abortForJournalFailure(session, "Abgebrochenes Settlement konnte nicht auf ACTIVE zurueckgesetzt werden.");
                     }
                 } else {
                     journal.markReviewRequired(session.getId(), "SETTLEMENT_DID_NOT_FINISH_NORMALLY");
-                    tradeGuiService.cancel(session, ChatColor.RED + "Trade gestoppt: Settlement muss durch Staff geprueft werden.");
+                    safeCancel(session, ChatColor.RED + "Trade gestoppt: Settlement muss durch Staff geprueft werden.");
                     savePlayers(session);
                 }
             }
@@ -320,9 +309,7 @@ public final class TradeEscrowJournalListener implements Listener {
 
     private void finishReturnTxn(ReturnTxn txn, String reason) {
         savePlayers(txn.session);
-        if (!txn.prepared) {
-            journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_WAS_NOT_PREPARED");
-        }
+        if (!txn.prepared) journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_WAS_NOT_PREPARED");
         if (!journal.clear(txn.session.getId())) {
             journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_COMPLETED_BUT_CLEAR_FAILED");
         }
@@ -331,8 +318,30 @@ public final class TradeEscrowJournalListener implements Listener {
     private void abortForJournalFailure(TradeSession session, String reason) {
         if (session == null || session.isFinished()) return;
         journal.markReviewRequired(session.getId(), reason.replace(' ', '_').toUpperCase(java.util.Locale.ROOT));
-        tradeGuiService.cancel(session, ChatColor.RED + "Trade aus Sicherheitsgruenden abgebrochen: " + ChatColor.GRAY + reason);
+        safeCancel(session, ChatColor.RED + "Trade aus Sicherheitsgruenden abgebrochen: " + ChatColor.GRAY + reason);
         savePlayers(session);
+    }
+
+    private void safeCancel(TradeSession session, String message) {
+        if (session == null || session.isFinished()) return;
+        session.setFinished(true);
+        tradeService.finish(session);
+        returnOffer(session.getLeft(), message);
+        returnOffer(session.getRight(), message);
+    }
+
+    private void returnOffer(TradeOffer offer, String message) {
+        if (offer == null) return;
+        Player player = Bukkit.getPlayer(offer.getPlayer());
+        if (player == null) return;
+        for (ItemStack raw : offer.getItems()) {
+            if (raw == null) continue;
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(raw.clone());
+            for (ItemStack leftover : leftovers.values()) player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+        player.updateInventory();
+        player.closeInventory();
+        if (message != null) player.sendMessage(message);
     }
 
     private void savePlayers(TradeSession session) {
@@ -357,9 +366,7 @@ public final class TradeEscrowJournalListener implements Listener {
             ItemStack current = player.getInventory().getItem(i);
             if (current != null) temp.setItem(i, current.clone());
         }
-        for (ItemStack item : items) {
-            if (item != null && !temp.addItem(item.clone()).isEmpty()) return false;
-        }
+        for (ItemStack item : items) if (item != null && !temp.addItem(item.clone()).isEmpty()) return false;
         return true;
     }
 
