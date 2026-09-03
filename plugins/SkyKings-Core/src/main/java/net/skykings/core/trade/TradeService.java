@@ -1,5 +1,6 @@
 package net.skykings.core.trade;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.economy.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,7 +18,7 @@ public final class TradeService {
     private final Map<UUID, TradeSession> activeByPlayer = new ConcurrentHashMap<UUID, TradeSession>();
 
     public TradeService() {
-        this(null);
+        this(resolveEconomyService());
     }
 
     public TradeService(EconomyService economyService) {
@@ -34,6 +35,18 @@ public final class TradeService {
         } catch (Throwable ignored) {
             // Erwartet fuer isolierte Unit-Tests ohne CraftBukkit/Server-Kontext.
         }
+    }
+
+    private static EconomyService resolveEconomyService() {
+        try {
+            JavaPlugin plugin = JavaPlugin.getProvidingPlugin(TradeService.class);
+            if (plugin instanceof SkyKingsCoreAPI) {
+                return ((SkyKingsCoreAPI) plugin).getEconomyService();
+            }
+        } catch (Throwable ignored) {
+            // Isolierte Unit-Tests haben keine Bukkit-Plugininstanz.
+        }
+        return null;
     }
 
     /** Check + Request-Eintrag sind eine atomare Zustandsaenderung. */
