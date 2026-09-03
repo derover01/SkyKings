@@ -100,6 +100,19 @@ public final class PlayerProfileServiceImpl implements PlayerProfileService {
     }
 
     @Override
+    public boolean saveNow(UUID uuid) {
+        PlayerProfile profile = cache.get(uuid);
+        if (profile == null) return false;
+        try {
+            dataStore.saveProfile(profile);
+            return true;
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "Konnte PlayerProfile nicht synchron speichern: " + uuid, e);
+            return false;
+        }
+    }
+
+    @Override
     public void saveAndUnload(UUID uuid) {
         PlayerProfile profile = cache.remove(uuid);
         if (profile == null) {
