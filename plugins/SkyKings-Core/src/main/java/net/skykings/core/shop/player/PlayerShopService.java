@@ -24,18 +24,25 @@ public final class PlayerShopService {
     private final EconomyService economy;
     private final LoggingService logging;
     private final PlayerShopPurchaseJournal purchaseJournal;
+    private final PlayerShopRevenueClaimJournal revenueClaimJournal;
     private ShopPlacementPolicy placementPolicy;
 
     public PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging) {
-        this(store, economy, logging, resolvePurchaseJournal());
+        this(store, economy, logging, resolvePurchaseJournal(), resolveRevenueClaimJournal());
     }
 
     PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging,
                       PlayerShopPurchaseJournal purchaseJournal) {
+        this(store, economy, logging, purchaseJournal, null);
+    }
+
+    PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging,
+                      PlayerShopPurchaseJournal purchaseJournal, PlayerShopRevenueClaimJournal revenueClaimJournal) {
         this.store = store;
         this.economy = economy;
         this.logging = logging;
         this.purchaseJournal = purchaseJournal;
+        this.revenueClaimJournal = revenueClaimJournal;
         this.placementPolicy = new ShopPlacementPolicy() {
             @Override public boolean canCreateShop(Player player, Location location) { return false; }
             @Override public boolean canManageShop(Player player, PlayerShop shop) { return player != null && shop != null && player.getUniqueId().equals(shop.getOwner()); }
@@ -51,7 +58,17 @@ public final class PlayerShopService {
             PlayerShopPurchaseJournal existing = PlayerShopPurchaseJournal.active();
             return existing != null ? existing : new PlayerShopPurchaseJournal(plugin);
         } catch (Throwable ignored) {
-            // Isolierte Unit-Tests laufen ohne Bukkit-/Plugin-Kontext.
+            return null;
+        }
+    }
+
+    private static PlayerShopRevenueClaimJournal resolveRevenueClaimJournal() {
+        try {
+            JavaPlugin plugin = JavaPlugin.getProvidingPlugin(PlayerShopService.class);
+            if (plugin == null) return null;
+            PlayerShopRevenueClaimJournal existing = PlayerShopRevenueClaimJournal.active();
+            return existing != null ? existing : new PlayerShopRevenueClaimJournal(plugin);
+        } catch (Throwable ignored) {
             return null;
         }
     }
@@ -227,11 +244,51 @@ public final class PlayerShopService {
     }
 
     public synchronized long claimRevenue(Player owner, UUID shopId) {
-        PlayerShop shop = store.get(shopId); if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
-        long amount = shop.getPendingRevenue(); if (amount <= 0L) return 0L;
-        if (!economy.canDeposit(owner.getUniqueId(), amount)) throw new RevenueClaimOverflowException();
-        shop.setPendingRevenue(0L); if (!store.saveChecked()) { shop.setPendingRevenue(amount); return 0L; }
-        economy.deposit(owner.getUniqueId(), amount, "PLAYER_SHOP", "Shop-Einnahmen " + shopId); return amount;
+        PlayerShop shop = store.get(shopId);
+        if (owner == null || shop == null || !placementPolicy.canManageShop(owner, shop)) return 0L;
+        long amount = shop.getPendingRevenue();
+        if (amount <= 0L) return 0L;
+        UUID ownerId = owner.getUniqueId();
+        if (!economy.canDeposit(ownerId, amount)) throw new RevenueClaimOverflowException();
+
+        UUID transaction = null;
+        if (revenueClaimJournal != null) {
+            transaction = revenueClaimJournal.begin(shopId, ownerId, amount);
+            if (transaction == null) return 0L;
+        }
+
+        shop.setPendingRevenue(0L);
+        if (!store.saveChecked()) {
+            shop.setPendingRevenue(amount);
+            completeRevenueJournal(transaction, "PENDING_REVENUE_ZERO_SAVE_REJECTED");
+            return 0L;
+        }
+
+        try {
+            economy.deposit(ownerId, amount, "PLAYER_SHOP", "Shop-Einnahmen " + shopId);
+        } catch (RuntimeException ex) {
+            noteRevenueJournal(transaction, "REVENUE_DEPOSIT_FAILED_AFTER_PENDING_ZERO");
+            return 0L;
+        }
+
+        if (revenueClaimJournal != null && !economy.persistNow(ownerId)) {
+            noteRevenueJournal(transaction, "REVENUE_BALANCE_COMMIT_FAILED_AFTER_PENDING_ZERO");
+            return 0L;
+        }
+
+        if (revenueClaimJournal != null && !revenueClaimJournal.complete(transaction)) {
+            revenueClaimJournal.noteFailure(transaction, "REVENUE_COMMITTED_BUT_JOURNAL_COMPLETION_FAILED");
+        }
+        return amount;
+    }
+
+    private void completeRevenueJournal(UUID transaction, String fallbackReason) {
+        if (revenueClaimJournal == null || transaction == null) return;
+        if (!revenueClaimJournal.complete(transaction)) revenueClaimJournal.noteFailure(transaction, fallbackReason);
+    }
+
+    private void noteRevenueJournal(UUID transaction, String reason) {
+        if (revenueClaimJournal != null && transaction != null) revenueClaimJournal.noteFailure(transaction, reason);
     }
 
     /* Legacy-Commands arbeiten weiter mit Angebot 1. */
