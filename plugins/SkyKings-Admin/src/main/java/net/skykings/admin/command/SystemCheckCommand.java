@@ -8,6 +8,7 @@ import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
 import net.skykings.core.resourcepack.ResourcePackService;
+import net.skykings.core.trade.TradeEscrowJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -69,6 +70,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
         eventReturnRecovery(sender);
         jackpotRecovery(sender);
+        tradeEscrowRecovery(sender);
         resourcePack(sender);
         fileCheck(sender, "SkyKings-Core", "island-starter-claims.txt", "Island Starter-Claim Store", true);
         fileCheck(sender, "SkyKings-Crates", "issued-items.txt", "Issued Item Registry", true);
@@ -128,6 +130,28 @@ public final class SystemCheckCommand implements CommandExecutor {
             return;
         }
         check(sender, true, "Jackpot Recovery Status");
+    }
+
+    private void tradeEscrowRecovery(CommandSender sender) {
+        TradeEscrowJournal journal = TradeEscrowJournal.active();
+        if (journal == null) {
+            check(sender, false, "Trade Escrow Journal");
+            return;
+        }
+        int review = journal.reviewRequiredCount();
+        int recoverable = journal.recoverableSessionCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Trade Escrow manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Session(s)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Core/" + TradeEscrowJournal.FILE_NAME);
+            return;
+        }
+        if (recoverable > 0) {
+            sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Trade Escrow wartet auf Spieler-Join: "
+                    + ChatColor.WHITE + recoverable + ChatColor.GRAY + " Session(s)");
+            return;
+        }
+        check(sender, true, "Trade Escrow Journal");
     }
 
     private void resourcePack(CommandSender sender) {
