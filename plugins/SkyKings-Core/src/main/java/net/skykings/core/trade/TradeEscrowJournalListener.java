@@ -1,5 +1,6 @@
 package net.skykings.core.trade;
 
+import net.skykings.core.economy.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -37,15 +38,18 @@ public final class TradeEscrowJournalListener implements Listener {
     private final JavaPlugin plugin;
     private final TradeService tradeService;
     private final TradeEscrowJournal journal;
+    private final EconomyService economyService;
     private final Map<UUID, ClickTxn> clickTxns = new HashMap<UUID, ClickTxn>();
     private final Map<UUID, ReturnTxn> closeTxns = new HashMap<UUID, ReturnTxn>();
     private final Map<UUID, ReturnTxn> quitTxns = new HashMap<UUID, ReturnTxn>();
     private List<TradeSession> shutdownSessions = new ArrayList<TradeSession>();
 
-    public TradeEscrowJournalListener(JavaPlugin plugin, TradeService tradeService, TradeEscrowJournal journal) {
+    public TradeEscrowJournalListener(JavaPlugin plugin, TradeService tradeService,
+                                      TradeEscrowJournal journal, EconomyService economyService) {
         this.plugin = plugin;
         this.tradeService = tradeService;
         this.journal = journal;
+        this.economyService = economyService;
 
         Bukkit.getScheduler().runTask(plugin, new Runnable() {
             @Override public void run() {
@@ -296,6 +300,10 @@ public final class TradeEscrowJournalListener implements Listener {
                 TradeEscrowJournal.State state = journal.stateOf(session.getId());
                 if (state != TradeEscrowJournal.State.SETTLING) return;
                 if (session.isFinished()) {
+                    if (!persistEconomy(session)) {
+                        journal.markReviewRequired(session.getId(), "SETTLEMENT_BALANCE_COMMIT_FAILED");
+                        return;
+                    }
                     if (!savePlayers(session)) {
                         journal.markReviewRequired(session.getId(), "SETTLEMENT_PLAYER_SAVE_FAILED");
                         return;
@@ -307,6 +315,11 @@ public final class TradeEscrowJournalListener implements Listener {
                 }
 
                 if (!session.bothAccepted()) {
+                    if (!persistEconomy(session)) {
+                        journal.markReviewRequired(session.getId(), "ABORTED_SETTLEMENT_BALANCE_COMMIT_FAILED");
+                        safeCancel(session, ChatColor.RED + "Trade gestoppt: Coin-Persistenz muss durch Staff geprueft werden.");
+                        return;
+                    }
                     if (!journal.saveActive(session)) {
                         abortForJournalFailure(session, "Abgebrochenes Settlement konnte nicht auf ACTIVE zurueckgesetzt werden.");
                     }
@@ -317,6 +330,22 @@ public final class TradeEscrowJournalListener implements Listener {
                 }
             }
         }, 61L);
+    }
+
+    private boolean persistEconomy(TradeSession session) {
+        if (session == null) return false;
+        if (session.getLeft().getCoins() <= 0L && session.getRight().getCoins() <= 0L) return true;
+        if (economyService == null) {
+            plugin.getLogger().severe("Trade-Escrow kann Coin-Settlement nicht durable committen: EconomyService fehlt.");
+            return false;
+        }
+        boolean left = economyService.persistNow(session.getLeft().getPlayer());
+        boolean right = economyService.persistNow(session.getRight().getPlayer());
+        if (!left || !right) {
+            plugin.getLogger().severe("Trade-Escrow Coin-Commit fehlgeschlagen: trade=" + session.getId()
+                    + ", left=" + left + ", right=" + right);
+        }
+        return left && right;
     }
 
     private void finishReturnTxn(ReturnTxn txn, String reason) {
