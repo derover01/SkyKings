@@ -1,5 +1,6 @@
 package net.skykings.core.trade;
 
+import net.skykings.core.economy.EconomyService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,6 +17,10 @@ public final class TradeService {
     private final Map<UUID, TradeSession> activeByPlayer = new ConcurrentHashMap<UUID, TradeSession>();
 
     public TradeService() {
+        this(null);
+    }
+
+    public TradeService(EconomyService economyService) {
         // In Unit-Tests existiert keine Bukkit-Runtime. Auf dem echten Server wird das Journal
         // direkt mit dem TradeService gebootstrapped, damit ACTIVE Escrow-Snapshots bereits vor
         // dem ersten Spieler-Join fuer Hard-Crash-Recovery bereitstehen.
@@ -23,7 +28,8 @@ public final class TradeService {
             JavaPlugin plugin = JavaPlugin.getProvidingPlugin(TradeService.class);
             if (plugin != null && Bukkit.getPluginManager() != null) {
                 TradeEscrowJournal journal = new TradeEscrowJournal(plugin);
-                Bukkit.getPluginManager().registerEvents(new TradeEscrowJournalListener(plugin, this, journal), plugin);
+                Bukkit.getPluginManager().registerEvents(
+                        new TradeEscrowJournalListener(plugin, this, journal, economyService), plugin);
             }
         } catch (Throwable ignored) {
             // Erwartet fuer isolierte Unit-Tests ohne CraftBukkit/Server-Kontext.
