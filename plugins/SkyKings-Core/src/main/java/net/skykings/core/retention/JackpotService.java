@@ -220,7 +220,6 @@ public final class JackpotService {
             name = offline.getName() == null ? winner.toString().substring(0, 8) : offline.getName();
         }
 
-        // Exakt dieselbe Rundungsrichtung wie floor(pot * 0.95), aber ohne double-Praezisionsverlust.
         long fee = pot / FEE_DIVISOR;
         if (pot % FEE_DIVISOR != 0L) fee++;
         long payout = pot - fee;
@@ -243,6 +242,11 @@ public final class JackpotService {
                     + winner + " / " + payout + " / " + ex.getMessage());
             return;
         }
+        if (!economy.persistNow(winner)) {
+            plugin.getLogger().severe("Jackpot-Auszahlung wurde im RAM angewendet, aber der synchrone Balance-Commit ist fehlgeschlagen. "
+                    + "Settlement bleibt PENDING fuer Review: " + winner + " / " + payout);
+            return;
+        }
 
         data.set("history.last-winner", winner.toString());
         data.set("history.last-winner-name", name);
@@ -252,11 +256,8 @@ public final class JackpotService {
         data.set("round.entries", null);
         data.set("round.settlement", null);
         if (!saveNow()) {
-            // Die Auszahlung IST bereits erfolgt. Auf Disk liegt weiterhin der zuvor erfolgreich
-            // reservierte PENDING-Stand. Diesen Zustand auch im RAM wiederherstellen, damit bis
-            // Restart/Review keine neue Runde Einsaetze annehmen kann.
             markPendingSettlement(winner, name, pot, payout, settlementCreatedAt, nextDraw);
-            plugin.getLogger().severe("Jackpot wurde ausgezahlt, aber Abschluss konnte nicht gespeichert werden. "
+            plugin.getLogger().severe("Jackpot wurde durable ausgezahlt, aber Abschluss konnte nicht gespeichert werden. "
                     + "Runtime bleibt fail-closed auf PENDING; beim Restart wird REVIEW_REQUIRED gesetzt.");
         }
 
