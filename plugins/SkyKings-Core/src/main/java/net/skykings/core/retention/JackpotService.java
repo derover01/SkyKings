@@ -121,7 +121,11 @@ public final class JackpotService {
             return false;
         }
         if (isSettlementOpen()) {
-            player.sendMessage(UiTheme.WARNING + "Die Jackpot-Ziehung wird gerade abgeschlossen. Bitte gleich erneut versuchen.");
+            if ("REVIEW_REQUIRED".equalsIgnoreCase(data.getString("recovery.status", ""))) {
+                player.sendMessage(UiTheme.WARNING + "Der Jackpot ist bis zur Staff-Pruefung eines vorherigen Settlements gesperrt.");
+            } else {
+                player.sendMessage(UiTheme.WARNING + "Die Jackpot-Ziehung wird gerade abgeschlossen. Bitte gleich erneut versuchen.");
+            }
             return false;
         }
 
@@ -309,7 +313,9 @@ public final class JackpotService {
     }
 
     private boolean isSettlementOpen() {
-        return "PENDING".equalsIgnoreCase(data.getString("round.settlement.status", ""));
+        return JackpotSettlementGate.blocks(
+                data.getString("round.settlement.status", ""),
+                data.getString("recovery.status", ""));
     }
 
     private void migrateLegacyEntries() {
