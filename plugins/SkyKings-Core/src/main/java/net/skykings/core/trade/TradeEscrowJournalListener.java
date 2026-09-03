@@ -339,12 +339,32 @@ public final class TradeEscrowJournalListener implements Listener {
         savePlayers(session);
     }
 
+    /**
+     * REVIEW_REQUIRED ist per Definition ein mehrdeutiger Zustand. In diesem Zustand duerfen
+     * Escrow-Items niemals automatisch zurueckgegeben werden, weil ein Settlement bereits
+     * teilweise ausgefuehrt worden sein koennte. Wir beenden dann nur die Live-Session und
+     * schliessen beide GUIs; der persistente Journal-Snapshot bleibt fuer Staff erhalten.
+     */
     private void safeCancel(TradeSession session, String message) {
         if (session == null || session.isFinished()) return;
+        if (journal.stateOf(session.getId()) == TradeEscrowJournal.State.REVIEW_REQUIRED) {
+            session.setFinished(true);
+            tradeService.finish(session);
+            freezePlayer(session.getLeft().getPlayer(), message);
+            freezePlayer(session.getRight().getPlayer(), message);
+            return;
+        }
         session.setFinished(true);
         tradeService.finish(session);
         returnOffer(session.getLeft(), message);
         returnOffer(session.getRight(), message);
+    }
+
+    private void freezePlayer(UUID uuid, String message) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) return;
+        player.closeInventory();
+        if (message != null) player.sendMessage(message);
     }
 
     private void returnOffer(TradeOffer offer, String message) {
