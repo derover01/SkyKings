@@ -27,6 +27,16 @@ public interface PlayerProfileService {
     /** Persistiert das gecachte Profil asynchron. */
     void save(UUID uuid);
 
+    /**
+     * Persistiert das aktuell gecachte Profil synchron und meldet, ob der Commit erfolgreich war.
+     * Der Default bleibt fuer einfache Test-Doubles kompatibel; die Produktionsimplementierung
+     * ueberschreibt diese Methode mit einem echten synchronen DataStore-Write.
+     */
+    default boolean saveNow(UUID uuid) {
+        save(uuid);
+        return true;
+    }
+
     /** Speichert synchron und entfernt das Profil aus dem Cache (PlayerQuit). */
     void saveAndUnload(UUID uuid);
 
