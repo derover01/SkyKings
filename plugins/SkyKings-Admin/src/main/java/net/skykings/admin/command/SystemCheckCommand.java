@@ -8,6 +8,7 @@ import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
 import net.skykings.core.resourcepack.ResourcePackService;
+import net.skykings.core.shop.player.PlayerShopPurchaseJournal;
 import net.skykings.core.shop.player.PlayerShopStore;
 import net.skykings.core.trade.TradeEscrowJournal;
 import org.bukkit.Bukkit;
@@ -72,6 +73,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         eventReturnRecovery(sender);
         jackpotRecovery(sender);
         tradeEscrowRecovery(sender);
+        playerShopPurchaseRecovery(sender);
         playerShopLegacyReview(sender);
         resourcePack(sender);
         fileCheck(sender, "SkyKings-Core", "island-starter-claims.txt", "Island Starter-Claim Store", true);
@@ -154,6 +156,22 @@ public final class SystemCheckCommand implements CommandExecutor {
             return;
         }
         check(sender, true, "Trade Escrow Journal");
+    }
+
+    private void playerShopPurchaseRecovery(CommandSender sender) {
+        PlayerShopPurchaseJournal journal = PlayerShopPurchaseJournal.active();
+        if (journal == null) {
+            check(sender, false, "PlayerShop Purchase Journal");
+            return;
+        }
+        int review = journal.reviewRequiredCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " PlayerShop-Kaeufe manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Transaktion(en)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Core/" + PlayerShopPurchaseJournal.FILE_NAME);
+            return;
+        }
+        check(sender, true, "PlayerShop Purchase Journal");
     }
 
     private void playerShopLegacyReview(CommandSender sender) {
