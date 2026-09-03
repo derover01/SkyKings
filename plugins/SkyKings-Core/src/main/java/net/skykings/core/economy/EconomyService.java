@@ -31,6 +31,15 @@ public interface EconomyService {
 
     boolean withdraw(UUID uuid, long amount, String actor, String reason);
 
+    /**
+     * Erzwingt fuer bereits vorgenommene Balance-Aenderungen einen synchronen Persistenz-Commit.
+     * Kritische Multi-Store-Transaktionen koennen damit ihren Coin-Teil durable machen, ohne jede
+     * normale Economy-Aenderung global auf Mainthread-I/O umzustellen.
+     */
+    default boolean persistNow(UUID uuid) {
+        return uuid != null;
+    }
+
     default void setBalance(UUID uuid, long amount) {
         setBalance(uuid, amount, "SYSTEM", null);
     }
