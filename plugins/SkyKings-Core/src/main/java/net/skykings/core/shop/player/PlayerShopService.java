@@ -11,6 +11,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.UUID;
 
@@ -22,16 +23,37 @@ public final class PlayerShopService {
     private final PlayerShopStore store;
     private final EconomyService economy;
     private final LoggingService logging;
+    private final PlayerShopPurchaseJournal purchaseJournal;
     private ShopPlacementPolicy placementPolicy;
 
     public PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging) {
-        this.store = store; this.economy = economy; this.logging = logging;
+        this(store, economy, logging, resolvePurchaseJournal());
+    }
+
+    PlayerShopService(PlayerShopStore store, EconomyService economy, LoggingService logging,
+                      PlayerShopPurchaseJournal purchaseJournal) {
+        this.store = store;
+        this.economy = economy;
+        this.logging = logging;
+        this.purchaseJournal = purchaseJournal;
         this.placementPolicy = new ShopPlacementPolicy() {
             @Override public boolean canCreateShop(Player player, Location location) { return false; }
             @Override public boolean canManageShop(Player player, PlayerShop shop) { return player != null && shop != null && player.getUniqueId().equals(shop.getOwner()); }
             @Override public boolean canSellFromShop(PlayerShop shop) { return shop != null; }
         };
         ShopRentBootstrap.installLater(this);
+    }
+
+    private static PlayerShopPurchaseJournal resolvePurchaseJournal() {
+        try {
+            JavaPlugin plugin = JavaPlugin.getProvidingPlugin(PlayerShopService.class);
+            if (plugin == null) return null;
+            PlayerShopPurchaseJournal existing = PlayerShopPurchaseJournal.active();
+            return existing != null ? existing : new PlayerShopPurchaseJournal(plugin);
+        } catch (Throwable ignored) {
+            // Isolierte Unit-Tests laufen ohne Bukkit-/Plugin-Kontext.
+            return null;
+        }
     }
 
     public void setPlacementPolicy(ShopPlacementPolicy placementPolicy) { if (placementPolicy != null) this.placementPolicy = placementPolicy; }
@@ -52,39 +74,122 @@ public final class PlayerShopService {
     public synchronized Result purchase(Player buyer, UUID shopId, int offerIndex) {
         PlayerShop shop = store.get(shopId); PlayerShopOffer offer = shop == null ? null : shop.getOffer(offerIndex);
         if (buyer == null || shop == null || offer == null || !offer.isConfigured()) return Result.INVALID_SHOP;
-        // Der Besitzer darf seinen eigenen Shop normal ansehen, aber niemals selbst kaufen. Sonst
-        // wuerde ein versehentlicher Klick Stock entfernen und nur die 5-%-Fee verbrennen.
         if (buyer.getUniqueId().equals(shop.getOwner())) return Result.NOT_ALLOWED;
         if (!PlayerShopTradeSnapshotRegistry.matchesIfPresent(buyer.getUniqueId(), shopId, offerIndex, offer)) return Result.INVALID_SHOP;
         if (!placementPolicy.canSellFromShop(shop)) return Result.NOT_ALLOWED;
+
         long price = offer.getPriceCoins();
         long fee = feeFor(price), sellerRevenue = price - fee, oldRevenue = shop.getPendingRevenue();
         if (sellerRevenue > 0L && oldRevenue > Long.MAX_VALUE - sellerRevenue) return Result.FAILED;
-        // Falls der finale Shop-Store-Save ausfaellt, wird der Verkaeufer direkt ueber die Economy
-        // recovered. Dieser Fallback muss bereits vor Stock-/Buyer-Mutationen sicher moeglich sein.
         if (sellerRevenue > 0L && !economy.canDeposit(shop.getOwner(), sellerRevenue)) return Result.FAILED;
+
         ItemStack top = offer.topStack(), middle = offer.middleStack();
         if (!canFit(buyer, top, middle)) return Result.INVENTORY_FULL;
-        if (!economy.has(buyer.getUniqueId(), price)) return Result.NOT_ENOUGH_MONEY;
+        UUID buyerId = buyer.getUniqueId();
+        if (!economy.has(buyerId, price)) return Result.NOT_ENOUGH_MONEY;
 
-        Material material = offer.getMaterial(); short data = offer.getData(); int topAmount = offer.getAmountTop(), middleAmount = offer.getAmountMiddle(); long oldPrice = offer.getPriceCoins();
+        Material material = offer.getMaterial();
+        short data = offer.getData();
+        int topAmount = offer.getAmountTop(), middleAmount = offer.getAmountMiddle();
+        long oldPrice = offer.getPriceCoins();
+
+        UUID transaction = null;
+        if (purchaseJournal != null) {
+            transaction = purchaseJournal.begin(shopId, offerIndex, buyerId, shop.getOwner(), material, data,
+                    topAmount, middleAmount, price, sellerRevenue, oldRevenue);
+            if (transaction == null) return Result.FAILED;
+        }
+
         offer.clear();
-        if (!store.saveChecked()) { restore(offer, material, data, topAmount, middleAmount, oldPrice); return Result.FAILED; }
-        if (!economy.withdraw(buyer.getUniqueId(), price, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot " + (offerIndex + 1))) {
-            restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.NOT_ENOUGH_MONEY;
-        }
-        if (!deliverAtomically(buyer, top, middle)) {
-            economy.deposit(buyer.getUniqueId(), price, "PLAYER_SHOP_ROLLBACK", "Rollback Shop " + shopId);
-            restore(offer, material, data, topAmount, middleAmount, oldPrice); store.saveChecked(); return Result.FAILED;
-        }
-        shop.setPendingRevenue(oldRevenue + sellerRevenue);
         if (!store.saveChecked()) {
-            shop.setPendingRevenue(oldRevenue);
-            economy.deposit(shop.getOwner(), sellerRevenue, "PLAYER_SHOP_RECOVERY", "Revenue-Save-Recovery " + shopId);
+            restore(offer, material, data, topAmount, middleAmount, oldPrice);
+            completeJournal(transaction, "RESERVATION_SAVE_REJECTED_BEFORE_EXTERNAL_MUTATION");
+            return Result.FAILED;
         }
-        logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyer.getUniqueId(), "PLAYER_SHOP", price,
-                "shop=" + shopId + ", offer=" + offerIndex + ", owner=" + shop.getOwner() + ", fee=" + fee + ", item=" + material + ", amount=" + (topAmount + middleAmount)));
-        buyer.updateInventory(); return Result.SUCCESS;
+
+        if (!economy.withdraw(buyerId, price, "PLAYER_SHOP", "Kauf Shop " + shopId + " Angebot " + (offerIndex + 1))) {
+            restore(offer, material, data, topAmount, middleAmount, oldPrice);
+            if (store.saveChecked()) completeJournal(transaction, "WITHDRAW_REJECTED_AND_OFFER_RESTORED");
+            else noteJournal(transaction, "OFFER_RESTORE_SAVE_FAILED_AFTER_WITHDRAW_REJECT");
+            return Result.NOT_ENOUGH_MONEY;
+        }
+
+        if (purchaseJournal != null && !economy.persistNow(buyerId)) {
+            boolean balanceRolledBack = rollbackBuyerBalance(buyerId, price, shopId);
+            restore(offer, material, data, topAmount, middleAmount, oldPrice);
+            boolean offerRestored = store.saveChecked();
+            if (balanceRolledBack && offerRestored) completeJournal(transaction, "BUYER_DEBIT_COMMIT_FAILED_BUT_ROLLED_BACK");
+            else noteJournal(transaction, "BUYER_DEBIT_COMMIT_FAILED_ROLLBACK_INCOMPLETE");
+            return Result.FAILED;
+        }
+
+        if (!deliverAtomically(buyer, top, middle)) {
+            boolean balanceRolledBack = rollbackBuyerBalance(buyerId, price, shopId);
+            restore(offer, material, data, topAmount, middleAmount, oldPrice);
+            boolean offerRestored = store.saveChecked();
+            if (balanceRolledBack && offerRestored) completeJournal(transaction, "ITEM_DELIVERY_REJECTED_AND_ROLLED_BACK");
+            else noteJournal(transaction, "ITEM_DELIVERY_ROLLBACK_INCOMPLETE");
+            return Result.FAILED;
+        }
+
+        if (purchaseJournal != null) {
+            try {
+                buyer.saveData();
+            } catch (RuntimeException ex) {
+                noteJournal(transaction, "BUYER_PLAYER_DATA_SAVE_FAILED_AFTER_DELIVERY");
+                buyer.updateInventory();
+                return Result.FAILED;
+            }
+        }
+
+        shop.setPendingRevenue(oldRevenue + sellerRevenue);
+        boolean sellerRevenueCommitted = store.saveChecked();
+        if (!sellerRevenueCommitted) {
+            shop.setPendingRevenue(oldRevenue);
+            if (!recoverSellerRevenue(shop.getOwner(), sellerRevenue, shopId)) {
+                noteJournal(transaction, "SELLER_REVENUE_SAVE_AND_RECOVERY_FAILED");
+                buyer.updateInventory();
+                return Result.FAILED;
+            }
+        }
+
+        if (purchaseJournal != null && !purchaseJournal.complete(transaction)) {
+            purchaseJournal.noteFailure(transaction, "PURCHASE_COMMITTED_BUT_JOURNAL_COMPLETION_FAILED");
+        }
+
+        logging.log(new AuditEvent(AuditEventType.SHOP_PURCHASE, buyerId, "PLAYER_SHOP", price,
+                "shop=" + shopId + ", offer=" + offerIndex + ", owner=" + shop.getOwner() + ", fee=" + fee
+                        + ", item=" + material + ", amount=" + (topAmount + middleAmount)));
+        buyer.updateInventory();
+        return Result.SUCCESS;
+    }
+
+    private boolean rollbackBuyerBalance(UUID buyerId, long price, UUID shopId) {
+        try {
+            economy.deposit(buyerId, price, "PLAYER_SHOP_ROLLBACK", "Rollback Shop " + shopId);
+            return purchaseJournal == null || economy.persistNow(buyerId);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private boolean recoverSellerRevenue(UUID owner, long sellerRevenue, UUID shopId) {
+        if (sellerRevenue <= 0L) return true;
+        try {
+            economy.deposit(owner, sellerRevenue, "PLAYER_SHOP_RECOVERY", "Revenue-Save-Recovery " + shopId);
+            return purchaseJournal == null || economy.persistNow(owner);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private void completeJournal(UUID transaction, String fallbackReason) {
+        if (purchaseJournal == null || transaction == null) return;
+        if (!purchaseJournal.complete(transaction)) purchaseJournal.noteFailure(transaction, fallbackReason);
+    }
+
+    private void noteJournal(UUID transaction, String reason) {
+        if (purchaseJournal != null && transaction != null) purchaseJournal.noteFailure(transaction, reason);
     }
 
     public synchronized boolean putOfferStack(Player owner, UUID shopId, int offerIndex, boolean middleRow, ItemStack stack) {
