@@ -114,7 +114,10 @@ public final class TradeEscrowJournalListener implements Listener {
                 scheduleSettlementGuard(txn.session);
                 break;
             case CANCEL:
-                savePlayers(txn.session);
+                if (!savePlayers(txn.session)) {
+                    journal.markReviewRequired(txn.session.getId(), "CANCEL_RETURN_PLAYER_SAVE_FAILED");
+                    break;
+                }
                 if (!journal.clear(txn.session.getId())) {
                     journal.markReviewRequired(txn.session.getId(), "CANCEL_COMPLETED_BUT_JOURNAL_CLEAR_FAILED");
                 }
@@ -210,7 +213,10 @@ public final class TradeEscrowJournalListener implements Listener {
         if (event.getPlugin() != plugin) return;
         for (TradeSession session : shutdownSessions) {
             if (session == null) continue;
-            savePlayers(session);
+            if (!savePlayers(session)) {
+                journal.markReviewRequired(session.getId(), "SHUTDOWN_RETURN_PLAYER_SAVE_FAILED");
+                continue;
+            }
             if (!journal.clear(session.getId())) {
                 journal.markReviewRequired(session.getId(), "SHUTDOWN_RETURN_COMPLETED_BUT_CLEAR_FAILED");
             }
@@ -272,11 +278,13 @@ public final class TradeEscrowJournalListener implements Listener {
     private void scheduleSettlementGuard(final TradeSession session) {
         if (session == null || session.isFinished() || !session.bothAccepted()) return;
         final long revision = session.getAcceptanceRevision();
+        final boolean[] armed = new boolean[] { false };
 
         Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
             @Override public void run() {
                 if (session.isFinished() || !session.bothAccepted() || !session.isAcceptanceRevision(revision)) return;
-                if (!journal.markSettling(session)) {
+                armed[0] = journal.markSettling(session);
+                if (!armed[0]) {
                     abortForJournalFailure(session, "Settlement-Journal konnte nicht vorbereitet werden.");
                 }
             }
@@ -284,10 +292,14 @@ public final class TradeEscrowJournalListener implements Listener {
 
         Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
             @Override public void run() {
+                if (!armed[0]) return;
                 TradeEscrowJournal.State state = journal.stateOf(session.getId());
                 if (state != TradeEscrowJournal.State.SETTLING) return;
                 if (session.isFinished()) {
-                    savePlayers(session);
+                    if (!savePlayers(session)) {
+                        journal.markReviewRequired(session.getId(), "SETTLEMENT_PLAYER_SAVE_FAILED");
+                        return;
+                    }
                     if (!journal.clear(session.getId())) {
                         journal.markReviewRequired(session.getId(), "SETTLEMENT_COMPLETED_BUT_CLEAR_FAILED");
                     }
@@ -308,8 +320,13 @@ public final class TradeEscrowJournalListener implements Listener {
     }
 
     private void finishReturnTxn(ReturnTxn txn, String reason) {
-        savePlayers(txn.session);
-        if (!txn.prepared) journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_WAS_NOT_PREPARED");
+        if (!savePlayers(txn.session)) {
+            journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_PLAYER_SAVE_FAILED");
+            return;
+        }
+        if (!txn.prepared) {
+            plugin.getLogger().warning("Trade-Escrow: " + reason + " wurde ohne persistierten RETURNING-State abgeschlossen; Playerdaten sind gespeichert.");
+        }
         if (!journal.clear(txn.session.getId())) {
             journal.markReviewRequired(txn.session.getId(), reason + "_RETURN_COMPLETED_BUT_CLEAR_FAILED");
         }
@@ -344,19 +361,25 @@ public final class TradeEscrowJournalListener implements Listener {
         if (message != null) player.sendMessage(message);
     }
 
-    private void savePlayers(TradeSession session) {
-        if (session == null) return;
-        savePlayer(session.getLeft().getPlayer());
-        savePlayer(session.getRight().getPlayer());
+    private boolean savePlayers(TradeSession session) {
+        if (session == null) return false;
+        boolean left = savePlayer(session.getLeft().getPlayer());
+        boolean right = savePlayer(session.getRight().getPlayer());
+        return left && right;
     }
 
-    private void savePlayer(UUID uuid) {
+    private boolean savePlayer(UUID uuid) {
         Player player = Bukkit.getPlayer(uuid);
-        if (player == null) return;
+        if (player == null) {
+            plugin.getLogger().severe("Trade-Escrow konnte Playerdaten nicht speichern: Spieler offline " + uuid);
+            return false;
+        }
         try {
             player.saveData();
+            return true;
         } catch (RuntimeException ex) {
             plugin.getLogger().log(Level.SEVERE, "Trade-Escrow konnte Playerdaten nicht synchron speichern: " + uuid, ex);
+            return false;
         }
     }
 
