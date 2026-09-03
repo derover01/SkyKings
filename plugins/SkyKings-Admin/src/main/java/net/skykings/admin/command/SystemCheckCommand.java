@@ -8,6 +8,7 @@ import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
 import net.skykings.core.resourcepack.ResourcePackService;
+import net.skykings.core.shop.player.PlayerShopStore;
 import net.skykings.core.trade.TradeEscrowJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -71,6 +72,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         eventReturnRecovery(sender);
         jackpotRecovery(sender);
         tradeEscrowRecovery(sender);
+        playerShopLegacyReview(sender);
         resourcePack(sender);
         fileCheck(sender, "SkyKings-Core", "island-starter-claims.txt", "Island Starter-Claim Store", true);
         fileCheck(sender, "SkyKings-Crates", "issued-items.txt", "Issued Item Registry", true);
@@ -152,6 +154,21 @@ public final class SystemCheckCommand implements CommandExecutor {
             return;
         }
         check(sender, true, "Trade Escrow Journal");
+    }
+
+    private void playerShopLegacyReview(CommandSender sender) {
+        Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
+        if (core == null) {
+            check(sender, false, "PlayerShop Legacy Migration");
+            return;
+        }
+        File review = new File(core.getDataFolder(), PlayerShopStore.LEGACY_REVIEW_FILE);
+        if (review.exists()) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " PlayerShop Legacy-Migration blockiert"
+                    + ChatColor.DARK_GRAY + " | " + review.getName());
+            return;
+        }
+        check(sender, true, "PlayerShop Legacy Migration");
     }
 
     private void resourcePack(CommandSender sender) {
