@@ -42,8 +42,6 @@ public final class EconomyServiceImpl implements EconomyService {
         if (amount < 0) {
             throw new IllegalArgumentException("Kontostand darf nicht negativ sein: " + amount);
         }
-        // Administrative Korrekturen duerfen auch bekannte, aktuell ausgeloggte Spieler treffen.
-        // Unbekannte UUIDs erzeugen weiterhin niemals automatisch ein neues Profil.
         PlayerProfile profile = requireExistingProfile(uuid);
         long old;
         synchronized (profile) {
@@ -59,8 +57,6 @@ public final class EconomyServiceImpl implements EconomyService {
         if (amount <= 0) {
             throw new IllegalArgumentException("Einzahlungsbetrag muss positiv sein: " + amount);
         }
-        // Serverseitige Credits (z. B. Jackpot, Admin-Credits oder Shop-Recovery) muessen auch
-        // einen Spieler erreichen, der ausgeloggt hat. Nur bereits persistierte Profile werden geladen.
         PlayerProfile profile = requireExistingProfile(uuid);
         long newBalance;
         synchronized (profile) {
@@ -93,6 +89,11 @@ public final class EconomyServiceImpl implements EconomyService {
         profileService.save(uuid);
         loggingService.logEconomyWithdraw(uuid, amount, newBalance, actor, reason);
         return true;
+    }
+
+    @Override
+    public boolean persistNow(UUID uuid) {
+        return uuid != null && profileService.saveNow(uuid);
     }
 
     private PlayerProfile requireProfile(UUID uuid) {
