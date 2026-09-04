@@ -107,31 +107,44 @@ public final class LuckPermsPermissionBridge implements PermissionBridge {
 
     @Override
     public void grantPermission(UUID uuid, String permission) {
-        Objects.requireNonNull(uuid, "uuid");
-        Objects.requireNonNull(permission, "permission");
-        UserManager userManager = luckPerms.getUserManager();
-        User loaded = userManager.getUser(uuid);
-        if (loaded != null) {
-            savePermissionChange(userManager, loaded, uuid, permission);
-            return;
-        }
-        userManager.loadUser(uuid, null).thenAccept(user -> savePermissionChange(userManager, user, uuid, permission)).exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht setzen", ex);
-            return null;
-        });
+        grantPermissionDurably(uuid, permission);
     }
 
-    private void savePermissionChange(UserManager userManager, User user, UUID uuid, String permission) {
+    @Override
+    public CompletableFuture<Boolean> grantPermissionDurably(UUID uuid, String permission) {
+        Objects.requireNonNull(uuid, "uuid");
+        Objects.requireNonNull(permission, "permission");
+        final UserManager userManager = luckPerms.getUserManager();
+        User loaded = userManager.getUser(uuid);
+        if (loaded != null) return savePermissionChangeDurably(userManager, loaded, uuid, permission);
+        return userManager.loadUser(uuid, null)
+                .thenCompose(user -> savePermissionChangeDurably(userManager, user, uuid, permission))
+                .exceptionally(ex -> {
+                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht persistent setzen", ex);
+                    return false;
+                });
+    }
+
+    private CompletableFuture<Boolean> savePermissionChangeDurably(UserManager userManager, User user,
+                                                                    UUID uuid, String permission) {
         try {
             Node node = Node.builder(permission).value(true).build();
-            if (user.data().add(node) == DataMutateResult.SUCCESS) {
-                userManager.saveUser(user).exceptionally(ex -> {
-                    logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht speichern", ex);
-                    return null;
-                });
+            DataMutateResult result = user.data().add(node);
+            if (result != DataMutateResult.SUCCESS) {
+                // Der haeufigste Nicht-SUCCESS-Fall ist ein bereits vorhandener identischer Node.
+                // Effektiv vorhandene Permission ist fuer einen idempotenten Voucher-Grant okay.
+                boolean alreadyGranted = user.getCachedData().getPermissionData().checkPermission(permission).asBoolean();
+                return CompletableFuture.completedFuture(alreadyGranted);
             }
+            return userManager.saveUser(user)
+                    .thenApply(ignored -> true)
+                    .exceptionally(ex -> {
+                        logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht speichern", ex);
+                        return false;
+                    });
         } catch (RuntimeException ex) {
             logger.log(Level.SEVERE, "Konnte Permission '" + permission + "' für " + uuid + " nicht anwenden", ex);
+            return CompletableFuture.completedFuture(false);
         }
     }
 
