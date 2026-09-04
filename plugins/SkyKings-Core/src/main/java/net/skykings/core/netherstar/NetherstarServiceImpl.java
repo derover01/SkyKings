@@ -83,6 +83,11 @@ public final class NetherstarServiceImpl implements NetherstarService {
         return true;
     }
 
+    @Override
+    public boolean persistNow(UUID uuid) {
+        return profileService.saveNow(uuid);
+    }
+
     private PlayerProfile requireProfile(UUID uuid) {
         PlayerProfile profile = profileService.getCached(uuid);
         if (profile == null) {
