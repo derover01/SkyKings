@@ -22,6 +22,14 @@ public interface NetherstarService {
 
     boolean withdraw(UUID uuid, long amount, String actor, String reason);
 
+    /**
+     * Erzwingt fuer transaktionale Systeme einen synchronen Commit des zugrunde liegenden
+     * PlayerProfiles. Normale Rewards koennen weiterhin den asynchronen Save-Pfad benutzen.
+     */
+    default boolean persistNow(UUID uuid) {
+        return true;
+    }
+
     default void setBalance(UUID uuid, long amount) {
         setBalance(uuid, amount, "SYSTEM", null);
     }
