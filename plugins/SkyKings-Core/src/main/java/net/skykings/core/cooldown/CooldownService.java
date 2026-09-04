@@ -25,5 +25,14 @@ public interface CooldownService {
 
     void set(UUID uuid, String key, long durationMillis);
 
+    /**
+     * Setzt und persistiert einen Cooldown synchron. Nur fuer Transaktionsgrenzen wie Kit-Claims,
+     * bei denen Item-Vergabe und Cooldown nach einem Hard-Crash nicht auseinanderlaufen duerfen.
+     */
+    default boolean setNow(UUID uuid, String key, long durationMillis) {
+        set(uuid, key, durationMillis);
+        return true;
+    }
+
     void remove(UUID uuid, String key);
 }
