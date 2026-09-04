@@ -22,10 +22,12 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /** Rechtsklick auf Gutschein = sichere Einloesung; Rang/Rechte immer mit Confirm-GUI. */
 public final class VoucherRedeemListener implements Listener {
@@ -35,13 +37,21 @@ public final class VoucherRedeemListener implements Listener {
     private final VoucherItemCodec codec;
     private final VoucherRedemptionStore store;
     private final SkyKingsCoreAPI core;
+    private final RewardSettlementJournal rewardJournal;
 
     public VoucherRedeemListener(SkyKingsCrates plugin, VoucherItemCodec codec,
                                  VoucherRedemptionStore store, SkyKingsCoreAPI core) {
+        this(plugin, codec, store, core, RewardSettlementJournal.active());
+    }
+
+    public VoucherRedeemListener(SkyKingsCrates plugin, VoucherItemCodec codec,
+                                 VoucherRedemptionStore store, SkyKingsCoreAPI core,
+                                 RewardSettlementJournal rewardJournal) {
         this.plugin = plugin;
         this.codec = codec;
         this.store = store;
         this.core = core;
+        this.rewardJournal = rewardJournal;
     }
 
     @EventHandler
@@ -54,6 +64,11 @@ public final class VoucherRedeemListener implements Listener {
         final Player player = event.getPlayer();
         if (!store.isReady()) {
             player.sendMessage(ChatColor.RED + "Gutschein-System startet noch. Bitte gleich erneut versuchen.");
+            SoundFeedback.error(player);
+            return;
+        }
+        if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Ein vorheriger Crate-/Voucher-Reward muss erst durch Staff geprueft werden.");
             SoundFeedback.error(player);
             return;
         }
@@ -94,6 +109,11 @@ public final class VoucherRedeemListener implements Listener {
                 SoundFeedback.error(p);
                 return;
             }
+            if (rewardJournal != null && rewardJournal.hasPendingFor(p.getUniqueId())) {
+                p.sendMessage(ChatColor.RED + "Ein vorheriger Reward muss erst durch Staff geprueft werden.");
+                SoundFeedback.error(p);
+                return;
+            }
             if (!canRedeem(p, voucher)) return;
             beginRedeem(p, voucher);
         });
@@ -111,12 +131,7 @@ public final class VoucherRedeemListener implements Listener {
         SoundFeedback.menuOpen(player);
     }
 
-    /**
-     * Claim-Persistenz und Reward-Vergabe laufen bewusst im selben Bukkit-Tick. Dadurch existiert
-     * kein Async-Fenster mehr, in dem der Claim bereits sicher verbraucht ist, der Spieler aber vor
-     * der Reward-Vergabe disconnectet. Die Store-Methode schreibt nur eine kleine Append-Zeile und
-     * bleibt durch die serverseitige Claim-Grenze gegen Rapid-Clicks abgesichert.
-     */
+    /** Claim -> Reward -> persistenter Commit -> physisches Voucher-Item entfernen -> Journal schliessen. */
     private void beginRedeem(final Player player, final VoucherItemCodec.DecodedVoucher voucher) {
         final UUID serial = voucher.getSerial();
         final int maxClaims = maxClaims(voucher);
@@ -126,28 +141,173 @@ public final class VoucherRedeemListener implements Listener {
             return;
         }
         if (!player.isOnline()) return;
+        if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Ein vorheriger Reward muss erst durch Staff geprueft werden.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        final UUID transaction = rewardJournal == null ? null : rewardJournal.begin(
+                "VOUCHER", serial.toString(), player.getUniqueId(), voucher.getType().name(), voucher.getTarget());
+        if (rewardJournal != null && transaction == null) {
+            player.sendMessage(ChatColor.RED + "Gutschein konnte nicht sicher vorbereitet werden. Es wurde nichts verbraucht.");
+            SoundFeedback.error(player);
+            return;
+        }
 
         boolean marked = store.redeemSync(serial, maxClaims);
         if (!marked) {
+            completeJournal(transaction, "CLAIM_REJECTED_BEFORE_NEW_REWARD");
             player.sendMessage(ChatColor.RED + "Dieser Gutschein wurde bereits vollstaendig eingeloest oder konnte nicht sicher gespeichert werden.");
             SoundFeedback.error(player);
             return;
         }
-        if (!grant(player, voucher)) {
+
+        if (voucher.getType() == VoucherItemCodec.VoucherType.PERMISSION
+                || voucher.getType() == VoucherItemCodec.VoucherType.PREFIX) {
+            grantPermissionVoucherDurably(player, voucher, maxClaims, transaction);
+            return;
+        }
+
+        final List<Player> giveAllRecipients = voucher.getType() == VoucherItemCodec.VoucherType.GIVEALL_COINS
+                ? new ArrayList<Player>(Bukkit.getOnlinePlayers()) : null;
+        if (!grant(player, voucher, giveAllRecipients)) {
+            noteJournal(transaction, "REWARD_GRANT_FAILED_AFTER_CLAIM");
             player.sendMessage(ChatColor.RED + "Gutschein konnte nicht vergeben werden. Bitte einem Admin melden: " + serial);
+            SoundFeedback.error(player);
+            return;
+        }
+        if (!persistReward(player, voucher, giveAllRecipients)) {
+            noteJournal(transaction, "REWARD_DURABLE_COMMIT_FAILED_AFTER_CLAIM");
+            player.sendMessage(ChatColor.RED + "Gutschein-Reward konnte nicht sicher gespeichert werden. Bitte Staff kontaktieren.");
             SoundFeedback.error(player);
             return;
         }
 
         consumeMatchingSerial(player, serial);
-        core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
-                player.getUniqueId(), player.getName(), null,
-                "serial=" + serial + ", claim=" + store.getRedeemedClaims(serial) + "/" + maxClaims
-                        + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
+        if (!savePlayerData(player)) {
+            noteJournal(transaction, "VOUCHER_ITEM_REMOVAL_PLAYER_SAVE_FAILED");
+            player.sendMessage(ChatColor.RED + "Reward ist gespeichert, aber dein Voucher-Inventar muss durch Staff geprueft werden.");
+            SoundFeedback.error(player);
+            return;
+        }
+        finishSuccessfulRedeem(player, voucher, maxClaims, transaction);
+    }
+
+    private void grantPermissionVoucherDurably(final Player player,
+                                                final VoucherItemCodec.DecodedVoucher voucher,
+                                                final int maxClaims,
+                                                final UUID transaction) {
+        final UUID playerId = player.getUniqueId();
+        final String playerName = player.getName();
+        final String actor = "VOUCHER:" + voucher.getSerial();
+        CompletableFuture<VoucherPermissionService.GrantStatus> future;
+        if (voucher.getType() == VoucherItemCodec.VoucherType.PERMISSION) {
+            future = core.getVoucherPermissionService().grantDurably(playerId, voucher.getTarget(), actor);
+        } else {
+            future = core.getVoucherPermissionService().grantPrefixDurably(playerId, voucher.getTarget(), actor);
+        }
+        future.whenComplete((status, error) -> Bukkit.getScheduler().runTask(plugin, new Runnable() {
+            @Override public void run() {
+                if (error != null || status != VoucherPermissionService.GrantStatus.GRANTED) {
+                    noteJournal(transaction, "LUCKPERMS_DURABLE_GRANT_FAILED_AFTER_CLAIM");
+                    Player online = Bukkit.getPlayer(playerId);
+                    if (online != null) {
+                        online.sendMessage(ChatColor.RED + "Permission-Reward konnte nicht sicher gespeichert werden. Bitte Staff kontaktieren.");
+                        SoundFeedback.error(online);
+                    }
+                    return;
+                }
+
+                Player online = Bukkit.getPlayer(playerId);
+                if (online != null) {
+                    consumeMatchingSerial(online, voucher.getSerial());
+                    if (!savePlayerData(online)) {
+                        noteJournal(transaction, "PERMISSION_VOUCHER_ITEM_REMOVAL_SAVE_FAILED");
+                        online.sendMessage(ChatColor.RED + "Permission ist gespeichert, aber dein Voucher-Inventar muss geprueft werden.");
+                        return;
+                    }
+                }
+                logRedeem(playerId, playerName, voucher, maxClaims);
+                if (!closeJournal(transaction)) {
+                    Player current = Bukkit.getPlayer(playerId);
+                    if (current != null) current.sendMessage(ChatColor.YELLOW + "Reward ist gespeichert, bleibt aber bis zur Staff-Pruefung markiert.");
+                    return;
+                }
+                Player current = Bukkit.getPlayer(playerId);
+                if (current != null) {
+                    current.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
+                    SoundFeedback.reward(current);
+                }
+            }
+        }));
+    }
+
+    private boolean persistReward(Player player, VoucherItemCodec.DecodedVoucher voucher, List<Player> giveAllRecipients) {
+        switch (voucher.getType()) {
+            case RANK:
+            case RANKUP:
+            case COINS:
+                return core.getEconomyService().persistNow(player.getUniqueId());
+            case KIT:
+                return savePlayerData(player);
+            case GIVEALL_COINS:
+                if (giveAllRecipients == null) return false;
+                for (Player recipient : giveAllRecipients) {
+                    if (!core.getEconomyService().persistNow(recipient.getUniqueId())) return false;
+                }
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    private boolean savePlayerData(Player player) {
+        if (player == null || !player.isOnline()) return false;
+        try {
+            player.saveData();
+            return true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Voucher-Playerdaten konnten nicht synchron gespeichert werden: "
+                    + player.getUniqueId() + " / " + ex.getMessage());
+            return false;
+        }
+    }
+
+    private void finishSuccessfulRedeem(Player player, VoucherItemCodec.DecodedVoucher voucher,
+                                        int maxClaims, UUID transaction) {
+        logRedeem(player.getUniqueId(), player.getName(), voucher, maxClaims);
+        if (!closeJournal(transaction)) {
+            player.sendMessage(ChatColor.YELLOW + "Reward ist gespeichert, bleibt aber bis zur Staff-Pruefung markiert.");
+            return;
+        }
         if (voucher.getType() != VoucherItemCodec.VoucherType.GIVEALL_COINS) {
             player.sendMessage(ChatColor.GREEN + "Gutschein erfolgreich eingeloest!");
         }
         SoundFeedback.reward(player);
+    }
+
+    private void logRedeem(UUID playerId, String playerName, VoucherItemCodec.DecodedVoucher voucher, int maxClaims) {
+        core.getLoggingService().log(new AuditEvent(AuditEventType.VOUCHER_REDEEMED,
+                playerId, playerName, null,
+                "serial=" + voucher.getSerial() + ", claim=" + store.getRedeemedClaims(voucher.getSerial()) + "/" + maxClaims
+                        + ", type=" + voucher.getType() + ", target=" + voucher.getTarget()));
+    }
+
+    private void completeJournal(UUID transaction, String fallbackReason) {
+        if (rewardJournal == null || transaction == null) return;
+        if (!rewardJournal.complete(transaction)) rewardJournal.noteFailure(transaction, fallbackReason);
+    }
+
+    private boolean closeJournal(UUID transaction) {
+        if (rewardJournal == null || transaction == null) return true;
+        if (rewardJournal.complete(transaction)) return true;
+        rewardJournal.noteFailure(transaction, "REWARD_COMMITTED_BUT_JOURNAL_CLOSE_FAILED");
+        return false;
+    }
+
+    private void noteJournal(UUID transaction, String reason) {
+        if (rewardJournal != null && transaction != null) rewardJournal.noteFailure(transaction, reason);
     }
 
     private int maxClaims(VoucherItemCodec.DecodedVoucher voucher) {
@@ -210,7 +370,7 @@ public final class VoucherRedeemListener implements Listener {
         }
     }
 
-    private boolean grant(Player player, VoucherItemCodec.DecodedVoucher voucher) {
+    private boolean grant(Player player, VoucherItemCodec.DecodedVoucher voucher, List<Player> giveAllRecipients) {
         switch (voucher.getType()) {
             case RANK:
                 Rank rank = parseRank(voucher.getTarget());
@@ -236,12 +396,6 @@ public final class VoucherRedeemListener implements Listener {
                 for (PotionEffect effect : kit.getPotionEffects()) player.addPotionEffect(effect, true);
                 player.updateInventory();
                 return true;
-            case PERMISSION:
-                return core.getVoucherPermissionService().grant(player.getUniqueId(), voucher.getTarget(),
-                        "VOUCHER:" + voucher.getSerial()) == VoucherPermissionService.GrantStatus.GRANTED;
-            case PREFIX:
-                return core.getVoucherPermissionService().grantPrefix(player.getUniqueId(), voucher.getTarget(),
-                        "VOUCHER:" + voucher.getSerial()) == VoucherPermissionService.GrantStatus.GRANTED;
             case COINS:
                 long amount = parseCoinAmount(voucher.getTarget());
                 if (amount <= 0L) return false;
@@ -251,9 +405,9 @@ public final class VoucherRedeemListener implements Listener {
                 return true;
             case GIVEALL_COINS:
                 long giveAllAmount = parseCoinAmount(voucher.getTarget());
-                if (giveAllAmount <= 0L) return false;
+                if (giveAllAmount <= 0L || giveAllRecipients == null) return false;
                 int recipients = 0;
-                for (Player online : Bukkit.getOnlinePlayers()) {
+                for (Player online : giveAllRecipients) {
                     core.getEconomyService().deposit(online.getUniqueId(), giveAllAmount, "VOUCHER_GIVEALL",
                             "GiveAll von " + player.getName() + " / " + voucher.getSerial());
                     online.sendMessage(ChatColor.GOLD + "+" + UiFormat.coins(giveAllAmount)
