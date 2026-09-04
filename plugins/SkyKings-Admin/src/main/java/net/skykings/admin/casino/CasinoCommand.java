@@ -15,6 +15,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.security.SecureRandom;
 import java.util.HashMap;
@@ -30,12 +31,29 @@ public final class CasinoCommand implements CommandExecutor {
 
     private final SkyKingsCoreAPI core;
     private final GuiManager gui;
+    private final CasinoSettlementJournal settlementJournal;
     private final SecureRandom random = new SecureRandom();
     private final Map<UUID, Long> lastPlay = new HashMap<UUID, Long>();
 
     public CasinoCommand(SkyKingsCoreAPI core) {
+        this(core, resolveSettlementJournal());
+    }
+
+    CasinoCommand(SkyKingsCoreAPI core, CasinoSettlementJournal settlementJournal) {
         this.core = core;
         this.gui = core.getGuiManager();
+        this.settlementJournal = settlementJournal;
+    }
+
+    private static CasinoSettlementJournal resolveSettlementJournal() {
+        try {
+            JavaPlugin plugin = JavaPlugin.getProvidingPlugin(CasinoCommand.class);
+            if (plugin == null) return null;
+            CasinoSettlementJournal existing = CasinoSettlementJournal.active();
+            return existing != null ? existing : new CasinoSettlementJournal(plugin);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -167,8 +185,16 @@ public final class CasinoCommand implements CommandExecutor {
     }
 
     private synchronized void play(Player player, Currency currency, Game game, long bet) {
+        UUID playerId = player.getUniqueId();
+        if (settlementJournal != null && settlementJournal.hasPendingFor(playerId)) {
+            player.closeInventory();
+            player.sendMessage(UiTheme.DANGER + "Casino fuer dich voruebergehend gesperrt: Eine vorherige Runde muss durch Staff geprueft werden.");
+            SoundFeedback.error(player);
+            return;
+        }
+
         long now = System.currentTimeMillis();
-        Long last = lastPlay.get(player.getUniqueId());
+        Long last = lastPlay.get(playerId);
         if (last != null && now - last < 750L) {
             player.sendMessage(UiTheme.WARNING + "Warte kurz vor dem naechsten Spiel.");
             SoundFeedback.warning(player);
@@ -226,15 +252,53 @@ public final class CasinoCommand implements CommandExecutor {
             SoundFeedback.error(player);
             return;
         }
+        long expectedBalance = currentBalance - bet + payout;
+
+        UUID transaction = null;
+        if (settlementJournal != null) {
+            transaction = settlementJournal.begin(playerId, currency.name(), game.name(), currentBalance, bet, payout, expectedBalance);
+            if (transaction == null) {
+                player.closeInventory();
+                player.sendMessage(UiTheme.DANGER + "Casino-Runde konnte nicht sicher vorbereitet werden. Es wurde nichts abgebucht.");
+                SoundFeedback.error(player);
+                return;
+            }
+        }
 
         if (!withdraw(player, currency, bet)) {
+            completeSettlementJournal(transaction, "WITHDRAW_REJECTED_BEFORE_MUTATION");
             player.sendMessage(UiTheme.DANGER + "Nicht genug " + (currency == Currency.COINS ? "Coins" : "SkyKings Sterne") + ".");
             SoundFeedback.error(player);
             return;
         }
-        lastPlay.put(player.getUniqueId(), now);
+        lastPlay.put(playerId, now);
 
-        if (payout > 0L) deposit(player,currency,payout,game);
+        try {
+            if (payout > 0L) deposit(player, currency, payout, game);
+        } catch (RuntimeException ex) {
+            noteSettlementJournal(transaction, "PAYOUT_MUTATION_FAILED_AFTER_WITHDRAW");
+            player.closeInventory();
+            player.sendMessage(UiTheme.DANGER + "Casino-Settlement unklar. Bitte Staff kontaktieren; die Runde wurde fuer Review gespeichert.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        if (settlementJournal != null && !persistNow(playerId, currency)) {
+            noteSettlementJournal(transaction, "FINAL_BALANCE_DURABLE_COMMIT_FAILED");
+            player.closeInventory();
+            player.sendMessage(UiTheme.DANGER + "Casino-Settlement konnte nicht sicher committed werden. Bitte Staff kontaktieren.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        if (settlementJournal != null && !settlementJournal.complete(transaction)) {
+            settlementJournal.noteFailure(transaction, "FINAL_BALANCE_COMMITTED_BUT_JOURNAL_COMPLETION_FAILED");
+            player.closeInventory();
+            player.sendMessage(UiTheme.WARNING + "Dein Ergebnis ist gespeichert, aber die Runde bleibt bis zur Staff-Pruefung gesperrt.");
+            SoundFeedback.warning(player);
+            return;
+        }
+
         long net = payout - bet;
         player.closeInventory();
         if (net > 0L) {
@@ -250,6 +314,20 @@ public final class CasinoCommand implements CommandExecutor {
             player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.8F);
         }
         openBets(player,currency,game);
+    }
+
+    private void completeSettlementJournal(UUID transaction, String fallbackReason) {
+        if (settlementJournal == null || transaction == null) return;
+        if (!settlementJournal.complete(transaction)) settlementJournal.noteFailure(transaction, fallbackReason);
+    }
+
+    private void noteSettlementJournal(UUID transaction, String reason) {
+        if (settlementJournal != null && transaction != null) settlementJournal.noteFailure(transaction, reason);
+    }
+
+    private boolean persistNow(UUID player, Currency currency) {
+        if (currency == Currency.COINS) return core.getEconomyService().persistNow(player);
+        return core.getNetherstarService().persistNow(player);
     }
 
     private boolean withdraw(Player p, Currency c, long amount) {
