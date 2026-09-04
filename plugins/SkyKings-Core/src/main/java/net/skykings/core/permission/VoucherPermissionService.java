@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /** Gemeinsame Source of Truth fuer /rechte und Permission-/Prefix-Gutscheine. */
 public final class VoucherPermissionService {
@@ -65,6 +66,19 @@ public final class VoucherPermissionService {
         return GrantStatus.GRANTED;
     }
 
+    /** Persistenter Grant fuer Voucher-Transaktionen; Future wird erst nach Bridge-Save erfolgreich. */
+    public CompletableFuture<GrantStatus> grantDurably(final UUID uuid, String input, final String actor) {
+        final VoucherPermission permission = find(input);
+        if (permission == null) return CompletableFuture.completedFuture(GrantStatus.UNKNOWN_PERMISSION);
+        if (!permissionBridge.isAvailable()) return CompletableFuture.completedFuture(GrantStatus.BRIDGE_UNAVAILABLE);
+        return permissionBridge.grantPermissionDurably(uuid, permission.getNode()).thenApply(success -> {
+            if (!success) return GrantStatus.BRIDGE_UNAVAILABLE;
+            loggingService.log(new AuditEvent(AuditEventType.PERMISSION_GRANT, uuid, actor, null,
+                    "voucherPermission=" + permission.getId() + ", node=" + permission.getNode()));
+            return GrantStatus.GRANTED;
+        });
+    }
+
     /** Vergibt ein vorab vom Voucher-System validiertes kosmetisches Prefix-Entitlement. */
     public GrantStatus grantPrefix(UUID uuid, String prefixId, String actor) {
         if (prefixId == null || !prefixId.matches("[a-zA-Z0-9_-]{1,32}")) return GrantStatus.INVALID_PREFIX;
@@ -75,6 +89,21 @@ public final class VoucherPermissionService {
         loggingService.log(new AuditEvent(AuditEventType.PERMISSION_GRANT, uuid, actor, null,
                 "prefixEntitlement=" + normalized + ", node=" + node));
         return GrantStatus.GRANTED;
+    }
+
+    public CompletableFuture<GrantStatus> grantPrefixDurably(final UUID uuid, String prefixId, final String actor) {
+        if (prefixId == null || !prefixId.matches("[a-zA-Z0-9_-]{1,32}")) {
+            return CompletableFuture.completedFuture(GrantStatus.INVALID_PREFIX);
+        }
+        if (!permissionBridge.isAvailable()) return CompletableFuture.completedFuture(GrantStatus.BRIDGE_UNAVAILABLE);
+        final String normalized = prefixId.toLowerCase(Locale.ROOT);
+        final String node = "skykings.prefix." + normalized;
+        return permissionBridge.grantPermissionDurably(uuid, node).thenApply(success -> {
+            if (!success) return GrantStatus.BRIDGE_UNAVAILABLE;
+            loggingService.log(new AuditEvent(AuditEventType.PERMISSION_GRANT, uuid, actor, null,
+                    "prefixEntitlement=" + normalized + ", node=" + node));
+            return GrantStatus.GRANTED;
+        });
     }
 
     private List<VoucherPermission> load(JavaPlugin plugin) {
