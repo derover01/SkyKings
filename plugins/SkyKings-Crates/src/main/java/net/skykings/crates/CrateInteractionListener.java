@@ -47,14 +47,22 @@ public final class CrateInteractionListener implements Listener {
     private final PlayerShopEgg playerShopEgg = new PlayerShopEgg();
     private final CrateRedemptionStore redemptionStore;
     private final SkyKingsCoreAPI core;
+    private final RewardSettlementJournal rewardJournal;
 
     public CrateInteractionListener(JavaPlugin plugin, CrateRegistry registry, CrateItemCodec codec,
                                     CrateRedemptionStore redemptionStore, SkyKingsCoreAPI core) {
+        this(plugin, registry, codec, redemptionStore, core, RewardSettlementJournal.active());
+    }
+
+    public CrateInteractionListener(JavaPlugin plugin, CrateRegistry registry, CrateItemCodec codec,
+                                    CrateRedemptionStore redemptionStore, SkyKingsCoreAPI core,
+                                    RewardSettlementJournal rewardJournal) {
         this.plugin = plugin;
         this.registry = registry;
         this.codec = codec;
         this.redemptionStore = redemptionStore;
         this.core = core;
+        this.rewardJournal = rewardJournal;
     }
 
     @EventHandler
@@ -77,11 +85,17 @@ public final class CrateInteractionListener implements Listener {
         }
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
-            if (decoded.isLegacySerial() && !redemptionStore.isReady()) {
-                event.getPlayer().sendMessage(ChatColor.RED + "Das Crate-System startet noch. Bitte versuche es gleich erneut.");
+            Player player = event.getPlayer();
+            if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) {
+                player.sendMessage(ChatColor.RED + "Ein vorheriger Crate-/Voucher-Reward muss erst durch Staff geprueft werden.");
+                player.playSound(player.getLocation(), Sound.VILLAGER_NO, 0.7F, 1F);
                 return;
             }
-            openChoice(event.getPlayer(), crate, decoded);
+            if (decoded.isLegacySerial() && !redemptionStore.isReady()) {
+                player.sendMessage(ChatColor.RED + "Das Crate-System startet noch. Bitte versuche es gleich erneut.");
+                return;
+            }
+            openChoice(player, crate, decoded);
         }
     }
 
@@ -184,7 +198,6 @@ public final class CrateInteractionListener implements Listener {
         if (!belt.isEmpty()) belt.remove(0);
         CrateRegistry.RewardDefinition incoming;
         if (step == ROULETTE_STEPS - 4) {
-            // Vier Rolls vor Schluss rechts einschieben -> landet exakt im mittleren Slot.
             incoming = finalReward;
         } else {
             incoming = registry.draw(crate);
@@ -198,10 +211,7 @@ public final class CrateInteractionListener implements Listener {
         player.updateInventory();
 
         Bukkit.getScheduler().runTaskLater(plugin, new Runnable() {
-            @Override
-            public void run() {
-                rollNext(player, crate, decoded, gui, belt, finalReward, step + 1);
-            }
+            @Override public void run() { rollNext(player, crate, decoded, gui, belt, finalReward, step + 1); }
         }, rouletteDelay(step));
     }
 
@@ -248,11 +258,14 @@ public final class CrateInteractionListener implements Listener {
         }
         player.openInventory(inventory);
         player.playSound(player.getLocation(), Sound.CHEST_OPEN, 0.45F, 1.2F);
-        player.sendMessage(ChatColor.GRAY + "Expected Value: " + ChatColor.GOLD
-                + UiFormat.coins(Math.round(crate.getExpectedValue())));
+        player.sendMessage(ChatColor.GRAY + "Expected Value: " + ChatColor.GOLD + UiFormat.coins(Math.round(crate.getExpectedValue())));
     }
 
     private void openAll(Player player, CrateRegistry.CrateDefinition crate) {
+        if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Open-All gesperrt: Ein vorheriger Reward muss erst geprueft werden.");
+            return;
+        }
         List<Claim> claims = new ArrayList<Claim>();
         for (ItemStack item : player.getInventory().getContents()) {
             CrateItemCodec.DecodedCrate decoded = codec.decode(item);
@@ -271,6 +284,7 @@ public final class CrateInteractionListener implements Listener {
     private void openAllNext(final Player player, final CrateRegistry.CrateDefinition crate,
                              final List<Claim> claims, final int index) {
         if (!player.isOnline()) return;
+        if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) return;
         if (index >= claims.size()) {
             player.sendMessage(ChatColor.GREEN + "Open-All abgeschlossen.");
             player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.65F, 1.35F);
@@ -279,8 +293,6 @@ public final class CrateInteractionListener implements Listener {
         Claim claim = claims.get(index);
         openClaim(player, crate, claim.serial, claim.maxClaims, new Runnable() {
             @Override public void run() {
-                // Maximal ein Claim pro Tick: auch der synchrone Legacy-Persistenzpfad darf Open-All
-                // nicht zu einem grossen Burst aus Datei-Writes und Reward-Vergaben machen.
                 Bukkit.getScheduler().runTask(plugin, new Runnable() {
                     @Override public void run() { openAllNext(player, crate, claims, index + 1); }
                 });
@@ -291,6 +303,10 @@ public final class CrateInteractionListener implements Listener {
     private void openClaim(Player player, CrateRegistry.CrateDefinition crate, UUID serial, int maxClaims,
                            Runnable onFinished, CrateRegistry.RewardDefinition selectedReward) {
         if (!player.isOnline()) return;
+        if (rewardJournal != null && rewardJournal.hasPendingFor(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Crate gesperrt: Ein vorheriger Reward muss erst durch Staff geprueft werden.");
+            return;
+        }
         final CrateRegistry.RewardDefinition reward = selectedReward != null ? selectedReward : registry.draw(crate);
         if (reward == null) {
             player.sendMessage(ChatColor.RED + "Diese Crate hat keine gueltigen Rewards.");
@@ -299,25 +315,42 @@ public final class CrateInteractionListener implements Listener {
         }
         if (!preflightReward(player, reward)) return;
 
+        String sourceId = serial == null ? "STACK:" + crate.getId() : serial.toString();
+        UUID transaction = rewardJournal == null ? null : rewardJournal.begin(
+                "CRATE", sourceId, player.getUniqueId(), reward.getType().name(), reward.getId());
+        if (rewardJournal != null && transaction == null) {
+            player.sendMessage(ChatColor.RED + "Crate konnte nicht sicher vorbereitet werden. Es wurde nichts verbraucht.");
+            return;
+        }
+
         if (serial == null) {
             if (!removeOne(player, null, crate.getId())) {
+                completeJournal(transaction, "CRATE_NOT_PRESENT_BEFORE_MUTATION");
                 player.sendMessage(ChatColor.RED + "Du besitzt diese Crate nicht mehr.");
                 finish(onFinished);
                 return;
             }
             if (!grant(player, reward)) {
-                refundCrate(player, crate);
-                player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Deine Crate wurde zurueckgegeben.");
-                finish(onFinished);
+                if (rewardJournal == null) refundCrate(player, crate);
+                else noteJournal(transaction, "REWARD_GRANT_FAILED_AFTER_CRATE_REMOVAL");
+                player.sendMessage(ChatColor.RED + "Reward-Vergabe ist unklar. Die Runde wurde fuer Staff-Review gespeichert.");
+                return;
+            }
+            if (!persistRewardAndCrate(player, reward)) {
+                noteJournal(transaction, "REWARD_OR_CRATE_DURABLE_COMMIT_FAILED");
+                player.sendMessage(ChatColor.RED + "Crate-Reward konnte nicht sicher committed werden. Bitte Staff kontaktieren.");
+                return;
+            }
+            if (!closeJournal(transaction)) {
+                player.sendMessage(ChatColor.YELLOW + "Reward ist gespeichert, bleibt aber bis zur Staff-Pruefung markiert.");
                 return;
             }
             completeOpen(player, crate, reward, onFinished);
             return;
         }
 
-        // Bei alten Serial-Crates Claim und Reward im selben Bukkit-Tick behandeln. Vor dem Claim
-        // wird erneut geprueft, dass der Spieler dieses konkrete Alt-Item noch besitzt.
         if (!hasOne(player, serial, crate.getId())) {
+            completeJournal(transaction, "LEGACY_CRATE_NOT_PRESENT_BEFORE_CLAIM");
             player.sendMessage(ChatColor.RED + "Du besitzt diese alte Crate nicht mehr.");
             finish(onFinished);
             return;
@@ -325,18 +358,70 @@ public final class CrateInteractionListener implements Listener {
         boolean firstRedemption = redemptionStore.redeemSync(serial, maxClaims);
         if (!firstRedemption) {
             removeOne(player, serial, crate.getId());
+            if (!savePlayerData(player)) {
+                noteJournal(transaction, "STALE_LEGACY_CRATE_CLEANUP_SAVE_FAILED");
+                player.sendMessage(ChatColor.RED + "Alte Crate konnte nicht sicher bereinigt werden. Bitte Staff kontaktieren.");
+                return;
+            }
+            completeJournal(transaction, "LEGACY_CLAIM_ALREADY_REDEEMED");
             player.sendMessage(ChatColor.RED + "Eine bereits vollstaendig eingeloeste alte Crate-Batch wurde bereinigt.");
             finish(onFinished);
             return;
         }
         if (!grant(player, reward)) {
-            removeOne(player, serial, crate.getId());
-            player.sendMessage(ChatColor.RED + "Reward-Vergabe fehlgeschlagen. Der alte Serial-Claim wurde sicher gesperrt.");
-            finish(onFinished);
+            noteJournal(transaction, "LEGACY_REWARD_GRANT_FAILED_AFTER_PERSISTED_CLAIM");
+            player.sendMessage(ChatColor.RED + "Der alte Serial-Claim ist gespeichert, aber der Reward muss durch Staff geprueft werden.");
             return;
         }
-        removeOne(player, serial, crate.getId());
+        if (!removeOne(player, serial, crate.getId())) {
+            noteJournal(transaction, "LEGACY_CRATE_REMOVAL_FAILED_AFTER_REWARD");
+            player.sendMessage(ChatColor.RED + "Reward wurde vergeben, aber die alte Crate konnte nicht sicher entfernt werden. Staff-Review erforderlich.");
+            return;
+        }
+        if (!persistRewardAndCrate(player, reward)) {
+            noteJournal(transaction, "LEGACY_REWARD_OR_CRATE_DURABLE_COMMIT_FAILED");
+            player.sendMessage(ChatColor.RED + "Legacy-Crate-Settlement konnte nicht sicher committed werden. Bitte Staff kontaktieren.");
+            return;
+        }
+        if (!closeJournal(transaction)) {
+            player.sendMessage(ChatColor.YELLOW + "Reward ist gespeichert, bleibt aber bis zur Staff-Pruefung markiert.");
+            return;
+        }
         completeOpen(player, crate, reward, onFinished);
+    }
+
+    private boolean persistRewardAndCrate(Player player, CrateRegistry.RewardDefinition reward) {
+        if (reward.getType() == CrateRegistry.RewardType.COINS
+                && !core.getEconomyService().persistNow(player.getUniqueId())) return false;
+        return savePlayerData(player);
+    }
+
+    private boolean savePlayerData(Player player) {
+        if (player == null || !player.isOnline()) return false;
+        try {
+            player.saveData();
+            return true;
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Crate-Playerdaten konnten nicht synchron gespeichert werden: "
+                    + player.getUniqueId() + " / " + ex.getMessage());
+            return false;
+        }
+    }
+
+    private void completeJournal(UUID transaction, String fallbackReason) {
+        if (rewardJournal == null || transaction == null) return;
+        if (!rewardJournal.complete(transaction)) rewardJournal.noteFailure(transaction, fallbackReason);
+    }
+
+    private boolean closeJournal(UUID transaction) {
+        if (rewardJournal == null || transaction == null) return true;
+        if (rewardJournal.complete(transaction)) return true;
+        rewardJournal.noteFailure(transaction, "REWARD_COMMITTED_BUT_JOURNAL_CLOSE_FAILED");
+        return false;
+    }
+
+    private void noteJournal(UUID transaction, String reason) {
+        if (rewardJournal != null && transaction != null) rewardJournal.noteFailure(transaction, reason);
     }
 
     private boolean preflightReward(Player player, CrateRegistry.RewardDefinition reward) {
@@ -404,9 +489,7 @@ public final class CrateInteractionListener implements Listener {
     private void refundCrate(Player player, CrateRegistry.CrateDefinition crate) {
         ItemStack refund = codec.create(crate, 1);
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(refund);
-        for (ItemStack leftover : leftovers.values()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
-        }
+        for (ItemStack leftover : leftovers.values()) player.getWorld().dropItemNaturally(player.getLocation(), leftover);
         player.updateInventory();
     }
 
@@ -464,9 +547,7 @@ public final class CrateInteractionListener implements Listener {
     }
 
     private ItemStack rewardIcon(CrateRegistry.RewardDefinition reward) {
-        if (reward.getType() == CrateRegistry.RewardType.VOUCHER) {
-            return voucherCodec.preview(reward.getVoucherType(), reward.getVoucherDisplay());
-        }
+        if (reward.getType() == CrateRegistry.RewardType.VOUCHER) return voucherCodec.preview(reward.getVoucherType(), reward.getVoucherDisplay());
         ItemStack icon;
         switch (reward.getType()) {
             case COINS: icon = new ItemStack(Material.DOUBLE_PLANT); break;

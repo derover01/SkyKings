@@ -65,7 +65,7 @@ public class SkyKingsCrates extends JavaPlugin {
         }, this, ServicePriority.Normal);
 
         getServer().getPluginManager().registerEvents(
-                new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core), this);
+                new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core, rewardSettlementJournal), this);
 
         VoucherItemCodec voucherCodec = new VoucherItemCodec();
         getServer().getPluginManager().registerEvents(

@@ -13,6 +13,7 @@ import net.skykings.core.shop.player.PlayerShopPurchaseJournal;
 import net.skykings.core.shop.player.PlayerShopRevenueClaimJournal;
 import net.skykings.core.shop.player.PlayerShopStore;
 import net.skykings.core.trade.TradeEscrowJournal;
+import net.skykings.crates.RewardSettlementJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -74,6 +75,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
         eventReturnRecovery(sender);
         casinoSettlementRecovery(sender);
+        rewardSettlementRecovery(sender);
         jackpotRecovery(sender);
         tradeEscrowRecovery(sender);
         playerShopPurchaseRecovery(sender);
@@ -106,21 +108,14 @@ public final class SystemCheckCommand implements CommandExecutor {
         boolean installed = EventReturnRecoveryService.isInstalled();
         check(sender, installed, "Event Return Recovery");
         if (!installed) return;
-
         int pending = EventReturnRecoveryService.pendingCount();
-        if (pending > 0) {
-            sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Event-Rueckkehrpositionen warten: " + ChatColor.WHITE + pending);
-        } else {
-            sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Event Return Queue leer");
-        }
+        if (pending > 0) sender.sendMessage(ChatColor.YELLOW + "[RECOVERY]" + ChatColor.GRAY + " Event-Rueckkehrpositionen warten: " + ChatColor.WHITE + pending);
+        else sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Event Return Queue leer");
     }
 
     private void casinoSettlementRecovery(CommandSender sender) {
         CasinoSettlementJournal journal = CasinoSettlementJournal.active();
-        if (journal == null) {
-            check(sender, false, "Casino Settlement Journal");
-            return;
-        }
+        if (journal == null) { check(sender, false, "Casino Settlement Journal"); return; }
         int review = journal.reviewRequiredCount();
         if (review > 0) {
             sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Casino-Settlements manuell pruefen: "
@@ -131,19 +126,24 @@ public final class SystemCheckCommand implements CommandExecutor {
         check(sender, true, "Casino Settlement Journal");
     }
 
+    private void rewardSettlementRecovery(CommandSender sender) {
+        RewardSettlementJournal journal = RewardSettlementJournal.active();
+        if (journal == null) { check(sender, false, "Crate/Voucher Reward Journal"); return; }
+        int review = journal.reviewRequiredCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Crate/Voucher-Rewards manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Settlement(s)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Crates/" + RewardSettlementJournal.FILE_NAME);
+            return;
+        }
+        check(sender, true, "Crate/Voucher Reward Journal");
+    }
+
     private void jackpotRecovery(CommandSender sender) {
         Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
-        if (core == null) {
-            check(sender, false, "Jackpot Recovery Status");
-            return;
-        }
-
+        if (core == null) { check(sender, false, "Jackpot Recovery Status"); return; }
         File file = new File(core.getDataFolder(), "jackpot.yml");
-        if (!file.exists()) {
-            check(sender, true, "Jackpot Recovery Status");
-            return;
-        }
-
+        if (!file.exists()) { check(sender, true, "Jackpot Recovery Status"); return; }
         YamlConfiguration data = YamlConfiguration.loadConfiguration(file);
         String status = data.getString("recovery.status", "");
         if ("REVIEW_REQUIRED".equalsIgnoreCase(status)) {
@@ -158,10 +158,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
     private void tradeEscrowRecovery(CommandSender sender) {
         TradeEscrowJournal journal = TradeEscrowJournal.active();
-        if (journal == null) {
-            check(sender, false, "Trade Escrow Journal");
-            return;
-        }
+        if (journal == null) { check(sender, false, "Trade Escrow Journal"); return; }
         int review = journal.reviewRequiredCount();
         int recoverable = journal.recoverableSessionCount();
         if (review > 0) {
@@ -180,10 +177,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
     private void playerShopPurchaseRecovery(CommandSender sender) {
         PlayerShopPurchaseJournal journal = PlayerShopPurchaseJournal.active();
-        if (journal == null) {
-            check(sender, false, "PlayerShop Purchase Journal");
-            return;
-        }
+        if (journal == null) { check(sender, false, "PlayerShop Purchase Journal"); return; }
         int review = journal.reviewRequiredCount();
         if (review > 0) {
             sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " PlayerShop-Kaeufe manuell pruefen: "
@@ -196,10 +190,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
     private void playerShopRevenueClaimRecovery(CommandSender sender) {
         PlayerShopRevenueClaimJournal journal = PlayerShopRevenueClaimJournal.active();
-        if (journal == null) {
-            check(sender, false, "PlayerShop Revenue Claim Journal");
-            return;
-        }
+        if (journal == null) { check(sender, false, "PlayerShop Revenue Claim Journal"); return; }
         int review = journal.reviewRequiredCount();
         if (review > 0) {
             sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " PlayerShop-Einnahmen-Claims manuell pruefen: "
@@ -212,10 +203,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
     private void playerShopLegacyReview(CommandSender sender) {
         Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
-        if (core == null) {
-            check(sender, false, "PlayerShop Legacy Migration");
-            return;
-        }
+        if (core == null) { check(sender, false, "PlayerShop Legacy Migration"); return; }
         File review = new File(core.getDataFolder(), PlayerShopStore.LEGACY_REVIEW_FILE);
         if (review.exists()) {
             sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " PlayerShop Legacy-Migration blockiert"
@@ -227,10 +215,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
     private void resourcePack(CommandSender sender) {
         Plugin core = Bukkit.getPluginManager().getPlugin("SkyKings-Core");
-        if (!(core instanceof JavaPlugin)) {
-            check(sender, false, "Resource Pack Delivery");
-            return;
-        }
+        if (!(core instanceof JavaPlugin)) { check(sender, false, "Resource Pack Delivery"); return; }
         JavaPlugin corePlugin = (JavaPlugin) core;
         if (!corePlugin.getConfig().getBoolean("resource-pack.enabled", false)) {
             sender.sendMessage(ChatColor.YELLOW + "[OPTIONAL]" + ChatColor.GRAY + " Resource Pack Delivery deaktiviert");
@@ -238,11 +223,8 @@ public final class SystemCheckCommand implements CommandExecutor {
         }
         String url = corePlugin.getConfig().getString("resource-pack.url", "");
         String error = ResourcePackService.validationError(url);
-        if (error == null) {
-            sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Resource Pack Delivery (HTTPS-URL konfiguriert)");
-        } else {
-            sender.sendMessage(ChatColor.RED + "[FEHLT]" + ChatColor.GRAY + " Resource Pack Delivery: " + ChatColor.WHITE + error);
-        }
+        if (error == null) sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Resource Pack Delivery (HTTPS-URL konfiguriert)");
+        else sender.sendMessage(ChatColor.RED + "[FEHLT]" + ChatColor.GRAY + " Resource Pack Delivery: " + ChatColor.WHITE + error);
     }
 
     private void fileCheck(CommandSender sender, String pluginName, String fileName, String label, boolean optionalBeforeFirstUse) {
