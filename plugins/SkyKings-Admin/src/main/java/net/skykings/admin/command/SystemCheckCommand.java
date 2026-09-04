@@ -1,5 +1,6 @@
 package net.skykings.admin.command;
 
+import net.skykings.admin.casino.CasinoSettlementJournal;
 import net.skykings.combat.event.EventParticipationService;
 import net.skykings.combat.event.EventReturnRecoveryService;
 import net.skykings.combat.tag.CombatTagServiceImpl;
@@ -72,6 +73,7 @@ public final class SystemCheckCommand implements CommandExecutor {
 
         sender.sendMessage(ChatColor.AQUA + "Persistenz & Recovery");
         eventReturnRecovery(sender);
+        casinoSettlementRecovery(sender);
         jackpotRecovery(sender);
         tradeEscrowRecovery(sender);
         playerShopPurchaseRecovery(sender);
@@ -111,6 +113,22 @@ public final class SystemCheckCommand implements CommandExecutor {
         } else {
             sender.sendMessage(ChatColor.GREEN + "[OK]" + ChatColor.GRAY + " Event Return Queue leer");
         }
+    }
+
+    private void casinoSettlementRecovery(CommandSender sender) {
+        CasinoSettlementJournal journal = CasinoSettlementJournal.active();
+        if (journal == null) {
+            check(sender, false, "Casino Settlement Journal");
+            return;
+        }
+        int review = journal.reviewRequiredCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Casino-Settlements manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Runde(n)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Admin/" + CasinoSettlementJournal.FILE_NAME);
+            return;
+        }
+        check(sender, true, "Casino Settlement Journal");
     }
 
     private void jackpotRecovery(CommandSender sender) {
