@@ -13,19 +13,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Write-ahead journal fuer Casino-Runden ueber PlayerProfile- und GUI-Grenzen hinweg. */
 public final class CasinoSettlementJournal {
     public static final String FILE_NAME = "casino-settlement-journal.yml";
     private static volatile CasinoSettlementJournal active;
 
-    private final JavaPlugin plugin;
+    private final Logger logger;
     private final File file;
     private final YamlConfiguration data;
 
     public CasinoSettlementJournal(JavaPlugin plugin) {
-        this.plugin = plugin;
-        this.file = new File(plugin.getDataFolder(), FILE_NAME);
+        this(plugin.getDataFolder(), plugin.getLogger());
+    }
+
+    CasinoSettlementJournal(File dataFolder, Logger logger) {
+        this.logger = logger;
+        this.file = new File(dataFolder, FILE_NAME);
         this.data = YamlConfiguration.loadConfiguration(file);
         cleanupCompleted();
         active = this;
@@ -110,7 +115,7 @@ public final class CasinoSettlementJournal {
         }
         if (completed.isEmpty()) return;
         for (String key : completed) data.set("settlements." + key, null);
-        if (!commit()) plugin.getLogger().warning("Casino-Settlement-Journal konnte COMPLETED-Tombstones nicht aufraeumen.");
+        if (!commit()) logger.warning("Casino-Settlement-Journal konnte COMPLETED-Tombstones nicht aufraeumen.");
     }
 
     private boolean commit() {
@@ -126,7 +131,7 @@ public final class CasinoSettlementJournal {
             }
             return true;
         } catch (IOException | RuntimeException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Casino-Settlement-Journal konnte nicht gespeichert werden.", ex);
+            logger.log(Level.SEVERE, "Casino-Settlement-Journal konnte nicht gespeichert werden.", ex);
             if (temp.exists() && !temp.delete()) temp.deleteOnExit();
             return false;
         }
