@@ -20,10 +20,6 @@ import java.util.logging.Logger;
  * auf den Cache zu - kein synchroner Datenbank-Read mehr im Gameplay-Pfad, auch nicht fuer
  * bislang unbekannte Keys. {@link #set(UUID, String, long)} und {@link #remove(UUID, String)}
  * schreiben weiterhin asynchron durch, damit ein Serverneustart ueberstanden wird.
- *
- * <p>Bereits beim Laden abgelaufene Cooldowns werden nicht in den Cache uebernommen und
- * asynchron aus der Datenbank entfernt; waehrend der Session abgelaufene Eintraege werden bei
- * Zugriff lazy aus dem Cache entfernt (kein zusaetzlicher DB-Zugriff dafuer noetig).
  */
 public final class CooldownServiceImpl implements CooldownService {
 
@@ -44,12 +40,6 @@ public final class CooldownServiceImpl implements CooldownService {
         try {
             persisted = dataStore.loadCooldowns(uuid);
         } catch (RuntimeException e) {
-            // NICHT abfangen/verschlucken: persistente Cooldowns (Kits/Crates/Abilities) duerfen bei
-            // einem DB-Ausfall nicht stillschweigend durch einen leeren Cache ersetzt werden - das
-            // wuerde sie effektiv umgehbar machen. Der Aufrufer (PlayerLifecycleListener) faengt
-            // diese Exception ab und lehnt den Login ab. Ein eventuell vorhandener Cache-Eintrag
-            // fuer diese UUID (z. B. aus einem frueheren, erfolgreichen Load) wird entfernt, damit
-            // niemals ein veralteter oder nur teilweise befuellter Zustand als gueltig gilt.
             cache.remove(uuid);
             throw e;
         }
@@ -112,7 +102,7 @@ public final class CooldownServiceImpl implements CooldownService {
         if (durationMillis <= 0) {
             throw new IllegalArgumentException("Cooldown-Dauer muss positiv sein: " + durationMillis);
         }
-        long expiresAt = System.currentTimeMillis() + durationMillis;
+        final long expiresAt = safeExpiry(durationMillis);
         cache.computeIfAbsent(uuid, u -> new ConcurrentHashMap<>()).put(key, expiresAt);
         dbExecutor.execute(() -> {
             try {
@@ -121,6 +111,26 @@ public final class CooldownServiceImpl implements CooldownService {
                 logger.log(Level.SEVERE, "Konnte Cooldown nicht speichern: " + uuid + "/" + key, e);
             }
         });
+    }
+
+    @Override
+    public boolean setNow(UUID uuid, String key, long durationMillis) {
+        if (uuid == null || key == null || key.trim().isEmpty()) return false;
+        if (durationMillis <= 0L) {
+            throw new IllegalArgumentException("Cooldown-Dauer muss positiv sein: " + durationMillis);
+        }
+        final long expiresAt = safeExpiry(durationMillis);
+        Map<String, Long> playerCooldowns = cache.computeIfAbsent(uuid, u -> new ConcurrentHashMap<>());
+        Long previous = playerCooldowns.put(key, expiresAt);
+        try {
+            dataStore.saveCooldown(uuid, key, expiresAt);
+            return true;
+        } catch (RuntimeException ex) {
+            if (previous == null) playerCooldowns.remove(key);
+            else playerCooldowns.put(key, previous);
+            logger.log(Level.SEVERE, "Konnte Cooldown synchron nicht speichern: " + uuid + "/" + key, ex);
+            return false;
+        }
     }
 
     @Override
@@ -136,5 +146,13 @@ public final class CooldownServiceImpl implements CooldownService {
                 logger.log(Level.SEVERE, "Konnte Cooldown nicht entfernen: " + uuid + "/" + key, e);
             }
         });
+    }
+
+    private long safeExpiry(long durationMillis) {
+        try {
+            return Math.addExact(System.currentTimeMillis(), durationMillis);
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException("Cooldown-Dauer ist zu gross: " + durationMillis, ex);
+        }
     }
 }
