@@ -23,6 +23,7 @@ public class SkyKingsCrates extends JavaPlugin {
     private CrateRedemptionStore redemptionStore;
     private VoucherRedemptionStore voucherStore;
     private IssuedItemStore issuedItemStore;
+    private RewardSettlementJournal rewardSettlementJournal;
 
     @Override
     public void onEnable() {
@@ -38,6 +39,7 @@ public class SkyKingsCrates extends JavaPlugin {
         this.crateItemCodec = new CrateItemCodec();
         this.redemptionStore = new CrateRedemptionStore(new File(getDataFolder(), "redeemed-crates.txt"), getLogger());
         this.voucherStore = new VoucherRedemptionStore(new File(getDataFolder(), "redeemed-vouchers.txt"), getLogger());
+        this.rewardSettlementJournal = new RewardSettlementJournal(this);
         redemptionStore.initialize().thenRun(() -> getLogger().info("Crate Anti-Dupe Store bereit."));
         voucherStore.initialize().thenRun(() -> getLogger().info("Voucher Anti-Dupe Store bereit."));
 
@@ -63,11 +65,11 @@ public class SkyKingsCrates extends JavaPlugin {
         }, this, ServicePriority.Normal);
 
         getServer().getPluginManager().registerEvents(
-                new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core), this);
+                new CrateInteractionListener(this, crateRegistry, crateItemCodec, redemptionStore, core, rewardSettlementJournal), this);
 
         VoucherItemCodec voucherCodec = new VoucherItemCodec();
         getServer().getPluginManager().registerEvents(
-                new VoucherRedeemListener(this, voucherCodec, voucherStore, core), this);
+                new VoucherRedeemListener(this, voucherCodec, voucherStore, core, rewardSettlementJournal), this);
 
         PluginCommand crateCommand = getCommand("crate");
         if (crateCommand == null) { disableMissing("/crate"); return; }
