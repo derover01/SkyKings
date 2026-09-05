@@ -14,6 +14,7 @@ public enum AuditEventType {
     VOUCHER_REDEEMED,
     GIVEAWAY_WIN,
     SHOP_PURCHASE,
+    SHOP_SALE,
     TRADE_COMPLETE,
     PROFILE_CREATED
 }
