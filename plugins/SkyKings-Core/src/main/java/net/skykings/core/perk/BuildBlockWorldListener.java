@@ -34,7 +34,7 @@ public final class BuildBlockWorldListener implements Listener {
         Block block = event.getBlockPlaced();
         if (!store.putNow(block.getLocation(), block.getType(), block.getData())) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublack konnte nicht sicher gespeichert werden. Platzierung abgebrochen.");
+            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublock konnte nicht sicher gespeichert werden. Platzierung abgebrochen.");
         }
     }
 
@@ -53,14 +53,14 @@ public final class BuildBlockWorldListener implements Listener {
         } catch (RuntimeException ex) {
             block.setType(previousType);
             block.setData(previousData);
-            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublack konnte nicht sicher abgebaut werden.");
+            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublock konnte nicht sicher abgebaut werden.");
             return;
         }
 
         // Marker erst entfernen, nachdem der Blockzustand durable AIR ist. Bei Store-Fehler gibt es
         // deshalb bewusst noch keinen Reward: Ghost-Marker ist sicherer als ein unmarkierter Gratisblock.
         if (!store.removeNow(block.getLocation())) {
-            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublack wurde entfernt, aber der Marker braucht Staff-Pruefung.");
+            event.getPlayer().sendMessage(ChatColor.RED + "Der Gratis-Baublock wurde entfernt, aber der Marker braucht Staff-Pruefung.");
             return;
         }
 
