@@ -1,8 +1,10 @@
 # SkyKings – Next Runtime Checklist
 
-Stand: 2026-09-03
+Stand: 2026-09-05
 
 Diese Liste ist das finale Ingame-/Windows-Gate nach dem automatisierten Build. Sie wird erst auf einem echten Paper/Spigot-1.8.9-Testserver mit mindestens zwei Clients vollständig abgehakt.
+
+> Hinweis: Quest Center, Battle Pass/Premium Pass, Seasons, Achievements, Collections und Wildpunkte sind im aktuellen Codebestand noch nicht implementiert. Sie sind deshalb **keine** abhakbaren Runtime-Gates, bis die Systeme wirklich existieren.
 
 ## 0. Deploy / Start
 
@@ -10,6 +12,7 @@ Diese Liste ist das finale Ingame-/Windows-Gate nach dem automatisierten Build. 
 - [ ] Server komplett stoppen und neu starten; kein `/reload`.
 - [ ] Konsole auf `SEVERE`, Stacktraces, fehlende Commands und Service-Fehler prüfen.
 - [ ] `/skcheck` ausführen und alle Pflichtsysteme auf `[OK]` prüfen.
+- [ ] `/skcheck` zeigt Quests/Battle Pass nur als offenen Roadmap-Hinweis und **nicht** als fehlende kritische Commands.
 - [ ] `SkyPvP`, `SkyIslands`, `SkyPlots`, `SkyCommunityEvent` geladen.
 - [ ] `build/resource-pack/SkyKings-ResourcePack-1.8.9.zip` wurde durch Preflight/CI erzeugt.
 
@@ -185,9 +188,52 @@ Mindestens zwei Clients gleichzeitig.
 - [ ] Zwei Spieler öffnen einen normalen `/trade`, legen Items ein und **ohne Abschluss** wird der Server sauber mit `stop` beendet → nach Stop/Restart besitzt jeder Spieler exakt seine eigenen angebotenen Items wieder; kein Item fehlt und keines ist doppelt.
 - [ ] Trade-Shutdown mit vollem Inventar eines Teilnehmers → nicht einlagerbare Rückgabe wird am Spieler gedroppt statt gelöscht.
 
-## 12. SkyKings Resource Pack / Presentation
+## 12. Core Gameplay Settlement / Restart
 
-Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch ohne Pack voll funktionieren. Das 19er-Core-Iconset ist bereits implementiert; dieser Abschnitt ist jetzt reines Client-/Visual-Gate.
+Diese Tests pruefen die neuen fail-closed Persistenzgrenzen. Ein unklarer Crash-Zustand darf **nicht** automatisch noch einmal belohnt oder abgebucht werden. Offene Journaleintraege muessen in `/skcheck` als Review sichtbar bleiben.
+
+### Rank / Kit / EnderChest
+
+- [ ] Rank-Up normal: Coins exakt einmal abgebucht, Rang exakt einmal erhöht, nach Restart unverändert.
+- [ ] Rank-Up nahe einer Persistenzgrenze abbrechen/restarten: kein kostenloser Rang und keine Doppelabbuchung; bei unklarem Zustand Review statt Auto-Recovery.
+- [ ] Kit claimen: Items exakt einmal, Cooldown sofort aktiv und nach Restart weiterhin aktiv.
+- [ ] Kit mit zu wenig Inventarplatz: keine Teilzustellung und kein verbrauchter Cooldown.
+- [ ] Kit-Grant direkt vor/waehrend Restart testen: kein doppeltes Kit; unklarer Zustand blockiert weitere riskante Aktion bis Review.
+- [ ] EnderChest-Seite kaufen: Coins exakt einmal abgebucht und Seite nach Restart freigeschaltet.
+- [ ] EnderChest-Kauf bei zu wenig Coins/Overflow/Persistenzfehler: keine Teilmutation.
+
+### Spawner
+
+- [ ] Spawner auf bestehenden Stack setzen: Hand-Item exakt einmal verbraucht und Stackzahl nach Restart korrekt.
+- [ ] Spawner-Stack abbauen: Weltblock/Stackzustand und ausgezahlte Spawner bleiben nach Restart konsistent.
+- [ ] Volles Inventar beim Stack-Abbau wird vor riskanter Auszahlung abgefangen.
+- [ ] Restart/Abbruch waehrend Stack-Add oder Stack-Break erzeugt keinen zweiten Stack/Drop; unklarer Zustand wird Review.
+- [ ] `spawner-stacks.yml` bleibt nach Restart lesbar und vollständig.
+
+### Daily
+
+- [ ] Daily claimen: Claim-Zeit, Coins und physische Sterne werden exakt einmal persistiert.
+- [ ] Volles Inventar vor Daily-Claim: Claim wird nicht verbraucht.
+- [ ] Sofortiger Restart nach Daily-Claim: kein zweiter Claim und kein verschwundener Reward.
+- [ ] `daily-rewards.yml` bleibt nach Restart lesbar und vollständig.
+
+### BuildBlocks / No-Sell
+
+- [ ] Kostenlosen `/blöcke`-Baublock platzieren → Marker ist sofort persistent.
+- [ ] Restart nach Platzierung → Block bleibt als Gratis-/No-Sell-Block erkannt.
+- [ ] Gratis-Baublock abbauen → ausgegebenes Item besitzt weiterhin No-Sell-Lore.
+- [ ] Gratis-Baublock kann durch Crash/Restart niemals zu einem normalen verkaufbaren Economy-Block werden.
+- [ ] Explosions-/Piston-Schutz fuer markierte Gratis-Bloecke bleibt aktiv.
+
+### Diagnose
+
+- [ ] `/skcheck` zeigt `Core Gameplay Settlement Journal` `[OK]`, wenn kein Review offen ist.
+- [ ] Ein bewusst erzeugter offener/ambiger Journalzustand wird nach Restart als `[REVIEW]` fuer Rank/Kit/Enderchest/Spawner/Daily angezeigt.
+- [ ] System-Shop besitzt separat `System Shop Settlement Journal` und wird bei offenem Review ebenfalls sichtbar blockiert.
+
+## 13. SkyKings Resource Pack / Presentation
+
+Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch ohne Pack voll funktionieren. Das 19er-Core-Iconset ist bereits implementiert; dieser Abschnitt ist jetzt reines Client-/Visual-Gate. Battle-Pass-/Quest-Icons sind derzeit **reservierte Assets** fuer die noch offene Phase 8 und kein Beweis fuer implementierte Gameplay-Systeme.
 
 ### Build / technische Basis
 
@@ -203,7 +249,7 @@ Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch
 - [ ] Status: Locked, Ready, Completed korrekt.
 - [ ] Premium korrekt.
 - [ ] Economy: Coins, SkyKings Stern, Shop, Trade, Jackpot korrekt.
-- [ ] Progression: Battle Pass, Quests, Kits korrekt.
+- [ ] Progression-Assets: Battle Pass, Quests, Kits korrekt; Battle Pass/Quests sind bis Phase-8-Implementierung nur reservierte Pack-Slots.
 - [ ] Crates korrekt.
 - [ ] Social/Event: Clan, Duel, Event korrekt.
 - [ ] Coins (`GOLD_NUGGET`) und SkyKings Stern (`NETHER_STAR`) sind visuell eindeutig verschieden.
@@ -217,16 +263,16 @@ Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch
 - [ ] keine pink/schwarzen Missing-Texture-Flächen.
 - [ ] `pack.png` ist in der Pack-/Serverdarstellung sichtbar.
 - [ ] GUI Scale Small und Normal getestet.
-- [ ] Battle Pass, Quest Center, Kit Arsenal, Crate Center, Commands Hub, Jackpot, Trade und PlayerShop mit Pack gut lesbar.
+- [ ] Implementierte Oberflaechen wie Kit Arsenal, Crate Center, Commands Hub, Jackpot, Trade und PlayerShop sind mit Pack gut lesbar.
 - [ ] GUI-Decorator verändert nur dekorative Slots; echte Reward-/PvP-Items bleiben ihre echten Materialien.
-- [ ] dieselben Systeme ohne Pack weiterhin voll bedienbar.
+- [ ] dieselben implementierten Systeme ohne Pack weiterhin voll bedienbar.
 - [ ] PlayerShop und `/trade` funktionieren mit und ohne Pack identisch.
 - [ ] SkyKings-Pack zusammen mit einem normalen PvP-Pack testen: Waffen/Ruestung/PvP-Items des Spieler-Packs bleiben nutzbar.
 - [ ] `/pack` hat 10s Resend-Cooldown und kann nicht gespammt werden.
 - [ ] finale ZIP unter stabiler HTTPS-URL hosten und Server-Auslieferung nach Relog/Restart testen.
 - [ ] Pack ablehnen/deaktivieren: Server bleibt vollständig spielbar.
 
-## 13. Finales Release-Gate
+## 14. Finales Release-Gate
 
 - [ ] Automatisierter Maven-/CI-Build auf `main` grün.
 - [ ] Resource-Pack-Build auf `main` grün und ZIP-Artifact vorhanden.
@@ -237,6 +283,7 @@ Der Pack ist ein Pre-Launch-Branding-Layer. Gameplay und Navigation muessen auch
 - [ ] Backup -> Daten veraendern -> Restore erfolgreich geprüft.
 - [ ] kleiner Multiplayer-/Load-Soft-Launch erfolgreich.
 - [ ] Testserver einmal vollständig neu gestartet und Kernflows erneut kurz geprüft.
+- [ ] Launch-Scope explizit geprüft: offene Phase-8-Systeme entweder vor Launch wirklich implementieren/testen oder bewusst aus dem Launch-Scope herausnehmen; sie duerfen nicht nur per Doku als fertig gelten.
 - [ ] Erst danach Produktion / groesseren Launch freigeben.
 
 > Wichtig: Ein grüner Compile-/Unit-Test ersetzt bei Minecraft 1.8.9 keine echte Bukkit-/Client-Runtime-Prüfung. Der letzte Release-Schritt bleibt deshalb bewusst ein manueller Multiplayer- und Presentation-Test auf dem Windows-Testserver.
