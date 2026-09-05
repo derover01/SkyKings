@@ -22,26 +22,27 @@ public final class ResourcePackAtlasBuilder {
     private static final int RAW_BYTES = WIDTH * HEIGHT * 4;
 
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
+    // Keep this in exact sync with net.skykings.core.ui.ResourcePackIcon.
     private static final String[] ITEM_TEXTURES = {
-            "minecart_normal.png",        // HOME
-            "minecart_furnace.png",       // BACK
-            "minecart_hopper.png",        // NEXT
-            "barrier.png",                // LOCKED
-            "slimeball.png",              // READY
-            "fireworks.png",              // COMPLETED
-            "ender_eye.png",              // PREMIUM
-            "gold_nugget.png",            // COINS
-            "nether_star.png",            // STAR
-            "map_empty.png",              // BATTLE PASS
-            "book_writable.png",          // QUESTS
-            "minecart_chest.png",         // KITS
-            "minecart_command_block.png", // CRATES
-            "repeater.png",               // JACKPOT
-            "hopper.png",                 // SHOP
-            "name_tag.png",               // TRADE
-            "book_written.png",           // CLAN
-            "shears.png",                 // DUEL
-            "magma_cream.png"              // EVENT
+            "minecart_normal.png",        // HOME / MINECART
+            "minecart_furnace.png",       // BACK / POWERED_MINECART
+            "minecart_hopper.png",        // NEXT / HOPPER_MINECART
+            "barrier.png",                // LOCKED / BARRIER
+            "slimeball.png",              // READY / SLIME_BALL
+            "ghast_tear.png",             // COMPLETED / GHAST_TEAR
+            "prismarine_crystals.png",    // PREMIUM / PRISMARINE_CRYSTALS
+            "gold_nugget.png",            // COINS / GOLD_NUGGET
+            "nether_star.png",            // STAR / NETHER_STAR
+            "map_empty.png",              // BATTLE PASS / EMPTY_MAP
+            "prismarine_shard.png",       // QUESTS / PRISMARINE_SHARD
+            "minecart_chest.png",         // KITS / STORAGE_MINECART
+            "minecart_command_block.png", // CRATES / COMMAND_MINECART
+            "repeater.png",               // JACKPOT / DIODE
+            "carrot_on_a_stick.png",      // SHOP / CARROT_STICK
+            "firework_charge.png",        // TRADE / FIREWORK_CHARGE
+            "book_written.png",           // CLAN / WRITTEN_BOOK
+            "shears.png",                 // DUEL / SHEARS
+            "magma_cream.png"              // EVENT / MAGMA_CREAM
     };
 
     private ResourcePackAtlasBuilder() {}
