@@ -1,9 +1,11 @@
 package net.skykings.core.shop;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.sound.SoundFeedback;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -12,15 +14,24 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
 
-/** Blacksmith: repariert das gehaltene Item gegen Coins, abhängig vom tatsächlichen Schaden. */
+/** Blacksmith: repariert das gehaltene Item gegen Coins, abhaengig vom tatsaechlichen Schaden. */
 public final class BlacksmithShopGui {
 
     private final GuiManager guiManager;
-    private final EconomyService economyService;
+    private final ShopTransactionService directTransactions;
+    private final EconomyService legacyEconomy;
 
+    public BlacksmithShopGui(GuiManager guiManager, ShopTransactionService transactions) {
+        this.guiManager = guiManager;
+        this.directTransactions = transactions;
+        this.legacyEconomy = null;
+    }
+
+    /** Bootstrap-kompatibel; der zentrale TransactionService wird nach Core-Enable ueber die API aufgeloest. */
     public BlacksmithShopGui(GuiManager guiManager, EconomyService economyService) {
         this.guiManager = guiManager;
-        this.economyService = economyService;
+        this.directTransactions = null;
+        this.legacyEconomy = economyService;
     }
 
     public void open(Player player) {
@@ -35,7 +46,7 @@ public final class BlacksmithShopGui {
                 ChatColor.YELLOW + "Klicken zum Reparieren"), (p,e,s) -> repair(p));
 
         gui.setItem(15, named(Material.GOLD_INGOT, ChatColor.YELLOW + "Dein Kontostand",
-                ChatColor.GRAY + format(economyService.getBalance(player.getUniqueId())) + " Coins"));
+                ChatColor.GRAY + format(balance(player)) + " Coins"));
         guiManager.open(gui);
         SoundFeedback.menuOpen(player);
     }
@@ -43,23 +54,46 @@ public final class BlacksmithShopGui {
     private void repair(Player player) {
         ItemStack item = player.getItemInHand();
         if (!isRepairable(item)) {
-            player.sendMessage(ChatColor.RED + "Halte einen beschädigten reparierbaren Gegenstand in der Hand.");
+            player.sendMessage(ChatColor.RED + "Halte einen beschaedigten reparierbaren Gegenstand in der Hand.");
             SoundFeedback.error(player);
             return;
         }
+        ShopTransactionService transactions = transactions();
+        if (transactions == null) {
+            player.sendMessage(ChatColor.RED + "Shop-Transaktionen sind noch nicht sicher bereit. Reparatur abgebrochen.");
+            SoundFeedback.error(player);
+            return;
+        }
+
         long price = repairPrice(item);
-        if (!economyService.withdraw(player.getUniqueId(), price, player.getName(), "Blacksmith Repair")) {
-            player.sendMessage(ChatColor.RED + "Dir fehlen Coins. Benötigt: " + ChatColor.YELLOW + format(price));
+        ShopPurchaseResult result = transactions.repairHeldItem(player, item.clone(), price, "BLACKSMITH_REPAIR");
+        if (result == ShopPurchaseResult.NOT_ENOUGH_MONEY) {
+            player.sendMessage(ChatColor.RED + "Dir fehlen Coins. Benoetigt: " + ChatColor.YELLOW + format(price));
             SoundFeedback.error(player);
             return;
         }
-        item.setDurability((short) 0);
-        player.setItemInHand(item);
-        player.updateInventory();
-        player.sendMessage(ChatColor.GREEN + "Der Blacksmith hat deinen Gegenstand für "
+        if (result != ShopPurchaseResult.SUCCESS) {
+            player.sendMessage(ChatColor.RED + "Reparatur konnte nicht sicher abgeschlossen werden. Bei offenem Settlement ist Staff-Pruefung erforderlich.");
+            SoundFeedback.error(player);
+            return;
+        }
+
+        player.sendMessage(ChatColor.GREEN + "Der Blacksmith hat deinen Gegenstand fuer "
                 + ChatColor.YELLOW + format(price) + ChatColor.GREEN + " Coins repariert.");
         SoundFeedback.success(player);
         open(player);
+    }
+
+    private ShopTransactionService transactions() {
+        if (directTransactions != null) return directTransactions;
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        return api == null ? null : api.getShopTransactionService();
+    }
+
+    private long balance(Player player) {
+        ShopTransactionService transactions = transactions();
+        if (transactions != null) return transactions.getCoinBalance(player.getUniqueId());
+        return legacyEconomy == null ? 0L : legacyEconomy.getBalance(player.getUniqueId());
     }
 
     private boolean isRepairable(ItemStack item) {
