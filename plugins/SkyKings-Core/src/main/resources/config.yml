@@ -7,12 +7,13 @@
 debug: false
 
 resource-pack:
-  # Erst aktivieren, wenn das finale 1.8.9-Pack unter einer direkten HTTPS-URL liegt.
-  # Ohne aktivierten Pack bleibt der komplette Server weiterhin spielbar.
+  # Das finale 1.8.9-Pack liegt unter einer stabilen direkten HTTPS-URL im oeffentlichen Repo.
+  # enabled bleibt bis zum echten 1.8.9-Clienttest bewusst false. Ohne aktivierten Pack
+  # bleibt der komplette Server weiterhin spielbar.
   enabled: false
   send-on-join: true
   join-delay-ticks: 40
-  url: ""
+  url: "https://raw.githubusercontent.com/derover01/SkyKings/main/dist/SkyKings-ResourcePack-1.8.9.zip"
 
 storage:
   # SQLITE ist in Phase 1A implementiert und Standard fuer die lokale Entwicklung.
