@@ -1,8 +1,8 @@
 # SkyKings Resource Pack — 1.8.9
 
-Stand: 2026-09-03
+Stand: 2026-09-05
 
-Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Der technische Delivery-/Build-Layer und das erste echte Core-Iconset sind implementiert. Der Build erzeugt aus einer kompakten binären RGBA-Quelle reproduzierbar 19 Legacy-1.8-Itemtexturen plus `pack.png`.
+Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Delivery, reproduzierbarer Build, Core-Iconset und die zentrale GUI-Verdrahtung sind implementiert. Der Build erzeugt aus einer kompakten binaeren RGBA-Quelle reproduzierbar 19 Legacy-1.8-Itemtexturen plus `pack.png`.
 
 ## Status
 
@@ -13,7 +13,9 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - Join-Auslieferung + Resend-Cooldown: IMPLEMENTIERT
 - `/skcheck` Pack-Diagnose: IMPLEMENTIERT
 - Core-Iconset (19 UI-Icons + Logo): IMPLEMENTIERT / CLIENT-RUNTIME-TEST
-- GUI-Decorator fuer zentrale SkyKings-Menues: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- zentraler GUI-Decorator ueber `GuiManager.open()`: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- Material-Kollisionsaudit ueber aktuelle Core/Combat/Crates/Admin-JARs: IMPLEMENTIERT
+- Java↔Atlas Build-Sync-Gate: IMPLEMENTIERT
 - PlayerShop-Villager-Coin-Token auf Coin-Icon: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
 - weitere Rank-/Rarity-/Effect-Art: OPTIONALER POLISH
 - Client-Runtime-Test: OFFEN
@@ -28,6 +30,8 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - Schwerter, Bow, Rod, Armor, Ender Pearls, Golden Apples und wichtige PvP-Bloecke werden nicht global ueberschrieben
 - jedes Icon besitzt weiterhin einen eindeutigen Itemnamen/Lore-Fallback
 - der Pack bleibt optional; keine Business-Logik entscheidet anhand einer Textur
+- `GOLD_NUGGET` und `NETHER_STAR` sind bewusst semantische globale Server-Items fuer Coins bzw. SkyKings-Sterne
+- die uebrigen Pack-Slots duerfen im aktuellen Servercode keine zweite Gameplay-Bedeutung besitzen
 
 ## Verbindliches Asset-Manifest
 
@@ -38,27 +42,31 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 | Navigation | Next | `HOPPER_MINECART` | `minecart_hopper.png` | testen |
 | State | Locked | `BARRIER` | `barrier.png` | testen |
 | State | Ready | `SLIME_BALL` | `slimeball.png` | testen |
-| State | Completed | `FIREWORK` | `fireworks.png` | testen |
-| Premium | Premium | `EYE_OF_ENDER` | `ender_eye.png` | testen |
+| State | Completed | `GHAST_TEAR` | `ghast_tear.png` | testen |
+| Premium | Premium | `PRISMARINE_CRYSTALS` | `prismarine_crystals.png` | testen |
 | Economy | Coins | `GOLD_NUGGET` | `gold_nugget.png` | testen |
 | Economy | SkyKings Star | `NETHER_STAR` | `nether_star.png` | testen |
 | Progression | Battle Pass | `EMPTY_MAP` | `map_empty.png` | testen |
-| Progression | Quest | `BOOK_AND_QUILL` | `book_writable.png` | testen |
+| Progression | Quest | `PRISMARINE_SHARD` | `prismarine_shard.png` | testen |
 | Progression | Kit | `STORAGE_MINECART` | `minecart_chest.png` | testen |
 | Economy | Crates | `COMMAND_MINECART` | `minecart_command_block.png` | testen |
 | Economy | Jackpot | `DIODE` | `repeater.png` | testen |
-| Economy | Shop | `HOPPER` | `hopper.png` | testen |
-| Economy | Trade | `NAME_TAG` | `name_tag.png` | testen |
+| Economy | Shop | `CARROT_STICK` | `carrot_on_a_stick.png` | testen |
+| Economy | Trade | `FIREWORK_CHARGE` | `firework_charge.png` | testen |
 | Social | Clan | `WRITTEN_BOOK` | `book_written.png` | testen |
 | Event | Duel | `SHEARS` | `shears.png` | testen |
 | Event | Event | `MAGMA_CREAM` | `magma_cream.png` | testen |
 | Branding | SkyKings Logo | Atlas tile 20 | `pack.png` | testen |
 
-Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.rgba.gz`. Sie enthaelt gzip-komprimierte rohe RGBA-Pixel. `scripts/tools/ResourcePackAtlasBuilder.java` rekonstruiert daraus das 160×128-Atlasbild und schreibt die finalen PNGs mit Java 8 selbst. Das verhindert Abhaengigkeiten von Designer-PNG-Decodern und macht denselben Build auf Windows und GitHub Actions reproduzierbar.
+Die grafische Quelle liegt zentral in `resource-pack-source/skykings-ui-atlas.rgba.gz`. Sie enthaelt gzip-komprimierte rohe RGBA-Pixel. `scripts/tools/ResourcePackAtlasBuilder.java` rekonstruiert daraus das 160x128-Atlasbild und schreibt die finalen PNGs mit Java 8 selbst. Das verhindert Abhaengigkeiten von Designer-PNG-Decodern und macht denselben Build auf Windows und GitHub Actions reproduzierbar.
 
-`ResourcePackIcon` ist die autoritative Java-Zuordnung der 19 reservierten Materialien. Ein Unit-Test erzwingt exakt 19 eindeutige Slots und blockiert geschuetzte PvP-Kernitems. `ResourcePackGuiDecorator` ersetzt nur dekorative GUI-Materialien und behaelt Namen/Lore. Reward-, PvP- und Kaufitems bleiben unveraendert.
+`ResourcePackIcon` ist die autoritative Java-Zuordnung der 19 reservierten Materialien. Der Unit-Test erzwingt exakt 19 eindeutige Slots, blockiert geschuetzte PvP-Kernitems und bekannte Shared-Material-Kollisionen. `build-resource-pack.ps1` prueft dieselben 19 Bindings gegen den Build, bevor das ZIP erzeugt wird.
 
-Der virtuelle Coin-Input im echten PlayerShop-Villager-Handel verwendet ebenfalls `GOLD_NUGGET`/Coin-Textur. `NETHER_STAR` bleibt damit eindeutig der SkyKings-Stern.
+`ResourcePackGuiDecorator` ersetzt nur dekorative GUI-Materialien und behaelt Namen/Lore. Der zentrale `GuiManager.open()` ruft den Decorator unmittelbar vor dem Oeffnen des Inventars auf; die Klicklogik bleibt slot-basiert. Reward-, PvP- und Kaufitems werden dadurch nicht in ihrer Business-Logik veraendert.
+
+Der Materialaudit des CI-Builds vom 05.09.2026 zeigte Kollisionen der frueheren Slots `FIREWORK`, `EYE_OF_ENDER`, `BOOK_AND_QUILL`, `HOPPER` und `NAME_TAG` mit anderen SkyKings-Funktionen. Completed, Premium, Quest, Shop und Trade wurden deshalb auf aktuell unbenutzte 1.8-Slots verschoben.
+
+Der virtuelle Coin-Input im echten PlayerShop-Villager-Handel verwendet weiterhin `GOLD_NUGGET`/Coin-Textur. `NETHER_STAR` bleibt damit eindeutig der SkyKings-Stern.
 
 ## Runtime-Gate
 
@@ -74,7 +82,7 @@ Vor groesserem Launch:
 - [ ] Crates / Jackpot / Shop / Trade korrekt
 - [ ] Clan / Duel / Event korrekt
 - [ ] keine Missing-Texture-Flaechen
-- [ ] GUI Scale Small/Normal getestet
+- [ ] GUI Scale Small/Normal/Large/Auto getestet
 - [ ] Battle Pass, Quests, Kits, Crates, Commands Hub, Jackpot, Trade und PlayerShop mit Pack lesbar
 - [ ] dieselben Systeme ohne Pack voll bedienbar
 - [ ] PlayerShop-Villager zeigt im Input das Coin-Icon, niemals den Stern
@@ -99,4 +107,4 @@ Output:
 build/resource-pack/SkyKings-ResourcePack-1.8.9.zip
 ```
 
-Der Build validiert `pack.mcmeta`, erzeugt alle 19 Pflichttexturen + `pack.png` und bricht ab, sobald eines der erwarteten ZIP-Assets fehlt oder leer ist.
+Der Build validiert `pack.mcmeta`, validiert das Java-Materialmapping, erzeugt alle 19 Pflichttexturen + `pack.png` und bricht ab, sobald eines der erwarteten ZIP-Assets fehlt oder leer ist.
