@@ -21,6 +21,12 @@ public final class ResourcePackAtlasBuilder {
     private static final int HEIGHT = TILE * ROWS;
     private static final int RAW_BYTES = WIDTH * HEIGHT * 4;
 
+    // Conservative 32x32 pixel-art cleanup: remove only near-invisible alpha fringe
+    // and make already-nearly-opaque core pixels fully opaque. Mid-alpha edge pixels,
+    // RGB colours and geometry stay untouched.
+    private static final int ALPHA_CLEAR_MAX = 12;
+    private static final int ALPHA_OPAQUE_MIN = 240;
+
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
     // Keep this in exact sync with net.skykings.core.ui.ResourcePackIcon.
     private static final String[] ITEM_TEXTURES = {
@@ -62,14 +68,14 @@ public final class ResourcePackAtlasBuilder {
         }
 
         for (int i = 0; i < ITEM_TEXTURES.length; i++) {
-            BufferedImage tile = crop(atlas, i);
+            BufferedImage tile = polishAlpha(crop(atlas, i));
             File output = new File(itemDir, ITEM_TEXTURES[i]);
             if (!ImageIO.write(tile, "png", output)) {
                 throw new IOException("Could not write PNG: " + output);
             }
         }
 
-        BufferedImage logo = crop(atlas, 19);
+        BufferedImage logo = polishAlpha(crop(atlas, 19));
         BufferedImage packIcon = resizeNearest(logo, 128, 128);
         File packPng = new File(stageRoot, "pack.png");
         if (!ImageIO.write(packIcon, "png", packPng)) {
@@ -121,6 +127,25 @@ public final class ResourcePackAtlasBuilder {
             g.drawImage(atlas, 0, 0, TILE, TILE, x, y, x + TILE, y + TILE, null);
         } finally {
             g.dispose();
+        }
+        return out;
+    }
+
+    private static BufferedImage polishAlpha(BufferedImage source) {
+        BufferedImage out = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                int argb = source.getRGB(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+
+                if (alpha <= ALPHA_CLEAR_MAX) {
+                    out.setRGB(x, y, 0x00000000);
+                } else if (alpha >= ALPHA_OPAQUE_MIN) {
+                    out.setRGB(x, y, 0xFF000000 | (argb & 0x00FFFFFF));
+                } else {
+                    out.setRGB(x, y, argb);
+                }
+            }
         }
         return out;
     }
