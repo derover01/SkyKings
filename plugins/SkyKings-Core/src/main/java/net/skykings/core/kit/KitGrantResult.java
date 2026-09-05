@@ -9,7 +9,9 @@ public final class KitGrantResult {
         NO_PERMISSION,
         COOLDOWN,
         INVENTORY_FULL,
-        PROFILE_NOT_LOADED
+        PROFILE_NOT_LOADED,
+        FAILED,
+        REVIEW_REQUIRED
     }
 
     private final Status status;
