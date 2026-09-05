@@ -213,6 +213,60 @@ public final class ShopTransactionService {
         return ShopSaleResult.SUCCESS;
     }
 
+    /** Fail-closed Blacksmith-Settlement ueber Coin-Profil und player.dat. */
+    public synchronized ShopPurchaseResult repairHeldItem(Player player, ItemStack expected, long price, String repairId) {
+        if (player == null || expected == null || expected.getType() == Material.AIR || price <= 0L) {
+            return ShopPurchaseResult.INVALID_OFFER;
+        }
+        UUID playerId = player.getUniqueId();
+        if (settlementJournal == null || settlementJournal.hasPendingFor(playerId)) return ShopPurchaseResult.FAILED;
+
+        int slot = player.getInventory().getHeldItemSlot();
+        ItemStack current = player.getInventory().getItem(slot);
+        if (current == null || current.getAmount() != expected.getAmount() || !current.isSimilar(expected)
+                || current.getDurability() <= 0 || current.getType().getMaxDurability() <= 0) {
+            return ShopPurchaseResult.INVALID_OFFER;
+        }
+        if (!economyService.has(playerId, price)) return ShopPurchaseResult.NOT_ENOUGH_MONEY;
+
+        String normalizedRepair = repairId == null || repairId.trim().isEmpty() ? "BLACKSMITH_REPAIR" : repairId.trim();
+        UUID transaction = settlementJournal.begin(playerId, "BLACKSMITH", normalizedRepair, "COINS", price,
+                current.getType().name(), 1);
+        if (transaction == null) return ShopPurchaseResult.FAILED;
+
+        if (!economyService.withdraw(playerId, price, "BLACKSMITH", "Repair " + current.getType())) {
+            completeJournal(transaction, "BLACKSMITH_WITHDRAW_REJECTED_BEFORE_MUTATION");
+            return ShopPurchaseResult.NOT_ENOUGH_MONEY;
+        }
+
+        ItemStack damagedSnapshot = current.clone();
+        ItemStack repaired = current.clone();
+        repaired.setDurability((short) 0);
+        player.getInventory().setItem(slot, repaired);
+
+        // Coins zuerst durable. Ein Crash danach kann eine bezahlte, aber noch nicht durable
+        // Reparatur erzeugen; das Journal bleibt dann Review, niemals eine kostenlose Reparatur.
+        if (!economyService.persistNow(playerId)) {
+            player.getInventory().setItem(slot, damagedSnapshot);
+            savePlayerData(player);
+            noteJournal(transaction, "BLACKSMITH_COIN_DURABLE_COMMIT_FAILED");
+            return ShopPurchaseResult.FAILED;
+        }
+        if (!savePlayerData(player)) {
+            player.getInventory().setItem(slot, damagedSnapshot);
+            savePlayerData(player);
+            noteJournal(transaction, "BLACKSMITH_REPAIR_PLAYERDATA_COMMIT_FAILED_AFTER_COIN_COMMIT");
+            return ShopPurchaseResult.FAILED;
+        }
+        if (!closeJournal(transaction)) return ShopPurchaseResult.FAILED;
+
+        loggingService.log(new AuditEvent(AuditEventType.SHOP_PURCHASE,
+                playerId, "BLACKSMITH", price,
+                "repair=" + current.getType() + ", old-durability=" + damagedSnapshot.getDurability()));
+        player.updateInventory();
+        return ShopPurchaseResult.SUCCESS;
+    }
+
     public long getCoinBalance(UUID uuid) { return uuid == null ? 0L : economyService.getBalance(uuid); }
 
     public boolean withdrawCoins(UUID uuid, long amount, String actor, String reason) {
