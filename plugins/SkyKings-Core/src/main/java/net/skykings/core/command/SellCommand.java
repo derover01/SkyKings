@@ -1,8 +1,11 @@
 package net.skykings.core.command;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.economy.EconomyService;
 import net.skykings.core.shop.ShopPriceRegistry;
 import net.skykings.core.shop.ShopSaleResult;
 import net.skykings.core.shop.ShopTransactionService;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -17,11 +20,17 @@ import java.util.Map;
 public final class SellCommand implements CommandExecutor {
 
     private final ShopPriceRegistry prices;
-    private final ShopTransactionService transactions;
+    private final ShopTransactionService directTransactions;
 
     public SellCommand(ShopPriceRegistry prices, ShopTransactionService transactions) {
         this.prices = prices;
-        this.transactions = transactions;
+        this.directTransactions = transactions;
+    }
+
+    /** Bootstrap-kompatibel; der zentrale TransactionService wird nach Core-Enable ueber die API aufgeloest. */
+    public SellCommand(ShopPriceRegistry prices, EconomyService ignoredEconomy) {
+        this.prices = prices;
+        this.directTransactions = null;
     }
 
     @Override
@@ -31,14 +40,19 @@ public final class SellCommand implements CommandExecutor {
             return true;
         }
         Player player = (Player) sender;
+        ShopTransactionService transactions = transactions();
+        if (transactions == null) {
+            player.sendMessage(ChatColor.RED + "Shop-Transaktionen sind noch nicht sicher bereit. Verkauf abgebrochen.");
+            return true;
+        }
         String mode = args.length == 0 ? "hand" : args[0].toLowerCase(java.util.Locale.ROOT);
-        if ("hand".equals(mode)) return sellHand(player);
-        if ("all".equals(mode)) return sellAll(player);
+        if ("hand".equals(mode)) return sellHand(player, transactions);
+        if ("all".equals(mode)) return sellAll(player, transactions);
         player.sendMessage(ChatColor.RED + "Nutze /sell hand oder /sell all.");
         return true;
     }
 
-    private boolean sellHand(Player player) {
+    private boolean sellHand(Player player, ShopTransactionService transactions) {
         ItemStack hand = player.getItemInHand();
         long value = prices.getSellValue(hand);
         if (value <= 0L) {
@@ -63,7 +77,7 @@ public final class SellCommand implements CommandExecutor {
         return true;
     }
 
-    private boolean sellAll(Player player) {
+    private boolean sellAll(Player player, ShopTransactionService transactions) {
         ItemStack[] contents = player.getInventory().getContents();
         Map<Integer, ItemStack> sold = new LinkedHashMap<Integer, ItemStack>();
         long total = 0L;
@@ -97,6 +111,12 @@ public final class SellCommand implements CommandExecutor {
             sendFailure(player, result);
         }
         return true;
+    }
+
+    private ShopTransactionService transactions() {
+        if (directTransactions != null) return directTransactions;
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        return api == null ? null : api.getShopTransactionService();
     }
 
     private void sendFailure(Player player, ShopSaleResult result) {
