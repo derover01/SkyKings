@@ -5,12 +5,22 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ResourcePackServiceTest {
+
+    private static final String RELEASE_URL =
+            "https://raw.githubusercontent.com/derover01/SkyKings/main/dist/SkyKings-ResourcePack-1.8.9.zip";
 
     @Test
     public void acceptsDirectAsciiHttpsUrl() {
         assertNull(ResourcePackService.validationError("https://cdn.skykings.de/SkyKings-ResourcePack-1.8.9.zip"));
+    }
+
+    @Test
+    public void acceptsConfiguredStableDistributionUrl() {
+        assertTrue(RELEASE_URL.length() <= 255);
+        assertNull(ResourcePackService.validationError(RELEASE_URL));
     }
 
     @Test
