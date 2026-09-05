@@ -25,15 +25,19 @@ public final class CasinoSettlementJournal {
     private final YamlConfiguration data;
 
     public CasinoSettlementJournal(JavaPlugin plugin) {
-        this(plugin.getDataFolder(), plugin.getLogger());
+        this(plugin.getDataFolder(), plugin.getLogger(), true);
     }
 
     CasinoSettlementJournal(File dataFolder, Logger logger) {
+        this(dataFolder, logger, false);
+    }
+
+    private CasinoSettlementJournal(File dataFolder, Logger logger, boolean installActive) {
         this.logger = logger;
         this.file = new File(dataFolder, FILE_NAME);
         this.data = YamlConfiguration.loadConfiguration(file);
         cleanupCompleted();
-        active = this;
+        if (installActive) active = this;
     }
 
     public static CasinoSettlementJournal active() { return active; }
