@@ -10,11 +10,12 @@ Der SkyKings-Resource-Pack ist ein **UI-/Branding-Layer fuer Minecraft 1.8.9**. 
 - keine modernen JSON-Font-/Glyph-Provider
 - keine Abhaengigkeit der Serverlogik vom Pack
 - alle Commands, GUIs und Statusinformationen bleiben ohne Pack voll bedienbar
-- die echten UI-Texturen werden beim Build aus `resource-pack-source/skykings-ui-atlas.rgba.gz.b64` erzeugt
+- die echten UI-Texturen werden beim Build aus `resource-pack-source/skykings-ui-atlas.rgba.gz` erzeugt
+- der zentrale `GuiManager` dekoriert passende SkyKings-Menues unmittelbar vor dem Oeffnen
 
 ## Aktueller Core-Icon-Satz
 
-Der erste echte Pack-Satz ist fest reserviert und wird vom Build automatisch auf Legacy-1.8-Dateinamen geschrieben:
+Der echte Pack-Satz ist fest reserviert und wird vom Build automatisch auf Legacy-1.8-Dateinamen geschrieben. Fuenf Slots wurden nach einem Vollscan der aktuellen Plugin-JARs bewusst auf Materialien verschoben, die ausserhalb der Pack-Zuordnung nicht verwendet werden.
 
 | SkyKings Icon | Bukkit Material | Legacy Texture |
 |---|---|---|
@@ -23,17 +24,17 @@ Der erste echte Pack-Satz ist fest reserviert und wird vom Build automatisch auf
 | Next | `HOPPER_MINECART` | `minecart_hopper.png` |
 | Locked | `BARRIER` | `barrier.png` |
 | Ready | `SLIME_BALL` | `slimeball.png` |
-| Completed | `FIREWORK` | `fireworks.png` |
-| Premium | `EYE_OF_ENDER` | `ender_eye.png` |
+| Completed | `GHAST_TEAR` | `ghast_tear.png` |
+| Premium | `PRISMARINE_CRYSTALS` | `prismarine_crystals.png` |
 | Coins | `GOLD_NUGGET` | `gold_nugget.png` |
 | SkyKings Star | `NETHER_STAR` | `nether_star.png` |
 | Battle Pass | `EMPTY_MAP` | `map_empty.png` |
-| Quests | `BOOK_AND_QUILL` | `book_writable.png` |
+| Quests | `PRISMARINE_SHARD` | `prismarine_shard.png` |
 | Kits | `STORAGE_MINECART` | `minecart_chest.png` |
 | Crates | `COMMAND_MINECART` | `minecart_command_block.png` |
 | Jackpot | `DIODE` | `repeater.png` |
-| Shop | `HOPPER` | `hopper.png` |
-| Trade | `NAME_TAG` | `name_tag.png` |
+| Shop | `CARROT_STICK` | `carrot_on_a_stick.png` |
+| Trade | `FIREWORK_CHARGE` | `firework_charge.png` |
 | Clan | `WRITTEN_BOOK` | `book_written.png` |
 | Duel | `SHEARS` | `shears.png` |
 | Event | `MAGMA_CREAM` | `magma_cream.png` |
@@ -66,11 +67,13 @@ Damit Spieler weiterhin ihr eigenes PvP-Pack nutzen koennen, bleiben standardmae
 - wichtige Partikel fuer PvP-Lesbarkeit
 - Crosshair/HUD
 
+Die einzigen bewusst semantisch globalen Server-Items sind `GOLD_NUGGET` fuer Coins und `NETHER_STAR` fuer den SkyKings-Stern. Die uebrigen reservierten Pack-Slots sind im aktuellen Plugin-Code ausserhalb der Pack-Zuordnung unbenutzt.
+
 ## 1.8.9-Strategie fuer Custom Icons
 
-Da `CustomModelData` in 1.8.9 nicht zur Verfuegung steht, werden Icons ueber **bewusst reservierte Vanilla-Items** umgesetzt. Die zentrale Server-Zuordnung liegt in `ResourcePackIcon.java`; die Build-Zuordnung liegt in `ResourcePackAtlasBuilder.java`. Beide muessen synchron bleiben.
+Da `CustomModelData` in 1.8.9 nicht zur Verfuegung steht, werden Icons ueber **bewusst reservierte Vanilla-Items** umgesetzt. Die zentrale Server-Zuordnung liegt in `plugins/SkyKings-Core/src/main/java/net/skykings/core/ui/ResourcePackIcon.java`; die Build-Zuordnung liegt in `scripts/tools/ResourcePackAtlasBuilder.java`. Beide muessen synchron bleiben.
 
-Die Atlas-Quelle liegt als gzip-komprimierte rohe RGBA-Pixel in Base64-Text vor. Dadurch liest Java 8 beim Build keine exportierte PNG-Datei ein; es erzeugt die finalen PNGs selbst reproduzierbar.
+Die Atlas-Quelle ist eine gzip-komprimierte binaere Datei mit rohen RGBA-Pixeln. Java 8 entpackt exakt das 160x128-Atlasbild und erzeugt die finalen PNGs selbst reproduzierbar. Der Build prueft zusaetzlich die 19 Java-Materialbindungen und bricht bei einer Abweichung ab.
 
 ## Build
 
@@ -86,7 +89,7 @@ Output:
 build/resource-pack/SkyKings-ResourcePack-1.8.9.zip
 ```
 
-Beim Build wird der Atlas mit Java 8 in 19 Itemtexturen plus `pack.png` zerlegt. Der Build bricht ab, wenn ein Pflichtasset im finalen ZIP fehlt.
+Beim Build wird der Atlas mit Java 8 in 19 Itemtexturen plus `pack.png` zerlegt. Der Build bricht ab, wenn ein Pflichtasset im finalen ZIP fehlt, leer ist oder das Java-Materialmapping nicht dem Pack-Manifest entspricht.
 
 ## Release-Regel
 
@@ -97,4 +100,4 @@ Vor Release muessen beide Modi getestet werden:
 1. ohne SkyKings-Pack
 2. mit SkyKings-Pack ueber einem normalen PvP-Pack
 
-In beiden Modi muessen alle Kernsysteme nutzbar bleiben.
+In beiden Modi muessen alle Kernsysteme nutzbar bleiben. Die letzten externen Gates sind ein frischer Minecraft-1.8.9-Clienttest und eine stabile direkte HTTPS-URL fuer das finale ZIP.
