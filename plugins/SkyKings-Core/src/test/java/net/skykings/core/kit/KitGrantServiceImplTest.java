@@ -49,6 +49,7 @@ public class KitGrantServiceImplTest {
         when(player.getInventory()).thenReturn(inventory);
         when(inventory.getContents()).thenReturn(new ItemStack[36]);
         when(inventory.addItem(any(ItemStack[].class))).thenReturn(new HashMap<Integer, ItemStack>());
+        when(cooldownService.setNow(any(UUID.class), anyString(), anyLong())).thenReturn(true);
     }
 
     private KitDefinition kit(String id, Rank rank, long cooldownMillis) {
@@ -75,7 +76,7 @@ public class KitGrantServiceImplTest {
         KitGrantResult result = service.grant(player, "SPIELER");
 
         assertEquals(KitGrantResult.Status.SUCCESS, result.getStatus());
-        verify(cooldownService).set(uuid, "kit:spieler", 60_000L);
+        verify(cooldownService).setNow(uuid, "kit:spieler", 60_000L);
         verify(player).addPotionEffect(any(PotionEffect.class), eq(true));
     }
 
@@ -88,7 +89,7 @@ public class KitGrantServiceImplTest {
         KitGrantResult result = service.grant(player, "king");
 
         assertEquals(KitGrantResult.Status.NO_PERMISSION, result.getStatus());
-        verify(cooldownService, never()).set(any(UUID.class), anyString(), anyLong());
+        verify(cooldownService, never()).setNow(any(UUID.class), anyString(), anyLong());
     }
 
     @Test
@@ -103,6 +104,7 @@ public class KitGrantServiceImplTest {
         assertEquals(KitGrantResult.Status.COOLDOWN, result.getStatus());
         assertEquals(12_345L, result.getRemainingMillis());
         verify(inventory, never()).addItem(any(ItemStack[].class));
+        verify(cooldownService, never()).setNow(any(UUID.class), anyString(), anyLong());
     }
 
     @Test
@@ -119,7 +121,7 @@ public class KitGrantServiceImplTest {
         KitGrantResult result = service.grant(player, "iron");
 
         assertEquals(KitGrantResult.Status.INVENTORY_FULL, result.getStatus());
-        verify(cooldownService, never()).set(any(UUID.class), anyString(), anyLong());
+        verify(cooldownService, never()).setNow(any(UUID.class), anyString(), anyLong());
     }
 
     @Test
