@@ -27,6 +27,29 @@ public class ResourcePackIconTest {
     }
 
     @Test
+    public void legacyAtlasBindingsStayStable() {
+        assertEquals(Material.MINECART, ResourcePackIcon.HOME.material());
+        assertEquals(Material.POWERED_MINECART, ResourcePackIcon.BACK.material());
+        assertEquals(Material.HOPPER_MINECART, ResourcePackIcon.NEXT.material());
+        assertEquals(Material.BARRIER, ResourcePackIcon.LOCKED.material());
+        assertEquals(Material.SLIME_BALL, ResourcePackIcon.READY.material());
+        assertEquals(Material.GHAST_TEAR, ResourcePackIcon.COMPLETED.material());
+        assertEquals(Material.PRISMARINE_CRYSTALS, ResourcePackIcon.PREMIUM.material());
+        assertEquals(Material.GOLD_NUGGET, ResourcePackIcon.COINS.material());
+        assertEquals(Material.NETHER_STAR, ResourcePackIcon.STAR.material());
+        assertEquals(Material.EMPTY_MAP, ResourcePackIcon.BATTLE_PASS.material());
+        assertEquals(Material.PRISMARINE_SHARD, ResourcePackIcon.QUESTS.material());
+        assertEquals(Material.STORAGE_MINECART, ResourcePackIcon.KITS.material());
+        assertEquals(Material.COMMAND_MINECART, ResourcePackIcon.CRATES.material());
+        assertEquals(Material.DIODE, ResourcePackIcon.JACKPOT.material());
+        assertEquals(Material.CARROT_STICK, ResourcePackIcon.SHOP.material());
+        assertEquals(Material.FIREWORK_CHARGE, ResourcePackIcon.TRADE.material());
+        assertEquals(Material.WRITTEN_BOOK, ResourcePackIcon.CLAN.material());
+        assertEquals(Material.SHEARS, ResourcePackIcon.DUEL.material());
+        assertEquals(Material.MAGMA_CREAM, ResourcePackIcon.EVENT.material());
+    }
+
+    @Test
     public void coinAndStarMaterialsStayDistinct() {
         assertEquals(Material.GOLD_NUGGET, ResourcePackIcon.COINS.material());
         assertEquals(Material.NETHER_STAR, ResourcePackIcon.STAR.material());
@@ -48,6 +71,20 @@ public class ResourcePackIconTest {
 
         for (ResourcePackIcon icon : ResourcePackIcon.values()) {
             assertFalse("Protected PvP material must not be overwritten: " + icon.material(), protectedPvp.contains(icon.material()));
+        }
+    }
+
+    @Test
+    public void reservedIconsAvoidKnownSharedServerMaterials() {
+        Set<Material> shared = new HashSet<Material>(Arrays.asList(
+                Material.FIREWORK,
+                Material.EYE_OF_ENDER,
+                Material.BOOK_AND_QUILL,
+                Material.HOPPER,
+                Material.NAME_TAG
+        ));
+        for (ResourcePackIcon icon : ResourcePackIcon.values()) {
+            assertFalse("Shared server material must not be reserved by the pack: " + icon.material(), shared.contains(icon.material()));
         }
     }
 }
