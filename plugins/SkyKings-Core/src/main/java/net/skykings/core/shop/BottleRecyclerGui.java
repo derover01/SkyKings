@@ -1,6 +1,5 @@
 package net.skykings.core.shop;
 
-import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.sound.SoundFeedback;
@@ -11,6 +10,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** Recycelt leere Glasflaschen aus PvP/Potion-Nutzung gegen kleine Coin-Betraege. */
 public final class BottleRecyclerGui {
@@ -18,11 +19,11 @@ public final class BottleRecyclerGui {
     private static final long COINS_PER_BOTTLE = 250L;
 
     private final GuiManager guiManager;
-    private final EconomyService economyService;
+    private final ShopTransactionService transactions;
 
-    public BottleRecyclerGui(GuiManager guiManager, EconomyService economyService) {
+    public BottleRecyclerGui(GuiManager guiManager, ShopTransactionService transactions) {
         this.guiManager = guiManager;
-        this.economyService = economyService;
+        this.transactions = transactions;
     }
 
     public void open(Player player) {
@@ -43,36 +44,50 @@ public final class BottleRecyclerGui {
     }
 
     private void recycle(Player player) {
-        int bottles = count(player);
+        Map<Integer, ItemStack> sold = new LinkedHashMap<Integer, ItemStack>();
+        int bottles = 0;
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (item == null || item.getType() != Material.GLASS_BOTTLE) continue;
+            sold.put(slot, item.clone());
+            bottles += item.getAmount();
+        }
         if (bottles <= 0) {
             player.sendMessage(ChatColor.RED + "Du hast keine leeren Glasflaschen dabei.");
             SoundFeedback.error(player);
             return;
         }
 
-        removeAll(player);
         long payout = bottles * COINS_PER_BOTTLE;
-        economyService.deposit(player.getUniqueId(), payout, "BOTTLE_RECYCLER", bottles + " bottles");
-        player.sendMessage(ChatColor.GREEN + "Recycelt: " + ChatColor.WHITE + bottles + ChatColor.GREEN
-                + " Flaschen für " + ChatColor.GOLD + format(payout) + ChatColor.GREEN + " Coins.");
-        SoundFeedback.reward(player);
-        player.updateInventory();
-        open(player);
+        ShopSaleResult result = transactions.sell(player, sold, payout, "BOTTLE_RECYCLER", bottles + " bottles");
+        if (result == ShopSaleResult.SUCCESS) {
+            player.sendMessage(ChatColor.GREEN + "Recycelt: " + ChatColor.WHITE + bottles + ChatColor.GREEN
+                    + " Flaschen fuer " + ChatColor.GOLD + format(payout) + ChatColor.GREEN + " Coins.");
+            SoundFeedback.reward(player);
+            open(player);
+            return;
+        }
+
+        SoundFeedback.error(player);
+        if (result == ShopSaleResult.BALANCE_OVERFLOW) {
+            player.sendMessage(ChatColor.RED + "Recycling blockiert: Dein Coin-Kontostand waere danach zu hoch.");
+        } else if (result == ShopSaleResult.REVIEW_REQUIRED) {
+            player.closeInventory();
+            player.sendMessage(ChatColor.RED + "Recycling blockiert: Eine Shop-Transaktion braucht Staff-Pruefung. Bitte nicht erneut versuchen.");
+        } else if (result == ShopSaleResult.STALE_INVENTORY) {
+            player.sendMessage(ChatColor.RED + "Dein Inventar hat sich geaendert. Oeffne den Recycler erneut.");
+        } else {
+            player.sendMessage(ChatColor.RED + "Recycling konnte nicht sicher gespeichert werden.");
+        }
     }
 
     private int count(Player player) {
         int amount = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
             if (item != null && item.getType() == Material.GLASS_BOTTLE) amount += item.getAmount();
         }
         return amount;
-    }
-
-    private void removeAll(Player player) {
-        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
-            ItemStack item = player.getInventory().getItem(slot);
-            if (item != null && item.getType() == Material.GLASS_BOTTLE) player.getInventory().setItem(slot, null);
-        }
     }
 
     private ItemStack named(Material material, String name, String... lore) {
