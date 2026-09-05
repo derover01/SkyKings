@@ -62,11 +62,12 @@ public final class SystemCheckCommand implements CommandExecutor {
 
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         String[] commands = {
-                "is", "plot", "warp", "craterewards", "battlepass", "premiumpass", "quests", "kit", "prefix",
+                "is", "plot", "warp", "craterewards", "kit", "prefix",
                 "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop", "pack",
                 "verlosen", "freitag", "casinonpc", "addcoins", "setcoins"
         };
         for (String commandName : commands) command(sender, commandName);
+        sender.sendMessage(ChatColor.YELLOW + "[ROADMAP]" + ChatColor.GRAY + " Quests und Battle Pass sind im aktuellen Pluginstand noch nicht implementiert und deshalb kein /skcheck-Pflichtgate.");
 
         sender.sendMessage(ChatColor.AQUA + "Offizielle Maps");
         check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
@@ -104,7 +105,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                     + ChatColor.GRAY + " Discord Status Channel");
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
-        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Rankup, Kits, Enderchest, System-Shop, Crate, Voucher, PlayerShop, Pack, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Rankup, Kits, Enderchest, Spawner, Daily, System-Shop, Crate, Voucher, PlayerShop, Pack, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
         return true;
     }
 
@@ -148,7 +149,7 @@ public final class SystemCheckCommand implements CommandExecutor {
         if (journal == null) { check(sender, false, "Core Gameplay Settlement Journal"); return; }
         int review = journal.reviewRequiredCount();
         if (review > 0) {
-            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Rank/Kit/Enderchest-Settlements manuell pruefen: "
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Rank/Kit/Enderchest/Spawner/Daily-Settlements manuell pruefen: "
                     + ChatColor.WHITE + review + ChatColor.GRAY + " Transaktion(en)"
                     + ChatColor.DARK_GRAY + " | plugins/SkyKings-Core/" + GameplaySettlementJournal.FILE_NAME);
             return;
