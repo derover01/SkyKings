@@ -2,7 +2,7 @@
 
 Stand: 2026-09-05
 
-Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Delivery, reproduzierbarer Build, Core-Iconset und die zentrale GUI-Verdrahtung sind implementiert. Der Build erzeugt aus einer kompakten binaeren RGBA-Quelle reproduzierbar 19 Legacy-1.8-Itemtexturen plus `pack.png`.
+Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. Delivery, reproduzierbarer Build, Core-Iconset, zentrale GUI-Verdrahtung und ein fester HTTPS-Distributionspfad sind implementiert. Der Build erzeugt aus einer kompakten binaeren RGBA-Quelle reproduzierbar 19 Legacy-1.8-Itemtexturen plus `pack.png`.
 
 ## Status
 
@@ -17,9 +17,26 @@ Der Pack ist ein fester Pre-Launch-Baustein, aber keine Gameplay-Abhaengigkeit. 
 - Material-Kollisionsaudit ueber aktuelle Core/Combat/Crates/Admin-JARs: IMPLEMENTIERT
 - Java↔Atlas Build-Sync-Gate: IMPLEMENTIERT
 - PlayerShop-Villager-Coin-Token auf Coin-Icon: IMPLEMENTIERT / CLIENT-RUNTIME-TEST
+- feste Distribution `dist/SkyKings-ResourcePack-1.8.9.zip`: IMPLEMENTIERT
+- direkte HTTPS-URL in Core-Vorlage vorkonfiguriert: IMPLEMENTIERT, `enabled: false` bis Clienttest
 - weitere Rank-/Rarity-/Effect-Art: OPTIONALER POLISH
 - Client-Runtime-Test: OFFEN
-- stabile Produktions-HTTPS-Auslieferung: OFFEN
+
+## Produktionspfad
+
+Die aktuell freigegebene ZIP liegt versioniert im oeffentlichen Repository unter:
+
+```text
+dist/SkyKings-ResourcePack-1.8.9.zip
+```
+
+Die Core-Vorlage verwendet dafuer bereits den direkten HTTPS-Pfad:
+
+```text
+https://raw.githubusercontent.com/derover01/SkyKings/main/dist/SkyKings-ResourcePack-1.8.9.zip
+```
+
+Die URL ist ASCII-only, HTTPS, ohne Fragment und mit 94 Zeichen deutlich unter dem Legacy-Limit von 255 Zeichen. `resource-pack.enabled` bleibt trotzdem bewusst `false`, bis ein frischer echter Minecraft-1.8.9-Client den Download, das Laden und alle Kern-GUIs erfolgreich getestet hat.
 
 ## 1.8.9-Regeln
 
@@ -88,8 +105,8 @@ Vor groesserem Launch:
 - [ ] PlayerShop-Villager zeigt im Input das Coin-Icon, niemals den Stern
 - [ ] Merchant-Coin-Token kann weiterhin nicht entnommen/verschoben werden
 - [ ] normales PvP-Pack bleibt fuer Waffen/Ruestung/Bow/Rod/Pearls/Gapples nutzbar
-- [ ] finale ZIP unter stabiler HTTPS-URL erreichbar
-- [ ] `resource-pack.enabled: true` + URL setzen
+- [x] finale ZIP unter festem direkten HTTPS-Pfad vorbereitet
+- [ ] `resource-pack.enabled: true` nach bestandenem Clienttest setzen
 - [ ] `/skcheck` zeigt Pack `[OK]`
 - [ ] `/pack` manuell testen
 - [ ] Join-Auslieferung nach Relog/Restart testen
