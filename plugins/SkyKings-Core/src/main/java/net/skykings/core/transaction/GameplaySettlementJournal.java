@@ -29,15 +29,19 @@ public final class GameplaySettlementJournal {
     private final YamlConfiguration data;
 
     public GameplaySettlementJournal(JavaPlugin plugin) {
-        this(plugin.getDataFolder(), plugin.getLogger());
+        this(plugin.getDataFolder(), plugin.getLogger(), true);
     }
 
     GameplaySettlementJournal(File dataFolder, Logger logger) {
+        this(dataFolder, logger, false);
+    }
+
+    private GameplaySettlementJournal(File dataFolder, Logger logger, boolean installActive) {
         this.logger = logger;
         this.file = new File(dataFolder, FILE_NAME);
         this.data = YamlConfiguration.loadConfiguration(file);
         cleanupCompleted();
-        active = this;
+        if (installActive) active = this;
     }
 
     public static GameplaySettlementJournal active() { return active; }
