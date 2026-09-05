@@ -1,5 +1,6 @@
 package net.skykings.core.gui;
 
+import net.skykings.core.resourcepack.ResourcePackGuiDecorator;
 import net.skykings.core.sound.SoundFeedback;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -30,6 +31,7 @@ public final class GuiManager implements Listener {
     }
 
     public void open(GuiSession session) {
+        ResourcePackGuiDecorator.decorate(session.getInventory(), session.getInventory().getTitle());
         openSessions.put(session.getPlayer().getUniqueId(), session);
         session.open();
     }
