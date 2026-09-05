@@ -175,6 +175,14 @@ public final class KitGui {
                 SoundFeedback.error(player);
                 open(player, page);
                 break;
+            case REVIEW_REQUIRED:
+                player.sendMessage(UiTheme.DANGER + "Eine Gameplay-Transaktion muss zuerst von Staff geprueft werden.");
+                SoundFeedback.error(player);
+                break;
+            case FAILED:
+                player.sendMessage(UiTheme.DANGER + "Das Kit konnte nicht sicher vorbereitet werden.");
+                SoundFeedback.error(player);
+                break;
             default:
                 player.sendMessage(UiTheme.DANGER + "Das Kit konnte nicht vergeben werden.");
                 SoundFeedback.error(player);
