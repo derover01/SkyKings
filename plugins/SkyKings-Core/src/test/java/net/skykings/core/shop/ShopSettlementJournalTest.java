@@ -33,6 +33,23 @@ public class ShopSettlementJournalTest {
     }
 
     @Test
+    public void pendingSaleSurvivesRestartAndBlocksPlayer() throws Exception {
+        File dir = Files.createTempDirectory("sk-shop-sale-settlement").toFile();
+        ShopSettlementJournal journal = journal(dir);
+        UUID player = UUID.randomUUID();
+
+        UUID tx = journal.beginSale(player, "SELL_ALL", 125_000L, 64);
+
+        assertNotNull(tx);
+        assertTrue(journal.hasPendingFor(player));
+        assertEquals(1, journal.reviewRequiredCount());
+
+        ShopSettlementJournal restarted = journal(dir);
+        assertTrue(restarted.hasPendingFor(player));
+        assertEquals(1, restarted.reviewRequiredCount());
+    }
+
+    @Test
     public void completedPurchaseDoesNotBlockAfterRestart() throws Exception {
         File dir = Files.createTempDirectory("sk-shop-settlement-complete").toFile();
         ShopSettlementJournal journal = journal(dir);
