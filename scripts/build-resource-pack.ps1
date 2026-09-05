@@ -61,6 +61,30 @@ foreach ($binding in $requiredBindings) {
 }
 Ok 'ResourcePackIcon Material-Mapping ist mit dem Atlas-Build synchron'
 
+$required = @(
+    'pack.mcmeta',
+    'pack.png',
+    'assets/minecraft/textures/items/minecart_normal.png',
+    'assets/minecraft/textures/items/minecart_furnace.png',
+    'assets/minecraft/textures/items/minecart_hopper.png',
+    'assets/minecraft/textures/items/barrier.png',
+    'assets/minecraft/textures/items/slimeball.png',
+    'assets/minecraft/textures/items/ghast_tear.png',
+    'assets/minecraft/textures/items/prismarine_crystals.png',
+    'assets/minecraft/textures/items/gold_nugget.png',
+    'assets/minecraft/textures/items/nether_star.png',
+    'assets/minecraft/textures/items/map_empty.png',
+    'assets/minecraft/textures/items/prismarine_shard.png',
+    'assets/minecraft/textures/items/minecart_chest.png',
+    'assets/minecraft/textures/items/minecart_command_block.png',
+    'assets/minecraft/textures/items/repeater.png',
+    'assets/minecraft/textures/items/carrot_on_a_stick.png',
+    'assets/minecraft/textures/items/firework_charge.png',
+    'assets/minecraft/textures/items/book_written.png',
+    'assets/minecraft/textures/items/shears.png',
+    'assets/minecraft/textures/items/magma_cream.png'
+)
+
 if (Test-Path $stageRoot) { Remove-Item $stageRoot -Recurse -Force }
 if (Test-Path $toolBuild) { Remove-Item $toolBuild -Recurse -Force }
 New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
@@ -85,41 +109,43 @@ Get-ChildItem $stageRoot -Recurse -Force -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -in @('.gitkeep', 'README.md', 'Thumbs.db', '.DS_Store') } |
     Remove-Item -Force
 
+# Vor dem Komprimieren pruefen, dass der Generator die Pflichtdateien wirklich erzeugt hat.
+# So unterscheiden wir Generatorfehler klar von ZIP-/Pfadseparator-Problemen.
+foreach ($entryName in $required) {
+    $stageRelative = $entryName.Replace('/', [IO.Path]::DirectorySeparatorChar)
+    $stageFile = Join-Path $stageRoot $stageRelative
+    if (-not (Test-Path -LiteralPath $stageFile -PathType Leaf)) {
+        Fail ("Pflichtasset fehlt bereits im Stage-Verzeichnis: {0}" -f $entryName)
+    }
+    if ((Get-Item -LiteralPath $stageFile).Length -le 0) {
+        Fail ("Pflichtasset ist leer im Stage-Verzeichnis: {0}" -f $entryName)
+    }
+}
+Ok 'Alle Pflichtassets liegen vor dem ZIP-Build im Stage-Verzeichnis'
+
 if (Test-Path $outputZip) { Remove-Item $outputZip -Force }
 Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $outputZip -CompressionLevel Optimal
 
 if (-not (Test-Path $outputZip)) { Fail 'Resource-Pack ZIP wurde nicht erzeugt.' }
 
 # ZIP-Root und ALLE Pflichtassets verifizieren. pack.mcmeta/pack.png muessen direkt im Root liegen.
+# Manche Windows-/PowerShell-Versionen liefern fuer ZipArchiveEntry.FullName Backslashes.
+# Fuer die Pack-Struktur sind '\\' und '/' semantisch derselbe relative Pfad, daher normalisieren.
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($outputZip)
 try {
-    $required = @(
-        'pack.mcmeta',
-        'pack.png',
-        'assets/minecraft/textures/items/minecart_normal.png',
-        'assets/minecraft/textures/items/minecart_furnace.png',
-        'assets/minecraft/textures/items/minecart_hopper.png',
-        'assets/minecraft/textures/items/barrier.png',
-        'assets/minecraft/textures/items/slimeball.png',
-        'assets/minecraft/textures/items/ghast_tear.png',
-        'assets/minecraft/textures/items/prismarine_crystals.png',
-        'assets/minecraft/textures/items/gold_nugget.png',
-        'assets/minecraft/textures/items/nether_star.png',
-        'assets/minecraft/textures/items/map_empty.png',
-        'assets/minecraft/textures/items/prismarine_shard.png',
-        'assets/minecraft/textures/items/minecart_chest.png',
-        'assets/minecraft/textures/items/minecart_command_block.png',
-        'assets/minecraft/textures/items/repeater.png',
-        'assets/minecraft/textures/items/carrot_on_a_stick.png',
-        'assets/minecraft/textures/items/firework_charge.png',
-        'assets/minecraft/textures/items/book_written.png',
-        'assets/minecraft/textures/items/shears.png',
-        'assets/minecraft/textures/items/magma_cream.png'
-    )
+    $zipEntries = @{}
+    foreach ($candidate in $zip.Entries) {
+        $normalizedName = $candidate.FullName.Replace('\', '/')
+        $zipEntries[$normalizedName] = $candidate
+    }
+
     foreach ($entryName in $required) {
-        $entry = $zip.Entries | Where-Object { $_.FullName -eq $entryName } | Select-Object -First 1
-        if ($null -eq $entry) { Fail ("Pflichtasset fehlt im ZIP: {0}" -f $entryName) }
+        $entry = $zipEntries[$entryName]
+        if ($null -eq $entry) {
+            $sample = ($zipEntries.Keys | Sort-Object | Select-Object -First 12) -join ', '
+            Fail ("Pflichtasset fehlt im ZIP: {0}. Gefundene Eintraege (Auszug): {1}" -f $entryName, $sample)
+        }
         if ($entry.Length -le 0) { Fail ("Pflichtasset ist leer im ZIP: {0}" -f $entryName) }
     }
 } finally {
