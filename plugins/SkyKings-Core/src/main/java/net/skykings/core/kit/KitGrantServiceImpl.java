@@ -196,7 +196,7 @@ public final class KitGrantServiceImpl implements KitGrantService {
     }
 
     private void restore(PlayerInventory inventory, Map<Integer, ItemStack> snapshot) {
-        inventory.clear();
+        for (int slot = 0; slot < inventory.getSize(); slot++) inventory.setItem(slot, null);
         for (Map.Entry<Integer, ItemStack> entry : snapshot.entrySet()) {
             inventory.setItem(entry.getKey(), entry.getValue() == null ? null : entry.getValue().clone());
         }
