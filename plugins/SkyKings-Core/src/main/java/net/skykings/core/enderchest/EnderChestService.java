@@ -3,6 +3,7 @@ package net.skykings.core.enderchest;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.model.Rank;
 import net.skykings.core.rank.RankService;
+import net.skykings.core.transaction.GameplaySettlementJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -22,6 +23,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,15 +59,31 @@ public final class EnderChestService implements Listener {
     private final JavaPlugin plugin;
     private final RankService rankService;
     private final EconomyService economyService;
+    private final GameplaySettlementJournal settlementJournal;
     private final File file;
     private final YamlConfiguration data;
 
     public EnderChestService(JavaPlugin plugin, RankService rankService, EconomyService economyService) {
+        this(plugin, rankService, economyService, resolveJournal(plugin));
+    }
+
+    EnderChestService(JavaPlugin plugin, RankService rankService, EconomyService economyService,
+                      GameplaySettlementJournal settlementJournal) {
         this.plugin = plugin;
         this.rankService = rankService;
         this.economyService = economyService;
+        this.settlementJournal = settlementJournal;
         this.file = new File(plugin.getDataFolder(), "enderchests.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+    }
+
+    private static GameplaySettlementJournal resolveJournal(JavaPlugin plugin) {
+        try {
+            GameplaySettlementJournal existing = GameplaySettlementJournal.active();
+            return existing != null ? existing : new GameplaySettlementJournal(plugin);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     public boolean hasAccess(Player player) {
@@ -119,9 +139,13 @@ public final class EnderChestService implements Listener {
         return Math.max(1, data.getInt("players." + uuid + ".purchased-page-cap", 1));
     }
 
-    private void setPurchasedPageCap(UUID uuid, int value) {
-        data.set("players." + uuid + ".purchased-page-cap", Math.max(1, Math.min(MAX_PAGES, value)));
-        saveFile();
+    private boolean setPurchasedPageCap(UUID uuid, int value) {
+        String path = "players." + uuid + ".purchased-page-cap";
+        int previous = getPurchasedPageCap(uuid);
+        data.set(path, Math.max(1, Math.min(MAX_PAGES, value)));
+        if (saveFile()) return true;
+        data.set(path, previous);
+        return false;
     }
 
     private void decorate(Player player, Inventory inventory, int page, int unlocked) {
@@ -199,16 +223,53 @@ public final class EnderChestService implements Listener {
             return;
         }
 
-        int target = unlocked + 1;
+        purchaseNextPage(player, holder.owner, unlocked + 1);
+    }
+
+    private synchronized void purchaseNextPage(Player player, UUID owner, int target) {
+        if (settlementJournal != null && settlementJournal.hasPendingFor(owner)) {
+            player.sendMessage(ChatColor.RED + "Eine vorherige Gameplay-Transaktion muss zuerst von Staff geprueft werden.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.65F);
+            return;
+        }
+
         long price = PAGE_PRICES[target];
-        if (!economyService.withdraw(holder.owner, price, player.getName(), "Enderchest Seite " + target)) {
+        UUID transaction = settlementJournal == null ? null : settlementJournal.begin(
+                owner, "ENDERCHEST_PAGE_PURCHASE", String.valueOf(target), "price=" + price);
+        if (settlementJournal != null && transaction == null) {
+            player.sendMessage(ChatColor.RED + "Der Seitenkauf konnte nicht sicher vorbereitet werden.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.65F);
+            return;
+        }
+
+        if (!economyService.withdraw(owner, price, player.getName(), "Enderchest Seite " + target)) {
+            closeJournal(transaction, "WITHDRAW_REJECTED_BEFORE_MUTATION");
             player.sendMessage(ChatColor.RED + "Dir fehlen Coins fuer Enderchest-Seite " + target + ". Preis: "
                     + ChatColor.YELLOW + format(price) + " Coins");
             player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.7F);
             return;
         }
 
-        setPurchasedPageCap(holder.owner, target);
+        if (settlementJournal != null && !economyService.persistNow(owner)) {
+            settlementJournal.noteFailure(transaction, "COIN_BALANCE_DURABLE_COMMIT_FAILED");
+            player.sendMessage(ChatColor.RED + "Der Seitenkauf hat einen unklaren Speicherzustand erreicht. Bitte Staff informieren.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.65F);
+            return;
+        }
+
+        if (!setPurchasedPageCap(owner, target)) {
+            if (settlementJournal != null) settlementJournal.noteFailure(transaction, "PAGE_CAP_DURABLE_COMMIT_FAILED_AFTER_COIN_COMMIT");
+            player.sendMessage(ChatColor.RED + "Der Seitenkauf hat einen unklaren Speicherzustand erreicht. Bitte Staff informieren.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.65F);
+            return;
+        }
+
+        if (!closeJournal(transaction, "PURCHASE_COMMITTED_BUT_JOURNAL_CLOSE_FAILED")) {
+            player.sendMessage(ChatColor.RED + "Die Seite wurde gespeichert, aber der Abschluss muss von Staff geprueft werden.");
+            player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.55F, 0.65F);
+            return;
+        }
+
         player.sendMessage(ChatColor.GREEN + "Enderchest-Seite " + target + " wurde permanent freigeschaltet.");
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.7F, 1.45F);
         open(player, target);
@@ -276,14 +337,32 @@ public final class EnderChestService implements Listener {
         return String.format("%,d", value).replace(',', '.');
     }
 
-    private void saveFile() {
+    private boolean closeJournal(UUID transaction, String reason) {
+        if (settlementJournal == null || transaction == null) return true;
+        if (settlementJournal.complete(transaction)) return true;
+        settlementJournal.noteFailure(transaction, reason);
+        return false;
+    }
+
+    private boolean saveFile() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
                 plugin.getLogger().warning("Konnte Plugin-Ordner fuer Enderchest nicht erstellen.");
+                return false;
             }
-            data.save(file);
-        } catch (IOException e) {
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException e) {
             plugin.getLogger().log(Level.SEVERE, "Konnte enderchests.yml nicht speichern.", e);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
         }
     }
 
