@@ -65,6 +65,12 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
             case PROFILE_NOT_LOADED:
                 player.sendMessage(ChatColor.RED + "Dein Spielerprofil ist noch nicht geladen. Bitte versuche es erneut.");
                 break;
+            case REVIEW_REQUIRED:
+                player.sendMessage(ChatColor.RED + "Eine vorherige Gameplay-Transaktion muss zuerst von Staff geprueft werden.");
+                break;
+            case FAILED:
+                player.sendMessage(ChatColor.RED + "Das Kit konnte nicht sicher vorbereitet werden. Bitte versuche es spaeter erneut.");
+                break;
             default:
                 player.sendMessage(ChatColor.RED + "Das Kit konnte nicht vergeben werden.");
                 break;
