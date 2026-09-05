@@ -5,6 +5,7 @@ $packRoot = Join-Path $repoRoot 'resource-pack'
 $packSourceRoot = Join-Path $repoRoot 'resource-pack-source'
 $atlas = Join-Path $packSourceRoot 'skykings-ui-atlas.rgba.gz'
 $atlasTool = Join-Path (Join-Path $PSScriptRoot 'tools') 'ResourcePackAtlasBuilder.java'
+$iconEnum = Join-Path $repoRoot 'plugins/SkyKings-Core/src/main/java/net/skykings/core/ui/ResourcePackIcon.java'
 $buildRoot = Join-Path (Join-Path $repoRoot 'build') 'resource-pack'
 $stageRoot = Join-Path $buildRoot 'stage'
 $toolBuild = Join-Path $buildRoot 'atlas-tool'
@@ -18,6 +19,7 @@ $mcmeta = Join-Path $packRoot 'pack.mcmeta'
 if (-not (Test-Path $mcmeta)) { Fail 'resource-pack/pack.mcmeta fehlt.' }
 if (-not (Test-Path $atlas)) { Fail 'resource-pack-source/skykings-ui-atlas.rgba.gz fehlt.' }
 if (-not (Test-Path $atlasTool)) { Fail 'scripts/tools/ResourcePackAtlasBuilder.java fehlt.' }
+if (-not (Test-Path $iconEnum)) { Fail 'ResourcePackIcon.java fehlt.' }
 if ((Get-Item $atlas).Length -lt 1024) { Fail 'SkyKings UI-Atlas Quelle ist unplausibel klein.' }
 
 try {
@@ -29,6 +31,35 @@ try {
 if ($null -eq $meta.pack) { Fail 'pack.mcmeta enthaelt keinen pack-Block.' }
 if ([int]$meta.pack.pack_format -ne 1) { Fail ("Minecraft 1.8.9 erwartet pack_format 1, gefunden: {0}" -f $meta.pack.pack_format) }
 Ok 'pack.mcmeta ist fuer Minecraft 1.8.9 gueltig'
+
+# 1.8.x hat kein CustomModelData: Java-Material und Legacy-Textur muessen deshalb zwingend
+# zusammenbleiben. Dieser Gate verhindert, dass Server-GUI und Atlas unbemerkt auseinanderlaufen.
+$iconSource = Get-Content $iconEnum -Raw
+$requiredBindings = @(
+    'HOME(Material.MINECART)',
+    'BACK(Material.POWERED_MINECART)',
+    'NEXT(Material.HOPPER_MINECART)',
+    'LOCKED(Material.BARRIER)',
+    'READY(Material.SLIME_BALL)',
+    'COMPLETED(Material.GHAST_TEAR)',
+    'PREMIUM(Material.PRISMARINE_CRYSTALS)',
+    'COINS(Material.GOLD_NUGGET)',
+    'STAR(Material.NETHER_STAR)',
+    'BATTLE_PASS(Material.EMPTY_MAP)',
+    'QUESTS(Material.PRISMARINE_SHARD)',
+    'KITS(Material.STORAGE_MINECART)',
+    'CRATES(Material.COMMAND_MINECART)',
+    'JACKPOT(Material.DIODE)',
+    'SHOP(Material.CARROT_STICK)',
+    'TRADE(Material.FIREWORK_CHARGE)',
+    'CLAN(Material.WRITTEN_BOOK)',
+    'DUEL(Material.SHEARS)',
+    'EVENT(Material.MAGMA_CREAM)'
+)
+foreach ($binding in $requiredBindings) {
+    if (-not $iconSource.Contains($binding)) { Fail ("ResourcePackIcon Mapping fehlt/abweichend: {0}" -f $binding) }
+}
+Ok 'ResourcePackIcon Material-Mapping ist mit dem Atlas-Build synchron'
 
 if (Test-Path $stageRoot) { Remove-Item $stageRoot -Recurse -Force }
 if (Test-Path $toolBuild) { Remove-Item $toolBuild -Recurse -Force }
@@ -71,17 +102,17 @@ try {
         'assets/minecraft/textures/items/minecart_hopper.png',
         'assets/minecraft/textures/items/barrier.png',
         'assets/minecraft/textures/items/slimeball.png',
-        'assets/minecraft/textures/items/fireworks.png',
-        'assets/minecraft/textures/items/ender_eye.png',
+        'assets/minecraft/textures/items/ghast_tear.png',
+        'assets/minecraft/textures/items/prismarine_crystals.png',
         'assets/minecraft/textures/items/gold_nugget.png',
         'assets/minecraft/textures/items/nether_star.png',
         'assets/minecraft/textures/items/map_empty.png',
-        'assets/minecraft/textures/items/book_writable.png',
+        'assets/minecraft/textures/items/prismarine_shard.png',
         'assets/minecraft/textures/items/minecart_chest.png',
         'assets/minecraft/textures/items/minecart_command_block.png',
         'assets/minecraft/textures/items/repeater.png',
-        'assets/minecraft/textures/items/hopper.png',
-        'assets/minecraft/textures/items/name_tag.png',
+        'assets/minecraft/textures/items/carrot_on_a_stick.png',
+        'assets/minecraft/textures/items/firework_charge.png',
         'assets/minecraft/textures/items/book_written.png',
         'assets/minecraft/textures/items/shears.png',
         'assets/minecraft/textures/items/magma_cream.png'
