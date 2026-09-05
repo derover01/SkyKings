@@ -8,6 +8,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -55,10 +58,33 @@ public final class BuildBlockStore {
         saveAsync();
     }
 
+    /**
+     * Kritischer Platzierungs-Pfad: Der No-Sell-Marker muss durable sein, bevor ein kostenloser
+     * Block in der Welt als erfolgreich akzeptiert wird. Sonst koennte ein Crash den Marker
+     * verlieren und den Gratisblock in einen normal verkaufbaren Block verwandeln.
+     */
+    public synchronized boolean putNow(Location location, Material material, short data) {
+        String locationKey = key(location);
+        Entry previous = blocks.put(locationKey, new Entry(material, data));
+        if (saveSnapshot(new HashMap<String, Entry>(blocks))) return true;
+        if (previous == null) blocks.remove(locationKey); else blocks.put(locationKey, previous);
+        return false;
+    }
+
     public void remove(Location location) {
         boolean changed;
         synchronized (this) { changed = blocks.remove(key(location)) != null; }
         if (changed) saveAsync();
+    }
+
+    /** Synchroner Remove fuer Break-Pfade, damit alte Marker nicht nach einem Crash wieder auftauchen. */
+    public synchronized boolean removeNow(Location location) {
+        String locationKey = key(location);
+        Entry previous = blocks.remove(locationKey);
+        if (previous == null) return true;
+        if (saveSnapshot(new HashMap<String, Entry>(blocks))) return true;
+        blocks.put(locationKey, previous);
+        return false;
     }
 
     public void shutdown() {
@@ -91,22 +117,31 @@ public final class BuildBlockStore {
     private void saveAsync() {
         final Map<String, Entry> snapshot;
         synchronized (this) { snapshot = new HashMap<String, Entry>(blocks); }
-        writer.submit(() -> save(snapshot));
+        writer.submit(() -> saveSnapshot(snapshot));
     }
 
-    private void save(Map<String, Entry> snapshot) {
+    private boolean saveSnapshot(Map<String, Entry> snapshot) {
         YamlConfiguration yaml = new YamlConfiguration();
         for (Map.Entry<String, Entry> entry : snapshot.entrySet()) {
             String path = "blocks." + encode(entry.getKey());
             yaml.set(path + ".material", entry.getValue().getMaterial().name());
             yaml.set(path + ".data", entry.getValue().getData());
         }
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            File parent = file.getParentFile();
-            if (parent != null && !parent.exists()) parent.mkdirs();
-            yaml.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().log(Level.SEVERE, "Gratis-Baublöcke konnten nicht gespeichert werden.", ex);
+            if (parent != null && !parent.exists() && !parent.mkdirs()) return false;
+            yaml.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "Gratis-Baublöcke konnten nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
         }
     }
 
