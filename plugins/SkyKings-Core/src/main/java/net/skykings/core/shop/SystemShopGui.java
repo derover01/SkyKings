@@ -8,12 +8,14 @@ import net.skykings.core.sound.SoundFeedback;
 import net.skykings.core.ui.UiFormat;
 import net.skykings.core.ui.UiItems;
 import net.skykings.core.ui.UiTheme;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,11 +25,13 @@ public final class SystemShopGui {
     private final GuiManager guiManager;
     private final ShopTransactionService transactions;
     private final VoucherPermissionService rights;
+    private final JavaPlugin plugin;
 
     public SystemShopGui(GuiManager guiManager, ShopTransactionService transactions) {
         this.guiManager = guiManager;
         this.transactions = transactions;
         this.rights = VoucherPermissionService.active();
+        this.plugin = JavaPlugin.getProvidingPlugin(SystemShopGui.class);
     }
 
     public void open(Player player) {
@@ -162,17 +166,34 @@ public final class SystemShopGui {
                 UiTheme.MUTED + "Permanent",UiTheme.MUTED + "Preis " + UiTheme.TEXT + UiFormat.number(price) + " Coins"));
         gui.setItem(11,UiItems.item(Material.EMERALD_BLOCK,UiTheme.SUCCESS + "KAUFEN",UiItems.action("Bestaetigen")),(player,e,s)->{
             if (player.hasPermission(right.getNode())) { player.closeInventory(); openRights(player); return; }
-            if (!transactions.withdrawCoins(player.getUniqueId(),price,"SHOP_RIGHT","Recht " + right.getId())) {
-                player.sendMessage(UiTheme.DANGER + "Nicht genug Coins."); SoundFeedback.error(player); return;
-            }
-            VoucherPermissionService.GrantStatus status = rights.grant(player.getUniqueId(),right.getId(),"SHOP_RIGHT");
-            if (status != VoucherPermissionService.GrantStatus.GRANTED) {
-                transactions.depositCoins(player.getUniqueId(),price,"SHOP_RIGHT_ROLLBACK","Rollback Recht " + right.getId());
-                player.sendMessage(UiTheme.DANGER + "Recht konnte nicht vergeben werden. Coins wurden erstattet.");
-                SoundFeedback.error(player); return;
-            }
-            player.closeInventory(); player.sendMessage(UiTheme.SUCCESS + "Recht permanent freigeschaltet: " + right.getDisplayName());
-            SoundFeedback.reward(player); openRights(player);
+
+            player.closeInventory();
+            player.sendMessage(UiTheme.WARNING + "Kauf wird sicher gespeichert ...");
+            transactions.purchasePermission(player, rights, right, price).whenComplete((result, throwable) ->
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (!player.isOnline()) return;
+                        if (throwable != null) {
+                            player.sendMessage(UiTheme.DANGER + "Kauf konnte nicht sicher abgeschlossen werden.");
+                            player.sendMessage(UiTheme.MUTED + "Falls Coins abgezogen wurden, bitte nicht erneut kaufen. Staff prueft das Settlement.");
+                            SoundFeedback.error(player);
+                            return;
+                        }
+                        if (result == ShopPurchaseResult.SUCCESS) {
+                            player.sendMessage(UiTheme.SUCCESS + "Recht permanent freigeschaltet: " + right.getDisplayName());
+                            SoundFeedback.reward(player);
+                            openRights(player);
+                            return;
+                        }
+                        if (result == ShopPurchaseResult.NOT_ENOUGH_MONEY) {
+                            player.sendMessage(UiTheme.DANGER + "Nicht genug Coins.");
+                            SoundFeedback.error(player);
+                            openRights(player);
+                            return;
+                        }
+                        player.sendMessage(UiTheme.DANGER + "Kauf wurde aus Sicherheitsgruenden gestoppt.");
+                        player.sendMessage(UiTheme.MUTED + "Falls Coins abgezogen wurden, bitte nicht erneut kaufen. Staff prueft das Settlement.");
+                        SoundFeedback.error(player);
+                    }));
         });
         gui.setItem(15,UiItems.item(Material.REDSTONE_BLOCK,UiTheme.DANGER + "ABBRECHEN",UiTheme.MUTED + "Keine Coins werden verwendet."),(player,e,s)->openRights(player));
         guiManager.open(gui); SoundFeedback.confirm(p);
