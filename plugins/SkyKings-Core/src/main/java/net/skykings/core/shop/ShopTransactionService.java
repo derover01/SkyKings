@@ -4,6 +4,8 @@ import net.skykings.core.economy.EconomyService;
 import net.skykings.core.logging.AuditEvent;
 import net.skykings.core.logging.AuditEventType;
 import net.skykings.core.logging.LoggingService;
+import net.skykings.core.permission.VoucherPermission;
+import net.skykings.core.permission.VoucherPermissionService;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -13,6 +15,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /** Weltunabhaengige Transaktionslogik fuer System-, Villager- und Player-Shops. */
 public final class ShopTransactionService {
@@ -267,12 +270,76 @@ public final class ShopTransactionService {
         return ShopPurchaseResult.SUCCESS;
     }
 
+    /**
+     * Permanentes Recht: Coins werden zuerst durable abgebucht, erst danach wird der Permission-Grant
+     * persistent gespeichert. Ein fehlgeschlagener/unklarer Grant wird bewusst NICHT automatisch
+     * refunded, weil LuckPerms den Node bereits angewendet, aber den Save als fehlgeschlagen melden
+     * koennte. Das offene Journal zwingt dann Staff-Review statt eines moeglichen Free-Permission-Dupes.
+     */
+    public CompletableFuture<ShopPurchaseResult> purchasePermission(final Player player,
+                                                                     final VoucherPermissionService rights,
+                                                                     final VoucherPermission right,
+                                                                     final long price) {
+        if (player == null || rights == null || right == null || price <= 0L) {
+            return CompletableFuture.completedFuture(ShopPurchaseResult.INVALID_OFFER);
+        }
+        final UUID playerId = player.getUniqueId();
+        final UUID transaction;
+        synchronized (this) {
+            if (settlementJournal == null || settlementJournal.hasPendingFor(playerId)) {
+                return CompletableFuture.completedFuture(ShopPurchaseResult.FAILED);
+            }
+            if (player.hasPermission(right.getNode())) {
+                return CompletableFuture.completedFuture(ShopPurchaseResult.SUCCESS);
+            }
+            if (!economyService.has(playerId, price)) {
+                return CompletableFuture.completedFuture(ShopPurchaseResult.NOT_ENOUGH_MONEY);
+            }
+            transaction = settlementJournal.begin(playerId, "SYSTEM_RIGHTS", right.getId(), "COINS", price,
+                    "PERMISSION", 1);
+            if (transaction == null) return CompletableFuture.completedFuture(ShopPurchaseResult.FAILED);
+            if (!economyService.withdraw(playerId, price, "SHOP_RIGHT", "Recht " + right.getId())) {
+                completeJournal(transaction, "RIGHT_WITHDRAW_REJECTED_BEFORE_MUTATION");
+                return CompletableFuture.completedFuture(ShopPurchaseResult.NOT_ENOUGH_MONEY);
+            }
+            if (!economyService.persistNow(playerId)) {
+                noteJournal(transaction, "RIGHT_COIN_DURABLE_COMMIT_FAILED_BEFORE_PERMISSION");
+                return CompletableFuture.completedFuture(ShopPurchaseResult.FAILED);
+            }
+        }
+
+        try {
+            return rights.grantDurably(playerId, right.getId(), "SHOP_RIGHT").handle((status, throwable) -> {
+                synchronized (ShopTransactionService.this) {
+                    if (throwable != null || status != VoucherPermissionService.GrantStatus.GRANTED) {
+                        noteJournal(transaction, throwable == null
+                                ? "RIGHT_PERMISSION_DURABLE_GRANT_REJECTED_AFTER_COIN_COMMIT"
+                                : "RIGHT_PERMISSION_DURABLE_GRANT_EXCEPTION_AFTER_COIN_COMMIT");
+                        return ShopPurchaseResult.FAILED;
+                    }
+                    if (!closeJournal(transaction)) return ShopPurchaseResult.FAILED;
+                    loggingService.log(new AuditEvent(AuditEventType.SHOP_PURCHASE,
+                            playerId, "SHOP_RIGHT", price,
+                            "permission=" + right.getId() + ", node=" + right.getNode()));
+                    return ShopPurchaseResult.SUCCESS;
+                }
+            });
+        } catch (RuntimeException ex) {
+            synchronized (this) {
+                noteJournal(transaction, "RIGHT_PERMISSION_GRANT_START_FAILED_AFTER_COIN_COMMIT");
+            }
+            return CompletableFuture.completedFuture(ShopPurchaseResult.FAILED);
+        }
+    }
+
     public long getCoinBalance(UUID uuid) { return uuid == null ? 0L : economyService.getBalance(uuid); }
 
+    /** Legacy-Helfer fuer nicht-journaled Sonderpfade; neue Cross-Store-Kaeufe sollen eigene Settlement-Methoden verwenden. */
     public boolean withdrawCoins(UUID uuid, long amount, String actor, String reason) {
         return uuid != null && amount > 0L && economyService.withdraw(uuid, amount, actor, reason);
     }
 
+    /** Legacy-Helfer fuer nicht-journaled Sonderpfade; nicht fuer automatische Ambiguitaets-Refunds verwenden. */
     public void depositCoins(UUID uuid, long amount, String actor, String reason) {
         if (uuid != null && amount > 0L) economyService.deposit(uuid, amount, actor, reason);
     }
