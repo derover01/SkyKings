@@ -143,6 +143,76 @@ public final class ShopTransactionService {
         return ShopPurchaseResult.SUCCESS;
     }
 
+    /**
+     * Verkauft exakt die angegebenen Inventar-Slots gegen Coins. Der Item-Teil wird zuerst
+     * synchron in player.dat persistiert, danach erst die Coin-Gutschrift durable gemacht.
+     * Ein Crash zwischen beiden Stores bleibt dadurch als Journal-Review sichtbar statt
+     * Items und Coins automatisch ein zweites Mal zu vergeben.
+     */
+    public synchronized ShopSaleResult sell(Player player, Map<Integer, ItemStack> soldSlots,
+                                            long payout, String saleId, String reason) {
+        if (player == null || soldSlots == null || soldSlots.isEmpty() || payout <= 0L) {
+            return ShopSaleResult.INVALID_SALE;
+        }
+        UUID playerId = player.getUniqueId();
+        if (settlementJournal == null) return ShopSaleResult.FAILED;
+        if (settlementJournal.hasPendingFor(playerId)) return ShopSaleResult.REVIEW_REQUIRED;
+        if (!economyService.canDeposit(playerId, payout)) return ShopSaleResult.BALANCE_OVERFLOW;
+
+        int soldItemCount = 0;
+        for (Map.Entry<Integer, ItemStack> entry : soldSlots.entrySet()) {
+            Integer slot = entry.getKey();
+            ItemStack expected = entry.getValue();
+            if (slot == null || slot < 0 || slot >= player.getInventory().getSize()
+                    || expected == null || expected.getType() == Material.AIR || expected.getAmount() <= 0) {
+                return ShopSaleResult.INVALID_SALE;
+            }
+            ItemStack current = player.getInventory().getItem(slot);
+            if (current == null || current.getAmount() != expected.getAmount() || !current.isSimilar(expected)) {
+                return ShopSaleResult.STALE_INVENTORY;
+            }
+            if (Integer.MAX_VALUE - soldItemCount < expected.getAmount()) return ShopSaleResult.INVALID_SALE;
+            soldItemCount += expected.getAmount();
+        }
+
+        String normalizedSale = safeSaleId(saleId);
+        UUID transaction = settlementJournal.beginSale(playerId, normalizedSale, payout, soldItemCount);
+        if (transaction == null) return ShopSaleResult.FAILED;
+
+        for (Integer slot : soldSlots.keySet()) player.getInventory().setItem(slot, null);
+
+        // Wichtig: Item-Entfernung zuerst durable. Bei einem Hard-Crash danach darf der Server
+        // nicht mit alten Items plus bereits gutgeschriebenen Coins wieder hochkommen.
+        if (!savePlayerData(player)) {
+            restoreSlots(player.getInventory(), soldSlots);
+            if (!savePlayerData(player)) {
+                noteJournal(transaction, "SALE_ITEM_ROLLBACK_PLAYERDATA_COMMIT_FAILED");
+                return ShopSaleResult.REVIEW_REQUIRED;
+            }
+            if (!closeJournal(transaction)) return ShopSaleResult.REVIEW_REQUIRED;
+            return ShopSaleResult.FAILED;
+        }
+
+        try {
+            economyService.deposit(playerId, payout, "SYSTEM_SHOP_SELL",
+                    reason == null ? normalizedSale : reason);
+        } catch (RuntimeException ex) {
+            noteJournal(transaction, "SALE_COIN_DEPOSIT_MUTATION_FAILED_AFTER_ITEM_COMMIT");
+            return ShopSaleResult.REVIEW_REQUIRED;
+        }
+        if (!economyService.persistNow(playerId)) {
+            noteJournal(transaction, "SALE_COIN_DURABLE_COMMIT_FAILED_AFTER_ITEM_COMMIT");
+            return ShopSaleResult.REVIEW_REQUIRED;
+        }
+        if (!closeJournal(transaction)) return ShopSaleResult.REVIEW_REQUIRED;
+
+        loggingService.log(new AuditEvent(AuditEventType.SHOP_SALE,
+                playerId, "SYSTEM_SHOP_SELL", payout,
+                "sale=" + normalizedSale + ", items=" + soldItemCount));
+        player.updateInventory();
+        return ShopSaleResult.SUCCESS;
+    }
+
     public long getCoinBalance(UUID uuid) { return uuid == null ? 0L : economyService.getBalance(uuid); }
 
     public boolean withdrawCoins(UUID uuid, long amount, String actor, String reason) {
@@ -199,6 +269,12 @@ public final class ShopTransactionService {
         }
     }
 
+    private void restoreSlots(Inventory inventory, Map<Integer, ItemStack> snapshot) {
+        for (Map.Entry<Integer, ItemStack> entry : snapshot.entrySet()) {
+            inventory.setItem(entry.getKey(), entry.getValue() == null ? null : entry.getValue().clone());
+        }
+    }
+
     private boolean savePlayerData(Player player) {
         try {
             player.updateInventory();
@@ -226,4 +302,5 @@ public final class ShopTransactionService {
     }
 
     private String safeShopId(String shopId) { return shopId == null || shopId.trim().isEmpty() ? "unknown" : shopId.trim(); }
+    private String safeSaleId(String saleId) { return saleId == null || saleId.trim().isEmpty() ? "unknown-sale" : saleId.trim(); }
 }
