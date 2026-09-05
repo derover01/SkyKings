@@ -1,8 +1,11 @@
 package net.skykings.core.shop;
 
+import net.skykings.core.api.SkyKingsCoreAPI;
+import net.skykings.core.economy.EconomyService;
 import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.sound.SoundFeedback;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -19,11 +22,17 @@ public final class BottleRecyclerGui {
     private static final long COINS_PER_BOTTLE = 250L;
 
     private final GuiManager guiManager;
-    private final ShopTransactionService transactions;
+    private final ShopTransactionService directTransactions;
 
     public BottleRecyclerGui(GuiManager guiManager, ShopTransactionService transactions) {
         this.guiManager = guiManager;
-        this.transactions = transactions;
+        this.directTransactions = transactions;
+    }
+
+    /** Bootstrap-kompatibel; beim ersten echten NPC-Klick ist die Core-API bereits registriert. */
+    public BottleRecyclerGui(GuiManager guiManager, EconomyService ignoredEconomy) {
+        this.guiManager = guiManager;
+        this.directTransactions = null;
     }
 
     public void open(Player player) {
@@ -44,6 +53,13 @@ public final class BottleRecyclerGui {
     }
 
     private void recycle(Player player) {
+        ShopTransactionService transactions = transactions();
+        if (transactions == null) {
+            player.sendMessage(ChatColor.RED + "Shop-Transaktionen sind noch nicht sicher bereit. Recycling abgebrochen.");
+            SoundFeedback.error(player);
+            return;
+        }
+
         Map<Integer, ItemStack> sold = new LinkedHashMap<Integer, ItemStack>();
         int bottles = 0;
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
@@ -79,6 +95,12 @@ public final class BottleRecyclerGui {
         } else {
             player.sendMessage(ChatColor.RED + "Recycling konnte nicht sicher gespeichert werden.");
         }
+    }
+
+    private ShopTransactionService transactions() {
+        if (directTransactions != null) return directTransactions;
+        SkyKingsCoreAPI api = Bukkit.getServicesManager().load(SkyKingsCoreAPI.class);
+        return api == null ? null : api.getShopTransactionService();
     }
 
     private int count(Player player) {
