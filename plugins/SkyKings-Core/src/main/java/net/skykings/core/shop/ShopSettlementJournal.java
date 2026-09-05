@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Write-ahead Journal fuer System-Shop-Kaeufe ueber Coin-DB und player.dat hinweg. */
+/** Write-ahead Journal fuer System-Shop-Kaeufe und -Verkaeufe ueber Coin-DB und player.dat hinweg. */
 public final class ShopSettlementJournal {
     public static final String FILE_NAME = "shop-settlement-journal.yml";
     private static volatile ShopSettlementJournal active;
@@ -60,6 +60,10 @@ public final class ShopSettlementJournal {
         if (commit()) return transaction;
         data.set("settlements." + transaction, null);
         return null;
+    }
+
+    public synchronized UUID beginSale(UUID player, String saleId, long payout, int soldItemCount) {
+        return begin(player, "SYSTEM_SELL", saleId, "COINS_PAYOUT", payout, "SOLD_ITEMS", soldItemCount);
     }
 
     public synchronized void noteFailure(UUID transaction, String reason) {
