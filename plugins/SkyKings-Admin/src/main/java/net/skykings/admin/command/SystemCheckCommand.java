@@ -9,10 +9,12 @@ import net.skykings.core.discord.DiscordNotifier;
 import net.skykings.core.island.IslandAccessService;
 import net.skykings.core.plot.PlotAccessService;
 import net.skykings.core.resourcepack.ResourcePackService;
+import net.skykings.core.shop.ShopSettlementJournal;
 import net.skykings.core.shop.player.PlayerShopPurchaseJournal;
 import net.skykings.core.shop.player.PlayerShopRevenueClaimJournal;
 import net.skykings.core.shop.player.PlayerShopStore;
 import net.skykings.core.trade.TradeEscrowJournal;
+import net.skykings.core.transaction.GameplaySettlementJournal;
 import net.skykings.crates.RewardSettlementJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -76,6 +78,8 @@ public final class SystemCheckCommand implements CommandExecutor {
         eventReturnRecovery(sender);
         casinoSettlementRecovery(sender);
         rewardSettlementRecovery(sender);
+        gameplaySettlementRecovery(sender);
+        shopSettlementRecovery(sender);
         jackpotRecovery(sender);
         tradeEscrowRecovery(sender);
         playerShopPurchaseRecovery(sender);
@@ -100,7 +104,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                     + ChatColor.GRAY + " Discord Status Channel");
         }
         sender.sendMessage(ChatColor.GRAY + "Online: " + ChatColor.WHITE + Bukkit.getOnlinePlayers().size());
-        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Island-Starter, Crate, Voucher, PlayerShop, Pack, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
+        sender.sendMessage(ChatColor.DARK_GRAY + "Runtime-Gate: danach Rankup, Kits, Enderchest, System-Shop, Crate, Voucher, PlayerShop, Pack, Casino, Giveaway und Multiplayer-Flows manuell pruefen.");
         return true;
     }
 
@@ -137,6 +141,32 @@ public final class SystemCheckCommand implements CommandExecutor {
             return;
         }
         check(sender, true, "Crate/Voucher Reward Journal");
+    }
+
+    private void gameplaySettlementRecovery(CommandSender sender) {
+        GameplaySettlementJournal journal = GameplaySettlementJournal.active();
+        if (journal == null) { check(sender, false, "Core Gameplay Settlement Journal"); return; }
+        int review = journal.reviewRequiredCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " Rank/Kit/Enderchest-Settlements manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Transaktion(en)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Core/" + GameplaySettlementJournal.FILE_NAME);
+            return;
+        }
+        check(sender, true, "Core Gameplay Settlement Journal");
+    }
+
+    private void shopSettlementRecovery(CommandSender sender) {
+        ShopSettlementJournal journal = ShopSettlementJournal.active();
+        if (journal == null) { check(sender, false, "System Shop Settlement Journal"); return; }
+        int review = journal.reviewRequiredCount();
+        if (review > 0) {
+            sender.sendMessage(ChatColor.RED + "[REVIEW]" + ChatColor.GRAY + " System-Shop-Kaeufe manuell pruefen: "
+                    + ChatColor.WHITE + review + ChatColor.GRAY + " Transaktion(en)"
+                    + ChatColor.DARK_GRAY + " | plugins/SkyKings-Core/" + ShopSettlementJournal.FILE_NAME);
+            return;
+        }
+        check(sender, true, "System Shop Settlement Journal");
     }
 
     private void jackpotRecovery(CommandSender sender) {
