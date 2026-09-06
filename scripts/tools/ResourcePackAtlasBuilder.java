@@ -21,11 +21,11 @@ public final class ResourcePackAtlasBuilder {
     private static final int HEIGHT = TILE * ROWS;
     private static final int RAW_BYTES = WIDTH * HEIGHT * 4;
 
-    // Conservative 32x32 pixel-art cleanup: remove only near-invisible alpha fringe
-    // and make already-nearly-opaque core pixels fully opaque. Mid-alpha edge pixels,
-    // RGB colours and geometry stay untouched.
-    private static final int ALPHA_CLEAR_MAX = 12;
+    // Conservative 32x32 pixel-art cleanup: remove only low-alpha fringe and make
+    // already-nearly-opaque core pixels fully opaque. RGB colours and geometry stay untouched.
+    private static final int ALPHA_CLEAR_MAX = 32;
     private static final int ALPHA_OPAQUE_MIN = 240;
+    private static final int MIN_VISIBLE_PIXEL_RETENTION_PERCENT = 85;
 
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
     // Keep this in exact sync with net.skykings.core.ui.ResourcePackIcon.
@@ -68,14 +68,14 @@ public final class ResourcePackAtlasBuilder {
         }
 
         for (int i = 0; i < ITEM_TEXTURES.length; i++) {
-            BufferedImage tile = polishAlpha(crop(atlas, i));
+            BufferedImage tile = polishAlpha(crop(atlas, i), ITEM_TEXTURES[i]);
             File output = new File(itemDir, ITEM_TEXTURES[i]);
             if (!ImageIO.write(tile, "png", output)) {
                 throw new IOException("Could not write PNG: " + output);
             }
         }
 
-        BufferedImage logo = polishAlpha(crop(atlas, 19));
+        BufferedImage logo = polishAlpha(crop(atlas, 19), "pack.png");
         BufferedImage packIcon = resizeNearest(logo, 128, 128);
         File packPng = new File(stageRoot, "pack.png");
         if (!ImageIO.write(packIcon, "png", packPng)) {
@@ -131,21 +131,36 @@ public final class ResourcePackAtlasBuilder {
         return out;
     }
 
-    private static BufferedImage polishAlpha(BufferedImage source) {
+    private static BufferedImage polishAlpha(BufferedImage source, String label) {
         BufferedImage out = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        int visibleBefore = 0;
+        int visibleAfter = 0;
+
         for (int y = 0; y < source.getHeight(); y++) {
             for (int x = 0; x < source.getWidth(); x++) {
                 int argb = source.getRGB(x, y);
                 int alpha = (argb >>> 24) & 0xFF;
+                if (alpha > 0) visibleBefore++;
 
                 if (alpha <= ALPHA_CLEAR_MAX) {
                     out.setRGB(x, y, 0x00000000);
                 } else if (alpha >= ALPHA_OPAQUE_MIN) {
                     out.setRGB(x, y, 0xFF000000 | (argb & 0x00FFFFFF));
+                    visibleAfter++;
                 } else {
                     out.setRGB(x, y, argb);
+                    visibleAfter++;
                 }
             }
+        }
+
+        if (visibleBefore == 0) {
+            throw new IllegalStateException("Texture has no visible pixels before polish: " + label);
+        }
+        if (visibleAfter * 100 < visibleBefore * MIN_VISIBLE_PIXEL_RETENTION_PERCENT) {
+            throw new IllegalStateException(
+                    "Alpha polish removed too much from " + label + ": kept "
+                            + visibleAfter + "/" + visibleBefore + " visible pixels");
         }
         return out;
     }
