@@ -25,7 +25,7 @@ public final class ResourcePackAtlasBuilder {
     // already-nearly-opaque core pixels fully opaque. RGB colours and geometry stay untouched.
     private static final int ALPHA_CLEAR_MAX = 32;
     private static final int ALPHA_OPAQUE_MIN = 240;
-    private static final int MIN_VISIBLE_PIXEL_RETENTION_PERCENT = 85;
+    private static final int MIN_VISIBLE_PIXEL_RETENTION_PERCENT = 80;
 
     // Row-major order. Entry 19 is used as pack.png instead of an item texture.
     // Keep this in exact sync with net.skykings.core.ui.ResourcePackIcon.
