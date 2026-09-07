@@ -6,8 +6,10 @@ import net.skykings.combat.event.SkyKingsPlayerKillEvent;
 import net.skykings.core.economy.EconomyService;
 import net.skykings.core.event.CrateOpenedEvent;
 import net.skykings.core.item.SkyKingsCurrencyItems;
+import net.skykings.core.transaction.GameplaySettlementJournal;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -17,13 +19,18 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Daily/Weekly Quests mit Free-/Premium-Pool und direkter Season-XP-Anbindung. */
 public final class QuestService implements Listener {
@@ -33,12 +40,17 @@ public final class QuestService implements Listener {
     private final EconomyService economy;
     private final File file;
     private final YamlConfiguration data;
+    private final GameplaySettlementJournal settlementJournal;
 
     public QuestService(JavaPlugin plugin, EconomyService economy) {
         this.plugin = plugin;
         this.economy = economy;
         this.file = new File(plugin.getDataFolder(), "quests.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        this.settlementJournal = GameplaySettlementJournal.active();
+        if (this.settlementJournal == null) {
+            plugin.getLogger().severe("Quest-Rewards starten ohne aktives Gameplay-Settlement-Journal. Rewards werden fail-closed blockiert.");
+        }
         ACTIVE = this;
     }
 
@@ -156,7 +168,7 @@ public final class QuestService implements Listener {
         return service != null && service.isPremium(uuid);
     }
 
-    public void prepare(UUID uuid) {
+    public synchronized void prepare(UUID uuid) {
         long day = dayId();
         int week = weekId();
         String p = "players." + uuid + ".";
@@ -173,23 +185,36 @@ public final class QuestService implements Listener {
             data.set(p + "premium.weekly", null);
             changed = true;
         }
-        if (changed) save();
+        if (changed && !saveNow()) {
+            plugin.getLogger().severe("Quest-Rotation konnte nicht durable gespeichert werden; Fortschritt bleibt fail-closed auf dem In-Memory-Stand.");
+        }
     }
 
-    public int get(UUID uuid, String key) { prepare(uuid); return data.getInt("players." + uuid + "." + key, 0); }
-    public boolean claimed(UUID uuid, String key) { prepare(uuid); return data.getBoolean("players." + uuid + "." + key, false); }
+    public synchronized int get(UUID uuid, String key) { prepare(uuid); return data.getInt("players." + uuid + "." + key, 0); }
+    public synchronized boolean claimed(UUID uuid, String key) { prepare(uuid); return data.getBoolean("players." + uuid + "." + key, false); }
 
-    private void add(Player player, String key, int amount) {
+    private synchronized void add(Player player, String key, int amount) {
+        if (amount <= 0) return;
         String p = "players." + player.getUniqueId() + "." + key;
-        data.set(p, data.getInt(p, 0) + amount);
-        save();
+        int before = data.getInt(p, 0);
+        long candidate = (long) before + amount;
+        int after = candidate > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) candidate;
+        data.set(p, after);
+        if (!saveNow()) {
+            data.set(p, before);
+            plugin.getLogger().warning("Quest-Fortschritt konnte nicht durable gespeichert werden: " + key + " fuer " + player.getUniqueId());
+        }
     }
 
-    private void max(Player player, String key, int value) {
+    private synchronized void max(Player player, String key, int value) {
         String p = "players." + player.getUniqueId() + "." + key;
-        if (value > data.getInt(p, 0)) {
+        int before = data.getInt(p, 0);
+        if (value > before) {
             data.set(p, value);
-            save();
+            if (!saveNow()) {
+                data.set(p, before);
+                plugin.getLogger().warning("Quest-Maximum konnte nicht durable gespeichert werden: " + key + " fuer " + player.getUniqueId());
+            }
         }
     }
 
@@ -234,17 +259,124 @@ public final class QuestService implements Listener {
             reward(player, "premium.weekly.claimed-rare-chests", 500_000L, 6, 2_000, "Premium Weekly: 4 Rare Map Chests");
     }
 
-    private void reward(Player player, String claimedKey, long coins, int stars, int seasonXp, String name) {
+    /**
+     * Quest-Claim ist eine Write-Ahead-Transaktion: claimed wird durable reserviert, bevor
+     * Coins, physische Sterne oder Season-XP mutiert werden. Nach der ersten Reward-Mutation
+     * wird bei jedem unklaren Zustand fail-closed auf Staff-Review gegangen statt neu auszuzahlen.
+     */
+    private synchronized void reward(Player player, String claimedKey, long coins, int stars, int seasonXp, String name) {
         UUID uuid = player.getUniqueId();
-        data.set("players." + uuid + "." + claimedKey, true);
-        economy.deposit(uuid, coins, "QUEST_REWARD", name);
-        SkyKingsCurrencyItems.give(player, stars);
+        String claimPath = "players." + uuid + "." + claimedKey;
+        if (data.getBoolean(claimPath, false)) return;
+
+        if (settlementJournal == null || settlementJournal.hasPendingFor(uuid)) {
+            reviewMessage(player);
+            return;
+        }
+        if (!economy.canDeposit(uuid, coins)) {
+            player.sendMessage(ChatColor.RED + "Quest-Reward kann aktuell nicht sicher gutgeschrieben werden.");
+            return;
+        }
+
         SeasonProgressService progress = SeasonProgressService.active();
-        if (progress != null) progress.addXp(player, seasonXp, "Quest: " + name);
-        save();
+        if (seasonXp > 0 && progress == null) {
+            player.sendMessage(ChatColor.RED + "Season-Fortschritt ist nicht verfuegbar. Quest-Reward wurde nicht ausbezahlt.");
+            return;
+        }
+
+        ItemStack starReward = stars > 0 ? SkyKingsCurrencyItems.star(stars) : null;
+        if (starReward != null && !canFit(player, starReward)) {
+            player.sendMessage(ChatColor.RED + "Du brauchst Inventarplatz fuer deinen Quest-Reward.");
+            return;
+        }
+
+        UUID transaction = settlementJournal.begin(uuid, "QUEST_REWARD", claimedKey,
+                name + ", coins=" + coins + ", stars=" + stars + ", seasonXp=" + seasonXp);
+        if (transaction == null) {
+            player.sendMessage(ChatColor.RED + "Quest-Reward konnte nicht sicher vorbereitet werden.");
+            return;
+        }
+
+        data.set(claimPath, true);
+        if (!saveNow()) {
+            data.set(claimPath, false);
+            closeUnmutated(transaction, player, "QUEST_CLAIM_NOT_COMMITTED_JOURNAL_CLOSE_FAILED");
+            player.sendMessage(ChatColor.RED + "Quest-Claim konnte nicht sicher gespeichert werden. Bitte spaeter erneut versuchen.");
+            return;
+        }
+
+        try {
+            economy.deposit(uuid, coins, "QUEST_REWARD", name);
+        } catch (RuntimeException ex) {
+            settlementJournal.noteFailure(transaction, "QUEST_COIN_MUTATION_FAILED_AFTER_CLAIM_COMMIT");
+            plugin.getLogger().log(Level.SEVERE, "Quest-Coin-Auszahlung hat einen unklaren Zustand erreicht: " + uuid + " / " + claimedKey, ex);
+            reviewMessage(player);
+            return;
+        }
+        if (!economy.persistNow(uuid)) {
+            settlementJournal.noteFailure(transaction, "QUEST_COIN_DURABLE_COMMIT_FAILED");
+            reviewMessage(player);
+            return;
+        }
+
+        if (starReward != null) {
+            Map<Integer, ItemStack> left = player.getInventory().addItem(starReward);
+            if (left != null && !left.isEmpty()) {
+                settlementJournal.noteFailure(transaction, "QUEST_STAR_DELIVERY_PARTIAL_AFTER_COIN_COMMIT");
+                reviewMessage(player);
+                return;
+            }
+            player.updateInventory();
+            try {
+                player.saveData();
+            } catch (RuntimeException ex) {
+                settlementJournal.noteFailure(transaction, "QUEST_PLAYERDATA_COMMIT_FAILED_AFTER_STAR_DELIVERY");
+                plugin.getLogger().log(Level.SEVERE, "Quest-Sterne konnten nicht durable gespeichert werden: " + uuid + " / " + claimedKey, ex);
+                reviewMessage(player);
+                return;
+            }
+        }
+
+        if (seasonXp > 0 && !progress.addXp(player, seasonXp, "Quest: " + name)) {
+            settlementJournal.noteFailure(transaction, "QUEST_SEASON_XP_DURABLE_COMMIT_FAILED");
+            reviewMessage(player);
+            return;
+        }
+
+        if (!settlementJournal.complete(transaction)) {
+            settlementJournal.noteFailure(transaction, "QUEST_COMMITTED_BUT_JOURNAL_CLOSE_FAILED");
+            reviewMessage(player);
+            return;
+        }
+
         player.sendMessage(ChatColor.GREEN.toString() + ChatColor.BOLD + "QUEST ABGESCHLOSSEN " + ChatColor.YELLOW + name
                 + ChatColor.GRAY + " • +" + coins + " Coins • +" + stars + " Sterne • +" + seasonXp + " Season-XP");
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.7F, 1.5F);
+    }
+
+    private boolean canFit(Player player, ItemStack reward) {
+        int remaining = reward.getAmount();
+        int maxStack = Math.max(1, reward.getMaxStackSize());
+        for (int slot = 0; slot < 36; slot++) {
+            ItemStack current = player.getInventory().getItem(slot);
+            if (current == null || current.getType() == Material.AIR) return true;
+            if (!current.isSimilar(reward)) continue;
+            int free = Math.max(0, maxStack - current.getAmount());
+            remaining -= free;
+            if (remaining <= 0) return true;
+        }
+        return remaining <= 0;
+    }
+
+    private void closeUnmutated(UUID transaction, Player player, String reason) {
+        if (settlementJournal.complete(transaction)) return;
+        settlementJournal.noteFailure(transaction, reason);
+        reviewMessage(player);
+    }
+
+    private void reviewMessage(Player player) {
+        player.sendMessage(ChatColor.RED + "Ein Quest-Reward hat einen unklaren Speicherzustand. Bitte Staff informieren.");
+        player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.7F);
     }
 
     private long dayId() {
@@ -257,12 +389,27 @@ public final class QuestService implements Listener {
         return c.getWeekYear() * 100 + c.get(Calendar.WEEK_OF_YEAR);
     }
 
-    public void save() {
+    public synchronized void save() { saveNow(); }
+
+    private boolean saveNow() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            data.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("quests.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("Quest-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "quests.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
         }
     }
 }
