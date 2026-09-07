@@ -13,10 +13,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Season-XP/PvP-Level 1-100. Nur legitime PvP-/Quest-Aktivitaet gibt XP. */
 public final class SeasonProgressService implements Listener {
@@ -51,43 +55,60 @@ public final class SeasonProgressService implements Listener {
         Long until = pairCooldown.get(key);
         if (until != null && until > now) return;
         pairCooldown.put(key, now + SAME_VICTIM_COOLDOWN);
-        addXp(killer, XP_PER_KILL, "PvP Kill");
-    }
-
-    public void addXp(Player player, int amount, String reason) {
-        if (player == null || amount <= 0) return;
-        UUID uuid = player.getUniqueId();
-        int before = getLevel(uuid);
-        data.set(path(uuid, "xp"), getXp(uuid) + amount);
-        int after = getLevel(uuid);
-        save();
-        if (after > before) {
-            player.sendMessage(UiTheme.PRIMARY + "Level Up");
-            player.sendMessage(UiTheme.TEXT.toString() + before + UiTheme.MUTED + " → " + UiTheme.TEXT + after);
-            SoundFeedback.levelUp(player);
+        if (!addXp(killer, XP_PER_KILL, "PvP Kill")) {
+            pairCooldown.remove(key);
+            killer.sendMessage(UiTheme.DANGER + "Season-XP konnte nicht sicher gespeichert werden.");
         }
     }
 
-    public int getXp(UUID uuid) { return Math.max(0, data.getInt(path(uuid, "xp"), 0)); }
-    public int getLevel(UUID uuid) {
+    /**
+     * Fuegt XP nur hinzu, wenn der neue Stand synchron und atomar gespeichert werden konnte.
+     * Bei Persistenzfehlern wird der In-Memory-Wert zurueckgesetzt und false geliefert, damit
+     * uebergeordnete Settlement-Pfade fail-closed reagieren koennen.
+     */
+    public synchronized boolean addXp(Player player, int amount, String reason) {
+        if (player == null || amount <= 0) return false;
+        UUID uuid = player.getUniqueId();
+        int beforeXp = getXp(uuid);
+        int beforeLevel = getLevel(uuid);
+        long candidate = (long) beforeXp + amount;
+        int afterXp = candidate > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) candidate;
+        data.set(path(uuid, "xp"), afterXp);
+        if (!saveNow()) {
+            data.set(path(uuid, "xp"), beforeXp);
+            plugin.getLogger().warning("Season-XP konnte nicht durable gespeichert werden: " + uuid + " / " + reason);
+            return false;
+        }
+
+        int afterLevel = getLevel(uuid);
+        if (afterLevel > beforeLevel) {
+            player.sendMessage(UiTheme.PRIMARY + "Level Up");
+            player.sendMessage(UiTheme.TEXT.toString() + beforeLevel + UiTheme.MUTED + " → " + UiTheme.TEXT + afterLevel);
+            SoundFeedback.levelUp(player);
+        }
+        return true;
+    }
+
+    public synchronized int getXp(UUID uuid) { return Math.max(0, data.getInt(path(uuid, "xp"), 0)); }
+    public synchronized int getLevel(UUID uuid) {
         int xp = getXp(uuid);
         int level = 1;
         while (level < 100 && xp >= xpForLevel(level + 1)) level++;
         return level;
     }
-    public int getSeason() { return Math.max(1, data.getInt("season", 1)); }
+    public synchronized int getSeason() { return Math.max(1, data.getInt("season", 1)); }
     public int xpForLevel(int level) {
         if (level <= 1) return 0;
         return (level - 1) * (level - 1) * 250;
     }
-    public int xpToNext(UUID uuid) {
+    public synchronized int xpToNext(UUID uuid) {
         int level = getLevel(uuid);
         if (level >= 100) return 0;
         return Math.max(0, xpForLevel(level + 1) - getXp(uuid));
     }
 
     /** Unveraenderlicher Snapshot fuer Season-Finish/Hall-of-Fame. */
-    public Map<UUID, Integer> getAllXp() {
+    public synchronized Map<UUID, Integer> getAllXp() {
         Map<UUID, Integer> snapshot = new LinkedHashMap<UUID, Integer>();
         ConfigurationSection root = data.getConfigurationSection("players");
         if (root == null) return Collections.unmodifiableMap(snapshot);
@@ -101,7 +122,7 @@ public final class SeasonProgressService implements Listener {
     }
 
     /** Nur fuer den expliziten Season-Finish-Pfad verwenden. Lifetime-Stats bleiben erhalten. */
-    public int advanceSeasonAndResetXp() {
+    public synchronized int advanceSeasonAndResetXp() {
         int previous = getSeason();
         data.set("players", null);
         data.set("season", previous + 1);
@@ -112,12 +133,27 @@ public final class SeasonProgressService implements Listener {
 
     private String path(UUID uuid, String key) { return "players." + uuid + "." + key; }
 
-    public void save() {
+    public synchronized void save() { saveNow(); }
+
+    private boolean saveNow() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            data.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("season-progress.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("Season-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "season-progress.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
         }
     }
 }
