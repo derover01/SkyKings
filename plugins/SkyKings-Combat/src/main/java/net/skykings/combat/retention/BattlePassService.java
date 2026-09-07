@@ -12,6 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -45,6 +46,7 @@ public final class BattlePassService implements Listener {
     private final File file;
     private final YamlConfiguration data;
     private final NumberFormat numbers = NumberFormat.getIntegerInstance(Locale.GERMANY);
+    private int legacyClaimsSeason;
 
     public BattlePassService(JavaPlugin plugin, SeasonProgressService progress, EconomyService economy) {
         this.plugin = plugin;
@@ -53,6 +55,8 @@ public final class BattlePassService implements Listener {
         this.settlementJournal = GameplaySettlementJournal.active();
         this.file = new File(plugin.getDataFolder(), "battlepass.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        this.legacyClaimsSeason = data.getInt("migration.legacy-claims-season", 0);
+        migrateLegacyClaimScope();
         if (settlementJournal == null) {
             plugin.getLogger().severe("Battle-Pass-Rewards starten ohne aktives Gameplay-Settlement-Journal. Claims werden fail-closed blockiert.");
         }
@@ -184,7 +188,7 @@ public final class BattlePassService implements Listener {
         }
 
         String path = claimPath(uuid, premium, level);
-        if (data.getBoolean(path, false)) {
+        if (isClaimed(uuid, premium, level)) {
             player.sendMessage(UiTheme.WARNING + "Diesen Reward hast du bereits abgeholt.");
             return;
         }
@@ -208,7 +212,8 @@ public final class BattlePassService implements Listener {
             return;
         }
 
-        UUID transaction = settlementJournal.begin(uuid, "BATTLE_PASS_REWARD", track + ":" + level,
+        UUID transaction = settlementJournal.begin(uuid, "BATTLE_PASS_REWARD",
+                "season=" + progress.getSeason() + "," + track + ":" + level,
                 "coins=" + coins + ", stars=" + stars);
         if (transaction == null) {
             player.sendMessage(UiTheme.DANGER + "Battle-Pass-Reward konnte nicht sicher vorbereitet werden.");
@@ -224,11 +229,11 @@ public final class BattlePassService implements Listener {
         }
 
         try {
-            economy.deposit(uuid, coins, "BATTLE_PASS", track + " Level " + level);
+            economy.deposit(uuid, coins, "BATTLE_PASS", track + " Season " + progress.getSeason() + " Level " + level);
         } catch (RuntimeException ex) {
             settlementJournal.noteFailure(transaction, "BATTLE_PASS_COIN_MUTATION_FAILED_AFTER_CLAIM_COMMIT");
             plugin.getLogger().log(Level.SEVERE, "Battle-Pass-Coin-Auszahlung hat einen unklaren Zustand erreicht: "
-                    + uuid + " / " + track + " Level " + level, ex);
+                    + uuid + " / Season " + progress.getSeason() + " / " + track + " Level " + level, ex);
             reviewMessage(player);
             return;
         }
@@ -251,7 +256,7 @@ public final class BattlePassService implements Listener {
             } catch (RuntimeException ex) {
                 settlementJournal.noteFailure(transaction, "BATTLE_PASS_PLAYERDATA_COMMIT_FAILED_AFTER_STAR_DELIVERY");
                 plugin.getLogger().log(Level.SEVERE, "Battle-Pass-Sterne konnten nicht durable gespeichert werden: "
-                        + uuid + " / " + track + " Level " + level, ex);
+                        + uuid + " / Season " + progress.getSeason() + " / " + track + " Level " + level, ex);
                 reviewMessage(player);
                 return;
             }
@@ -267,6 +272,38 @@ public final class BattlePassService implements Listener {
         player.sendMessage(UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "BATTLE PASS " + UiTheme.SUCCESS + "Level " + level
                 + UiTheme.MUTED + " • +" + numbers.format(coins) + " Coins" + starText);
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, premium ? 1.6F : 1.3F);
+    }
+
+    private void migrateLegacyClaimScope() {
+        if (legacyClaimsSeason > 0 || !hasLegacyClaims()) return;
+        int currentSeason = progress.getSeason();
+        data.set("migration.legacy-claims-season", currentSeason);
+        if (saveNow()) {
+            legacyClaimsSeason = currentSeason;
+            plugin.getLogger().info("Legacy-Battle-Pass-Claims wurden Season " + currentSeason + " zugeordnet.");
+            return;
+        }
+
+        // Marker konnte nicht durable geschrieben werden: Legacy-Claims bleiben fuer jede Season
+        // fail-closed wirksam, bis ein spaeterer Neustart die Migration sicher committen kann.
+        data.set("migration.legacy-claims-season", null);
+        legacyClaimsSeason = -1;
+        plugin.getLogger().severe("Legacy-Battle-Pass-Claim-Migration konnte nicht gespeichert werden. Alte Claims bleiben fail-closed blockierend.");
+    }
+
+    private boolean hasLegacyClaims() {
+        ConfigurationSection players = data.getConfigurationSection("players");
+        if (players == null) return false;
+        for (String raw : players.getKeys(false)) {
+            if (data.getConfigurationSection("players." + raw + ".claimed") != null) return true;
+        }
+        return false;
+    }
+
+    private boolean isClaimed(UUID uuid, boolean premium, int level) {
+        if (data.getBoolean(claimPath(uuid, premium, level), false)) return true;
+        if (!data.getBoolean(legacyClaimPath(uuid, premium, level), false)) return false;
+        return legacyClaimsSeason < 0 || legacyClaimsSeason == progress.getSeason();
     }
 
     private boolean canFit(Player player, ItemStack reward) {
@@ -296,7 +333,7 @@ public final class BattlePassService implements Listener {
     private ItemStack rewardItem(Player player, boolean premium, int level) {
         UUID uuid = player.getUniqueId();
         boolean unlocked = progress.getLevel(uuid) >= level;
-        boolean claimed = data.getBoolean(claimPath(uuid, premium, level), false);
+        boolean claimed = isClaimed(uuid, premium, level);
         boolean premiumLocked = premium && !isPremium(uuid);
         Material material = rewardMaterial(level, premium, claimed);
         String state = claimed ? UiTheme.STATUS_COMPLETED
@@ -352,6 +389,11 @@ public final class BattlePassService implements Listener {
     }
 
     private String claimPath(UUID uuid, boolean premium, int level) {
+        return "players." + uuid + ".seasons." + progress.getSeason() + ".claimed."
+                + (premium ? "premium" : "free") + "." + level;
+    }
+
+    private String legacyClaimPath(UUID uuid, boolean premium, int level) {
         return "players." + uuid + ".claimed." + (premium ? "premium" : "free") + "." + level;
     }
 
