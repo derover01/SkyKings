@@ -5,6 +5,7 @@ import net.skykings.core.gui.GuiManager;
 import net.skykings.core.gui.GuiSession;
 import net.skykings.core.item.SkyKingsCurrencyItems;
 import net.skykings.core.sound.SoundFeedback;
+import net.skykings.core.transaction.GameplaySettlementJournal;
 import net.skykings.core.ui.UiItems;
 import net.skykings.core.ui.UiTheme;
 import org.bukkit.Bukkit;
@@ -19,9 +20,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.NumberFormat;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Season Battle Pass mit 100 Free- und 100 Premium-Level-Rewards. */
 public final class BattlePassService implements Listener {
@@ -35,6 +41,7 @@ public final class BattlePassService implements Listener {
     private final JavaPlugin plugin;
     private final SeasonProgressService progress;
     private final EconomyService economy;
+    private final GameplaySettlementJournal settlementJournal;
     private final File file;
     private final YamlConfiguration data;
     private final NumberFormat numbers = NumberFormat.getIntegerInstance(Locale.GERMANY);
@@ -43,8 +50,12 @@ public final class BattlePassService implements Listener {
         this.plugin = plugin;
         this.progress = progress;
         this.economy = economy;
+        this.settlementJournal = GameplaySettlementJournal.active();
         this.file = new File(plugin.getDataFolder(), "battlepass.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        if (settlementJournal == null) {
+            plugin.getLogger().severe("Battle-Pass-Rewards starten ohne aktives Gameplay-Settlement-Journal. Claims werden fail-closed blockiert.");
+        }
         active = this;
     }
 
@@ -154,10 +165,11 @@ public final class BattlePassService implements Listener {
     }
 
     /**
-     * Claim wird vor jeder Auszahlung persistent reserviert. Dadurch kann derselbe
-     * Reward weder durch Rapid-Click noch durch ein Restart-Fenster doppelt ausgezahlt werden.
+     * Battle-Pass-Claim ist eine Write-Ahead-Transaktion ueber Claim, Coins und physische Sterne.
+     * Nach der ersten Reward-Mutation wird bei jedem unklaren Zustand fail-closed auf Staff-Review
+     * gegangen statt Claim oder Reward automatisch erneut auszufuehren.
      */
-    private synchronized void claim(Player player, boolean premium, int level) {
+    synchronized void claim(Player player, boolean premium, int level) {
         UUID uuid = player.getUniqueId();
         if (level < 1 || level > MAX_LEVEL) return;
         if (progress.getLevel(uuid) < level) {
@@ -177,40 +189,108 @@ public final class BattlePassService implements Listener {
             return;
         }
 
+        long coins = rewardCoins(premium, level);
+        int stars = rewardStars(premium, level);
+        String track = premium ? "Premium" : "Free";
+
+        if (settlementJournal == null || settlementJournal.hasPendingFor(uuid)) {
+            reviewMessage(player);
+            return;
+        }
+        if (!economy.canDeposit(uuid, coins)) {
+            player.sendMessage(UiTheme.DANGER + "Reward kann aktuell nicht sicher gutgeschrieben werden.");
+            return;
+        }
+
+        ItemStack starReward = stars > 0 ? SkyKingsCurrencyItems.star(stars) : null;
+        if (starReward != null && !canFit(player, starReward)) {
+            player.sendMessage(UiTheme.DANGER + "Du brauchst Inventarplatz fuer deinen Battle-Pass-Reward.");
+            return;
+        }
+
+        UUID transaction = settlementJournal.begin(uuid, "BATTLE_PASS_REWARD", track + ":" + level,
+                "coins=" + coins + ", stars=" + stars);
+        if (transaction == null) {
+            player.sendMessage(UiTheme.DANGER + "Battle-Pass-Reward konnte nicht sicher vorbereitet werden.");
+            return;
+        }
+
         data.set(path, true);
         if (!saveNow()) {
             data.set(path, false);
+            closeUnmutated(transaction, player, "BATTLE_PASS_CLAIM_NOT_COMMITTED_JOURNAL_CLOSE_FAILED");
             player.sendMessage(UiTheme.DANGER + "Reward konnte nicht sicher gespeichert werden. Bitte spaeter erneut versuchen.");
-            plugin.getLogger().warning("Battle-Pass-Claim abgebrochen: Persistenz fehlgeschlagen fuer " + uuid + " Level " + level);
             return;
         }
 
-        long coins = rewardCoins(premium, level);
-        int stars = rewardStars(premium, level);
         try {
-            economy.deposit(uuid, coins, "BATTLE_PASS", (premium ? "Premium" : "Free") + " Level " + level);
+            economy.deposit(uuid, coins, "BATTLE_PASS", track + " Level " + level);
         } catch (RuntimeException ex) {
-            data.set(path, false);
-            if (!saveNow()) {
-                plugin.getLogger().severe("Battle-Pass-Claim konnte nach Economy-Fehler nicht freigegeben werden: " + uuid + " Level " + level);
-            }
-            plugin.getLogger().warning("Battle-Pass-Auszahlung fehlgeschlagen fuer " + uuid + " Level " + level + ": " + ex.getMessage());
-            player.sendMessage(UiTheme.DANGER + "Reward-Auszahlung fehlgeschlagen. Der Claim wurde nicht verbraucht.");
+            settlementJournal.noteFailure(transaction, "BATTLE_PASS_COIN_MUTATION_FAILED_AFTER_CLAIM_COMMIT");
+            plugin.getLogger().log(Level.SEVERE, "Battle-Pass-Coin-Auszahlung hat einen unklaren Zustand erreicht: "
+                    + uuid + " / " + track + " Level " + level, ex);
+            reviewMessage(player);
+            return;
+        }
+        if (!economy.persistNow(uuid)) {
+            settlementJournal.noteFailure(transaction, "BATTLE_PASS_COIN_DURABLE_COMMIT_FAILED");
+            reviewMessage(player);
             return;
         }
 
-        if (stars > 0) {
-            try {
-                SkyKingsCurrencyItems.give(player, stars);
-            } catch (RuntimeException ex) {
-                plugin.getLogger().warning("Battle-Pass-Sterne konnten nicht ausgegeben werden fuer " + uuid + " Level " + level + ": " + ex.getMessage());
+        if (starReward != null) {
+            Map<Integer, ItemStack> left = player.getInventory().addItem(starReward);
+            if (left != null && !left.isEmpty()) {
+                settlementJournal.noteFailure(transaction, "BATTLE_PASS_STAR_DELIVERY_PARTIAL_AFTER_COIN_COMMIT");
+                reviewMessage(player);
+                return;
             }
+            player.updateInventory();
+            try {
+                player.saveData();
+            } catch (RuntimeException ex) {
+                settlementJournal.noteFailure(transaction, "BATTLE_PASS_PLAYERDATA_COMMIT_FAILED_AFTER_STAR_DELIVERY");
+                plugin.getLogger().log(Level.SEVERE, "Battle-Pass-Sterne konnten nicht durable gespeichert werden: "
+                        + uuid + " / " + track + " Level " + level, ex);
+                reviewMessage(player);
+                return;
+            }
+        }
+
+        if (!settlementJournal.complete(transaction)) {
+            settlementJournal.noteFailure(transaction, "BATTLE_PASS_COMMITTED_BUT_JOURNAL_CLOSE_FAILED");
+            reviewMessage(player);
+            return;
         }
 
         String starText = stars > 0 ? " • +" + stars + " Sterne" : "";
         player.sendMessage(UiTheme.LEGENDARY.toString() + ChatColor.BOLD + "BATTLE PASS " + UiTheme.SUCCESS + "Level " + level
                 + UiTheme.MUTED + " • +" + numbers.format(coins) + " Coins" + starText);
         player.playSound(player.getLocation(), Sound.LEVEL_UP, 0.8F, premium ? 1.6F : 1.3F);
+    }
+
+    private boolean canFit(Player player, ItemStack reward) {
+        int remaining = reward.getAmount();
+        int maxStack = Math.max(1, reward.getMaxStackSize());
+        for (int slot = 0; slot < 36; slot++) {
+            ItemStack current = player.getInventory().getItem(slot);
+            if (current == null || current.getType() == Material.AIR) return true;
+            if (!current.isSimilar(reward)) continue;
+            remaining -= Math.max(0, maxStack - current.getAmount());
+            if (remaining <= 0) return true;
+        }
+        return remaining <= 0;
+    }
+
+    private void closeUnmutated(UUID transaction, Player player, String reason) {
+        if (settlementJournal.complete(transaction)) return;
+        settlementJournal.noteFailure(transaction, reason);
+        reviewMessage(player);
+    }
+
+    private void reviewMessage(Player player) {
+        player.sendMessage(UiTheme.DANGER + "Ein Battle-Pass-Reward hat einen unklaren Speicherzustand. Bitte Staff informieren.");
+        player.playSound(player.getLocation(), Sound.NOTE_BASS, 0.5F, 0.7F);
     }
 
     private ItemStack rewardItem(Player player, boolean premium, int level) {
@@ -289,15 +369,23 @@ public final class BattlePassService implements Listener {
     public synchronized void save() { saveNow(); }
 
     private boolean saveNow() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
                 plugin.getLogger().warning("Battle-Pass-Datenordner konnte nicht erstellt werden.");
                 return false;
             }
-            data.save(file);
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
             return true;
         } catch (IOException | RuntimeException ex) {
-            plugin.getLogger().warning("battlepass.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            plugin.getLogger().log(Level.SEVERE, "battlepass.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
             return false;
         }
     }
