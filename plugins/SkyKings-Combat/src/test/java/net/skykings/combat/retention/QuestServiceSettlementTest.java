@@ -12,12 +12,14 @@ import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 
 import java.io.File;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -94,7 +96,7 @@ public class QuestServiceSettlementTest {
         when(combatPlugin.getLogger()).thenReturn(logger);
 
         EconomyService economy = mock(EconomyService.class);
-        when(economy.canDeposit(any(UUID.class), any(Long.class))).thenReturn(true);
+        when(economy.canDeposit(any(UUID.class), anyLong())).thenReturn(true);
         when(economy.persistNow(any(UUID.class))).thenReturn(persistCoins);
 
         UUID uuid = UUID.randomUUID();
@@ -102,8 +104,8 @@ public class QuestServiceSettlementTest {
         PlayerInventory inventory = mock(PlayerInventory.class);
         when(player.getUniqueId()).thenReturn(uuid);
         when(player.getInventory()).thenReturn(inventory);
-        when(inventory.getItem(any(Integer.class))).thenReturn(null);
-        when(inventory.addItem(any(ItemStack[].class))).thenReturn(Collections.<Integer, ItemStack>emptyMap());
+        when(inventory.getItem(anyInt())).thenReturn(null);
+        when(inventory.addItem(any(ItemStack[].class))).thenReturn(new HashMap<Integer, ItemStack>());
 
         new SeasonProgressService(combatPlugin);
         QuestService questService = new QuestService(combatPlugin, economy);
