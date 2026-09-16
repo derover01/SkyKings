@@ -121,14 +121,29 @@ public final class SeasonProgressService implements Listener {
         return Collections.unmodifiableMap(snapshot);
     }
 
-    /** Nur fuer den expliziten Season-Finish-Pfad verwenden. Lifetime-Stats bleiben erhalten. */
+    /**
+     * Nur fuer den expliziten Season-Finish-Pfad verwenden. Lifetime-Stats bleiben erhalten.
+     * Liefert die neue Season oder -1, wenn der Reset nicht atomar gespeichert werden konnte.
+     * Bei Fehlern wird der komplette In-Memory-XP-Stand wiederhergestellt.
+     */
     public synchronized int advanceSeasonAndResetXp() {
-        int previous = getSeason();
+        int previousSeason = getSeason();
+        Map<UUID, Integer> previousXp = new LinkedHashMap<UUID, Integer>(getAllXp());
+
         data.set("players", null);
-        data.set("season", previous + 1);
+        data.set("season", previousSeason + 1);
+        if (!saveNow()) {
+            data.set("players", null);
+            for (Map.Entry<UUID, Integer> entry : previousXp.entrySet()) {
+                data.set(path(entry.getKey(), "xp"), entry.getValue());
+            }
+            data.set("season", previousSeason);
+            plugin.getLogger().severe("Season-Reset wurde wegen Persistenzfehler verworfen. Season " + previousSeason + " bleibt aktiv.");
+            return -1;
+        }
+
         pairCooldown.clear();
-        save();
-        return previous + 1;
+        return previousSeason + 1;
     }
 
     private String path(UUID uuid, String key) { return "players." + uuid + "." + key; }
