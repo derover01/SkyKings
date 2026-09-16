@@ -21,6 +21,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -28,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Permanente Top-3-Historie abgeschlossener Seasons mit optionalen Head/Hologramm-Displays. */
 public final class LegacyHallService {
@@ -51,14 +55,22 @@ public final class LegacyHallService {
         Bukkit.getScheduler().runTaskLater(plugin, this::respawnDisplays, 40L);
     }
 
-    public void archive(int season, List<Map.Entry<UUID, Integer>> ranking) {
+    /** Archiviert die Top 3 nur dann erfolgreich, wenn legacy-hall.yml durable geschrieben wurde. */
+    public boolean archive(int season, List<Map.Entry<UUID, Integer>> ranking) {
+        Map<String, Entry> before = new LinkedHashMap<String, Entry>(entries);
         for (int i = 0; i < Math.min(3, ranking.size()); i++) {
             Map.Entry<UUID, Integer> value = ranking.get(i);
             String name = Bukkit.getOfflinePlayer(value.getKey()).getName();
             if (name == null) name = value.getKey().toString().substring(0, 8);
             entries.put(key(season, i + 1), new Entry(season, i + 1, value.getKey(), name, value.getValue()));
         }
-        save(); respawnDisplays();
+        if (!save()) {
+            entries.clear();
+            entries.putAll(before);
+            return false;
+        }
+        respawnDisplays();
+        return true;
     }
 
     public Entry get(int season, int rank) { return entries.get(key(season, rank)); }
@@ -101,15 +113,19 @@ public final class LegacyHallService {
         data.set(path + "world", location.getWorld().getName());
         data.set(path + "x", location.getX()); data.set(path + "y", location.getY()); data.set(path + "z", location.getZ());
         data.set(path + "yaw", location.getYaw()); data.set(path + "pitch", location.getPitch());
-        saveFile(); spawnDisplay(entry, location); return true;
+        if (!saveFile()) return false;
+        spawnDisplay(entry, location);
+        return true;
     }
 
     public boolean removeDisplay(int season, int rank) {
         String base = "displays." + season + "." + rank;
         if (!data.contains(base)) return false;
         Location location = displayLocation(season, rank);
+        data.set(base, null);
+        if (!saveFile()) return false;
         if (location != null) removeExisting(entryName(season, rank), location);
-        data.set(base, null); saveFile(); return true;
+        return true;
     }
 
     private void respawnDisplays() {
@@ -181,17 +197,34 @@ public final class LegacyHallService {
         }
     }
 
-    public void save() {
+    public boolean save() {
         data.set("seasons", null);
         for (Entry entry : entries.values()) {
             String base = "seasons." + entry.season + "." + entry.rank + ".";
             data.set(base + "uuid", entry.uuid.toString()); data.set(base + "name", entry.name); data.set(base + "xp", entry.xp);
         }
-        saveFile();
+        return saveFile();
     }
 
-    private void saveFile() {
-        try { if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs(); data.save(file); }
-        catch (IOException ex) { plugin.getLogger().warning("legacy-hall.yml konnte nicht gespeichert werden: " + ex.getMessage()); }
+    private boolean saveFile() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
+        try {
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("Legacy-Hall-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "legacy-hall.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
+        }
     }
 }
