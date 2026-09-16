@@ -6,6 +6,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -113,13 +116,24 @@ public final class MapMasteryService {
     }
 
     private void addAndSave(UUID uuid, String key, long amount) {
+        String path = path(uuid, key);
+        long previous = data.getLong(path, 0L);
         addBuffered(uuid, key, amount);
-        save();
+        if (!save()) {
+            data.set(path, previous);
+            dirty = true;
+            plugin.getLogger().severe("Map-Mastery-Fortschritt wurde wegen eines Speicherfehlers verworfen: " + uuid + " / " + key);
+        }
     }
 
     private void addBuffered(UUID uuid, String key, long amount) {
         String path = path(uuid, key);
-        data.set(path, data.getLong(path, 0L) + amount);
+        long current = data.getLong(path, 0L);
+        if (amount > 0L && current > Long.MAX_VALUE - amount) {
+            plugin.getLogger().severe("Map-Mastery-Fortschritt wuerde ueberlaufen: " + uuid + " / " + key);
+            return;
+        }
+        data.set(path, current + amount);
         dirty = true;
     }
 
@@ -129,14 +143,37 @@ public final class MapMasteryService {
 
     private String path(UUID uuid, String key) { return "players." + uuid + "." + key; }
 
-    public void save() {
-        if (!dirty && file.exists()) return;
+    public boolean save() {
+        if (!dirty && file.exists()) return true;
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            data.save(file);
+            if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs() && !plugin.getDataFolder().exists()) {
+                plugin.getLogger().severe("Map-Mastery-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+
+            File parent = file.getParentFile();
+            if (parent != null && !parent.exists() && !parent.mkdirs() && !parent.exists()) {
+                plugin.getLogger().severe("Map-Mastery-Elternordner konnte nicht erstellt werden.");
+                return false;
+            }
+
+            File temp = new File(parent, file.getName() + ".tmp");
+            if (temp.exists() && !temp.delete()) {
+                plugin.getLogger().severe("Alte temporaere Map-Mastery-Datei konnte nicht entfernt werden.");
+                return false;
+            }
+
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ex) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
             dirty = false;
+            return true;
         } catch (IOException ex) {
-            plugin.getLogger().warning("map-mastery.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            plugin.getLogger().log(java.util.logging.Level.SEVERE, "map-mastery.yml konnte nicht atomar gespeichert werden.", ex);
+            return false;
         }
     }
 }
