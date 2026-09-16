@@ -22,21 +22,29 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Level;
 
-/** Permanente kosmetische Medaillen und sichere Archivierung abgeschlossener Seasons. */
+/** Permanente kosmetische Medaillen und crash-resumierbare Archivierung abgeschlossener Seasons. */
 public final class SeasonMedalService implements Listener {
+    private static final String FINISH_ROOT = "finish-state";
+    private static final String PHASE_PREPARED = "PREPARED";
+    private static final String PHASE_ARCHIVE_COMMITTED = "ARCHIVE_COMMITTED";
+
     private final JavaPlugin plugin;
     private final SeasonProgressService progress;
     private final PvpStatsService stats;
     private final LegacyHallService hall;
     private final File file;
-    private final YamlConfiguration data;
+    private YamlConfiguration data;
     private boolean finishing;
 
     public SeasonMedalService(JavaPlugin plugin, SeasonProgressService progress, PvpStatsService stats, LegacyHallService hall) {
@@ -46,6 +54,7 @@ public final class SeasonMedalService implements Listener {
         this.hall = hall;
         this.file = new File(plugin.getDataFolder(), "season-medals.yml");
         this.data = YamlConfiguration.loadConfiguration(file);
+        recoverCommittedResetIfNeeded();
     }
 
     @EventHandler
@@ -55,29 +64,26 @@ public final class SeasonMedalService implements Listener {
     }
 
     @EventHandler
-    public void onKoth(KingAltarCaptureEvent event) {
+    public synchronized void onKoth(KingAltarCaptureEvent event) {
         String path = "koth." + progress.getSeason() + "." + event.getPlayerUuid();
         data.set(path, data.getInt(path, 0) + 1);
-        save();
+        if (!saveNow()) {
+            plugin.getLogger().warning("KOTH-Seasonfortschritt konnte nicht durable gespeichert werden: " + event.getPlayerUuid());
+        }
     }
 
-    public boolean award(UUID uuid, String medal) {
+    public synchronized boolean award(UUID uuid, String medal) {
         if (uuid == null || medal == null || medal.trim().isEmpty()) return false;
         List<String> current = data.getStringList("players." + uuid + ".medals");
         if (current.contains(medal)) return false;
         current.add(medal);
         data.set("players." + uuid + ".medals", current);
-        save();
-        Player player = Bukkit.getPlayer(uuid);
-        if (player != null) {
-            player.sendMessage(UiTheme.PRIMARY + "Medal unlocked");
-            player.sendMessage(UiTheme.TEXT + display(medal));
-            SoundFeedback.reward(player);
-        }
+        if (!saveNow()) return false;
+        notifyAward(uuid, medal);
         return true;
     }
 
-    public List<String> getMedals(UUID uuid) {
+    public synchronized List<String> getMedals(UUID uuid) {
         List<String> medals = new ArrayList<String>(data.getStringList("players." + uuid + ".medals"));
         if (stats.getStats(uuid).getKills() >= 5000L && !medals.contains("5000_KILLS")) {
             award(uuid, "5000_KILLS");
@@ -86,43 +92,148 @@ public final class SeasonMedalService implements Listener {
         return medals;
     }
 
-    /** Archive -> Medal-Awards -> Reset. Reset passiert nur, wenn vorher ein Ranking-Snapshot existiert. */
+    /**
+     * Crash-resumierbarer Season-Finish:
+     * PREPARED -> Legacy Hall + Medals durable -> ARCHIVE_COMMITTED -> XP-Reset durable -> Finalisierung.
+     * Ein erneuter Aufruf nach Fehler/Crash setzt denselben Schritt idempotent fort.
+     */
     public synchronized boolean finishSeason() {
         if (finishing) return false;
         finishing = true;
         try {
-            final int season = progress.getSeason();
-            List<Map.Entry<UUID, Integer>> ranking = new ArrayList<Map.Entry<UUID, Integer>>(progress.getAllXp().entrySet());
-            Collections.sort(ranking, new Comparator<Map.Entry<UUID, Integer>>() {
-                @Override public int compare(Map.Entry<UUID, Integer> a, Map.Entry<UUID, Integer> b) {
-                    int xpCompare = Integer.compare(b.getValue(), a.getValue());
-                    if (xpCompare != 0) return xpCompare;
-                    return a.getKey().toString().compareTo(b.getKey().toString());
-                }
-            });
-            if (ranking.isEmpty()) return false;
+            int currentSeason = progress.getSeason();
+            int pendingSeason = data.getInt(FINISH_ROOT + ".season", -1);
+            String phase = data.getString(FINISH_ROOT + ".phase", "");
 
-            hall.archive(season, ranking);
-            for (int i = 0; i < Math.min(10, ranking.size()); i++) {
-                UUID uuid = ranking.get(i).getKey();
-                award(uuid, "SEASON_" + season + "_TOP_10");
-                if (i < 3) award(uuid, "SEASON_" + season + "_TOP_3");
-                if (i == 0) award(uuid, "SEASON_" + season + "_CHAMPION");
+            if (pendingSeason > 0 && pendingSeason != currentSeason) {
+                if (PHASE_ARCHIVE_COMMITTED.equals(phase) && currentSeason == pendingSeason + 1) {
+                    return finalizeCompletedSeason(pendingSeason, true);
+                }
+                plugin.getLogger().severe("Season-Finish blockiert: pending Season " + pendingSeason
+                        + " passt nicht zur aktiven Season " + currentSeason + " (Phase " + phase + ").");
+                return false;
             }
 
-            UUID kothChampion = topKoth(season);
-            if (kothChampion != null) award(kothChampion, "SEASON_" + season + "_KOTH_CHAMPION");
+            List<Map.Entry<UUID, Integer>> ranking = rankingSnapshot();
+            if (pendingSeason <= 0) {
+                if (ranking.isEmpty()) return false;
+                data.set(FINISH_ROOT + ".season", currentSeason);
+                data.set(FINISH_ROOT + ".phase", PHASE_PREPARED);
+                data.set(FINISH_ROOT + ".started-at", System.currentTimeMillis());
+                if (!saveNow()) return false;
+                pendingSeason = currentSeason;
+                phase = PHASE_PREPARED;
+            }
 
-            data.set("finished-seasons." + season + ".completed-at", System.currentTimeMillis());
-            data.set("koth." + season, null);
-            save();
-            progress.advanceSeasonAndResetXp();
-            Bukkit.broadcastMessage(UiTheme.LEGENDARY + "Season " + season + " abgeschlossen");
-            Bukkit.broadcastMessage(UiTheme.MUTED + "Legacy Hall und permanente Medaillen wurden gespeichert.");
-            return true;
+            if (PHASE_PREPARED.equals(phase)) {
+                if (ranking.isEmpty()) {
+                    plugin.getLogger().severe("Season-Finish kann PREPARED nicht fortsetzen: Ranking fuer Season " + currentSeason + " ist leer.");
+                    return false;
+                }
+                if (!hall.archive(currentSeason, ranking)) {
+                    plugin.getLogger().severe("Season-Finish abgebrochen: Legacy Hall fuer Season " + currentSeason + " konnte nicht durable archiviert werden.");
+                    return false;
+                }
+
+                applySeasonMedals(currentSeason, ranking);
+                data.set(FINISH_ROOT + ".phase", PHASE_ARCHIVE_COMMITTED);
+                data.set(FINISH_ROOT + ".archive-committed-at", System.currentTimeMillis());
+                if (!saveNow()) {
+                    plugin.getLogger().severe("Season-Finish abgebrochen: Medal-/Archive-Commit fuer Season " + currentSeason + " fehlgeschlagen.");
+                    return false;
+                }
+                phase = PHASE_ARCHIVE_COMMITTED;
+            }
+
+            if (!PHASE_ARCHIVE_COMMITTED.equals(phase)) {
+                plugin.getLogger().severe("Season-Finish blockiert: unbekannte Phase '" + phase + "' fuer Season " + currentSeason + ".");
+                return false;
+            }
+
+            int newSeason = progress.advanceSeasonAndResetXp();
+            if (newSeason != currentSeason + 1) {
+                plugin.getLogger().severe("Season-Finish pausiert: XP-Reset fuer Season " + currentSeason + " konnte nicht durable committed werden.");
+                return false;
+            }
+
+            return finalizeCompletedSeason(currentSeason, true);
         } finally {
             finishing = false;
         }
+    }
+
+    private List<Map.Entry<UUID, Integer>> rankingSnapshot() {
+        List<Map.Entry<UUID, Integer>> ranking = new ArrayList<Map.Entry<UUID, Integer>>(progress.getAllXp().entrySet());
+        Collections.sort(ranking, new Comparator<Map.Entry<UUID, Integer>>() {
+            @Override public int compare(Map.Entry<UUID, Integer> a, Map.Entry<UUID, Integer> b) {
+                int xpCompare = Integer.compare(b.getValue(), a.getValue());
+                if (xpCompare != 0) return xpCompare;
+                return a.getKey().toString().compareTo(b.getKey().toString());
+            }
+        });
+        return ranking;
+    }
+
+    private void applySeasonMedals(int season, List<Map.Entry<UUID, Integer>> ranking) {
+        for (int i = 0; i < Math.min(10, ranking.size()); i++) {
+            UUID uuid = ranking.get(i).getKey();
+            addMedalNoSave(uuid, "SEASON_" + season + "_TOP_10");
+            if (i < 3) addMedalNoSave(uuid, "SEASON_" + season + "_TOP_3");
+            if (i == 0) addMedalNoSave(uuid, "SEASON_" + season + "_CHAMPION");
+        }
+        UUID kothChampion = topKoth(season);
+        if (kothChampion != null) addMedalNoSave(kothChampion, "SEASON_" + season + "_KOTH_CHAMPION");
+    }
+
+    private boolean addMedalNoSave(UUID uuid, String medal) {
+        List<String> current = data.getStringList("players." + uuid + ".medals");
+        if (current.contains(medal)) return false;
+        current.add(medal);
+        data.set("players." + uuid + ".medals", current);
+        return true;
+    }
+
+    private boolean finalizeCompletedSeason(int season, boolean broadcast) {
+        data.set("finished-seasons." + season + ".completed-at", System.currentTimeMillis());
+        data.set("koth." + season, null);
+        data.set(FINISH_ROOT, null);
+        if (!saveNow()) {
+            plugin.getLogger().severe("Season " + season + " wurde im XP-Store bereits weitergeschaltet, aber Medal-Finalisierung ist noch pending. Neustart/erneuter Finish setzt sicher fort.");
+            return false;
+        }
+        if (broadcast) {
+            Bukkit.broadcastMessage(UiTheme.LEGENDARY + "Season " + season + " abgeschlossen");
+            Bukkit.broadcastMessage(UiTheme.MUTED + "Legacy Hall und permanente Medaillen wurden gespeichert.");
+        }
+        return true;
+    }
+
+    /** Nach Crash zwischen XP-Reset und Finalisierung wird nur die alte Season finalisiert. */
+    private void recoverCommittedResetIfNeeded() {
+        int pendingSeason = data.getInt(FINISH_ROOT + ".season", -1);
+        String phase = data.getString(FINISH_ROOT + ".phase", "");
+        if (pendingSeason <= 0) return;
+
+        int currentSeason = progress.getSeason();
+        if (PHASE_ARCHIVE_COMMITTED.equals(phase) && currentSeason == pendingSeason + 1) {
+            if (finalizeCompletedSeason(pendingSeason, false)) {
+                plugin.getLogger().warning("Unterbrochener Season-Finish fuer Season " + pendingSeason + " wurde nach durable XP-Reset finalisiert.");
+            } else {
+                plugin.getLogger().severe("Unterbrochener Season-Finish fuer Season " + pendingSeason + " bleibt pending; keine neue Season wird veraendert.");
+            }
+        } else if (currentSeason == pendingSeason) {
+            plugin.getLogger().warning("Unterbrochener Season-Finish fuer Season " + pendingSeason + " erkannt (Phase " + phase + "). /seasonadmin finish kann sicher fortsetzen.");
+        } else {
+            plugin.getLogger().severe("Inkonsistenter Season-Finish-State: pending=" + pendingSeason + ", aktiv=" + currentSeason + ", phase=" + phase + ". Staff-Review erforderlich.");
+        }
+    }
+
+    private void notifyAward(UUID uuid, String medal) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) return;
+        player.sendMessage(UiTheme.PRIMARY + "Medal unlocked");
+        player.sendMessage(UiTheme.TEXT + display(medal));
+        SoundFeedback.reward(player);
     }
 
     private UUID topKoth(int season) {
@@ -194,12 +305,33 @@ public final class SeasonMedalService implements Listener {
         catch (RuntimeException ex) { return 0; }
     }
 
-    public void save() {
+    public synchronized boolean save() { return saveNow(); }
+
+    private boolean saveNow() {
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            data.save(file);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("season-medals.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("Season-Medal-Datenordner konnte nicht erstellt werden.");
+                reloadData();
+                return false;
+            }
+            data.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "season-medals.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            reloadData();
+            return false;
         }
+    }
+
+    private void reloadData() {
+        this.data = YamlConfiguration.loadConfiguration(file);
     }
 }
