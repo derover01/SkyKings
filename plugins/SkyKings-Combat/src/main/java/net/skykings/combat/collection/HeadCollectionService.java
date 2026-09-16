@@ -22,6 +22,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 /** Persistent collection of unique players defeated by each player. */
 public final class HeadCollectionService implements Listener {
@@ -78,6 +82,20 @@ public final class HeadCollectionService implements Listener {
         entry.killType = context.consume(victim);
         entry.streak = event.getNewKillstreak();
         dirty = true;
+
+        // Ein neuer Unique-Unlock ist sichtbarer/permanenter Fortschritt und wird sofort durable committed.
+        // Wiederholungs-Killzaehler bleiben gebatcht, damit PvP nicht pro Kill einen Disk-Write ausloest.
+        if (first && !save()) {
+            collection.remove(victim);
+            if (collection.isEmpty()) entries.remove(killer);
+            dirty = true;
+            Player player = Bukkit.getPlayer(killer);
+            if (player != null) {
+                player.sendMessage(UiTheme.DANGER + "Collection-Unlock konnte nicht sicher gespeichert werden.");
+                SoundFeedback.error(player);
+            }
+            return;
+        }
 
         if (first) {
             Player player = Bukkit.getPlayer(killer);
@@ -243,7 +261,8 @@ public final class HeadCollectionService implements Listener {
 
     private synchronized void saveIfDirty() { if (dirty) save(); }
 
-    public synchronized void save() {
+    /** Atomarer Snapshot-Save; false laesst dirty fuer den naechsten Retry aktiv. */
+    public synchronized boolean save() {
         YamlConfiguration yaml = new YamlConfiguration();
         for (Map.Entry<UUID, Map<UUID, Entry>> collector : entries.entrySet()) {
             for (Map.Entry<UUID, Entry> target : collector.getValue().entrySet()) {
@@ -256,11 +275,26 @@ public final class HeadCollectionService implements Listener {
                 yaml.set(base + "streak", entry.streak);
             }
         }
+
+        File parent = file.getParentFile();
+        File temp = parent == null ? new File(file.getPath() + ".tmp") : new File(parent, file.getName() + ".tmp");
         try {
-            if (!plugin.getDataFolder().exists()) plugin.getDataFolder().mkdirs();
-            yaml.save(file); dirty = false;
-        } catch (IOException ex) {
-            plugin.getLogger().warning("head-collection.yml konnte nicht gespeichert werden: " + ex.getMessage());
+            if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                plugin.getLogger().warning("Collection-Datenordner konnte nicht erstellt werden.");
+                return false;
+            }
+            yaml.save(temp);
+            try {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            }
+            dirty = false;
+            return true;
+        } catch (IOException | RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "head-collection.yml konnte nicht atomar gespeichert werden.", ex);
+            if (temp.exists() && !temp.delete()) temp.deleteOnExit();
+            return false;
         }
     }
 }
