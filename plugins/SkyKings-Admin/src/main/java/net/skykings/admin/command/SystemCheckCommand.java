@@ -65,7 +65,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                 // Core, progression, economy and player-facing systems
                 "commands", "kit", "rankup", "raenge", "fly", "speed", "stack", "bloecke", "repair", "anvil", "workbench", "enchantmenttable", "buildmode", "gm",
                 "enderchest", "trade", "shop", "worth", "sell", "shopnpc", "shoprent",
-                "is", "plot", "clan", "playershop", "spawnerstack", "dailyrewards", "trash",
+                "island", "plot", "clan", "playershop", "spawnerstack", "dailyrewards", "trash",
                 // Combat, retention and seasonal progression
                 "stats", "top", "killeffect", "collection", "stattrack", "mapmastery",
                 "achievements", "season", "seasonadmin", "legacyhall", "pvplevel", "medals", "battlepass", "quests", "peace",
@@ -75,7 +75,7 @@ public final class SystemCheckCommand implements CommandExecutor {
                 "endzone", "pvpregion", "secret", "secretroom", "route", "landmark",
                 "trashbin", "mapdisplay", "skymap", "spawn", "setspawn", "warp", "pack",
                 // Crates, staff, events and casino
-                "crate", "craterewards", "gutscheine", "casino", "jackpot",
+                "crate", "craterewards", "gutscheine", "casino",
                 "verlosen", "freitag", "casinonpc", "rang", "rechte", "addcoins", "setcoins", "announcement", "clearchat", "clear", "maptp", "setwarp", "delwarp",
                 "discordtest", "skcheck"
         };
