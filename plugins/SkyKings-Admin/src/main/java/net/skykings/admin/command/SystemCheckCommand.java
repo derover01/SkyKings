@@ -62,12 +62,24 @@ public final class SystemCheckCommand implements CommandExecutor {
 
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         String[] commands = {
-                "is", "plot", "warp", "craterewards", "kit", "prefix",
-                "duel", "lms", "clanwar", "eventarena", "skymap", "casino", "jackpot", "playershop", "pack",
-                "verlosen", "freitag", "casinonpc", "addcoins", "setcoins"
+                // Core, progression, economy and player-facing systems
+                "commands", "kit", "rankup", "raenge", "fly", "stack", "bloecke", "repair",
+                "enderchest", "trade", "shop", "worth", "sell", "shopnpc", "shoprent",
+                "is", "plot", "clan", "playershop", "spawnerstack", "dailyrewards", "trash",
+                // Combat, retention and seasonal progression
+                "stats", "top", "killeffect", "collection", "stattrack", "mapmastery",
+                "achievements", "season", "pvplevel", "medals", "battlepass", "quests", "peace",
+                "duel", "lms", "clanwar", "targetevent", "verlosung",
+                // Map setup and runtime travel
+                "eventarena", "mapsetup", "maploot", "supplydrop", "kingaltar", "hotzone",
+                "endzone", "pvpregion", "secret", "secretroom", "route", "landmark",
+                "trashbin", "mapdisplay", "skymap", "spawn", "setspawn", "warp", "pack",
+                // Crates, staff, events and casino
+                "crate", "craterewards", "gutscheine", "prefix", "casino", "jackpot",
+                "verlosen", "freitag", "casinonpc", "rang", "rechte", "addcoins", "setcoins",
+                "discordtest", "skcheck"
         };
         for (String commandName : commands) command(sender, commandName);
-        sender.sendMessage(ChatColor.YELLOW + "[ROADMAP]" + ChatColor.GRAY + " Quests und Battle Pass sind im aktuellen Pluginstand noch nicht implementiert und deshalb kein /skcheck-Pflichtgate.");
 
         sender.sendMessage(ChatColor.AQUA + "Offizielle Maps");
         check(sender, Bukkit.getWorld("SkyPvP") != null, "SkyPvP Produktionswelt");
