@@ -123,22 +123,22 @@ Pruefen:
 - Quest-Abschluss gibt Coins + SkyKings Sterne + Season-XP
 - Restart-Persistenz testen
 
-## 8. Prefix / Clan-Tag / Chat testen
+## 8. Prefix / Clan-Tag / Chat — Feature-Gate
 
-```text
-/prefix
-```
+**WICHTIG:** Im aktuellen `SkyKings-Core/src/main/resources/plugin.yml` ist kein `/prefix`-Command registriert. Deshalb sind die unten beschriebenen `/prefix`-Tests aktuell kein ausfuehrbarer Runtime-Test. Nicht als bestanden markieren und nicht durch manuelle Permission-Aenderungen umgehen.
 
-Pruefen:
+Vor einem Release muss geklaert und implementiert werden:
 - kosmetischen Prefix separat AN/AUS schalten
 - Rang im Chat separat AN/AUS schalten, unabhaengig vom kosmetischen Prefix
 - Clan-Tag im Chat separat AN/AUS schalten
 - Kombinationen duerfen keine leeren `|`-Trenner erzeugen
-- direkte Commands `/prefix prefix an|aus`, `/prefix rang an|aus`, `/prefix clan an|aus` pruefen
+- direkte Commands `/prefix prefix an|aus`, `/prefix rang an|aus`, `/prefix clan an|aus`
 - `/prefix an|aus` schaltet nur den kosmetischen Prefix
 - im Tab steht kein Clan-Tag; Rang + vollstaendiger Spielername muessen sichtbar bleiben
-- auch lange Spieler-/Rangnamen duerfen den Spielernamen im Tab niemals abschneiden
+- lange Spieler-/Rangnamen duerfen den Spielernamen im Tab niemals abschneiden
 - Spieler ohne Clan haben keinen leeren/kaputten Platzhalter
+
+Nach Implementierung: Command in `plugin.yml` registrieren, in `/commands` und `docs/COMMAND_GUIDE.md` aufnehmen, Tests ergaenzen und erst danach den Ingame-Test durchfuehren.
 
 ## 9. Spawn / Warp Sound & Inventory-Sync testen
 
