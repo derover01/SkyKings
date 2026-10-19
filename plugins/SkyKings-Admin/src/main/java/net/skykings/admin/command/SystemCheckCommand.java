@@ -63,20 +63,20 @@ public final class SystemCheckCommand implements CommandExecutor {
         sender.sendMessage(ChatColor.AQUA + "Kritische Commands");
         String[] commands = {
                 // Core, progression, economy and player-facing systems
-                "commands", "kit", "rankup", "raenge", "fly", "stack", "bloecke", "repair",
+                "commands", "kit", "rankup", "raenge", "fly", "speed", "stack", "bloecke", "repair", "anvil", "workbench", "enchantmenttable", "buildmode", "gm",
                 "enderchest", "trade", "shop", "worth", "sell", "shopnpc", "shoprent",
                 "is", "plot", "clan", "playershop", "spawnerstack", "dailyrewards", "trash",
                 // Combat, retention and seasonal progression
                 "stats", "top", "killeffect", "collection", "stattrack", "mapmastery",
-                "achievements", "season", "pvplevel", "medals", "battlepass", "quests", "peace",
+                "achievements", "season", "seasonadmin", "legacyhall", "pvplevel", "medals", "battlepass", "quests", "peace",
                 "duel", "lms", "clanwar", "targetevent", "verlosung",
                 // Map setup and runtime travel
                 "eventarena", "mapsetup", "maploot", "supplydrop", "kingaltar", "hotzone",
                 "endzone", "pvpregion", "secret", "secretroom", "route", "landmark",
                 "trashbin", "mapdisplay", "skymap", "spawn", "setspawn", "warp", "pack",
                 // Crates, staff, events and casino
-                "crate", "craterewards", "gutscheine", "prefix", "casino", "jackpot",
-                "verlosen", "freitag", "casinonpc", "rang", "rechte", "addcoins", "setcoins",
+                "crate", "craterewards", "gutscheine", "casino", "jackpot",
+                "verlosen", "freitag", "casinonpc", "rang", "rechte", "addcoins", "setcoins", "announcement", "clearchat", "clear", "maptp", "setwarp", "delwarp",
                 "discordtest", "skcheck"
         };
         for (String commandName : commands) command(sender, commandName);
